@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    image: YOUR_DOCKERHUB_USERNAME/task-manager-backend:latest
+    container_name: task-manager-backend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: taskdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+  db:
+    image: postgres:16
+    container_name: task-manager-db
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+  
