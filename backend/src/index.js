@@ -46,7 +46,7 @@ app.post("/tasks", async (req, res) => {
 
 app.patch("/tasks/:id", async (req, res) => {
   const { id } = req.params;
-  const { status, assignedTo } = req.body;
+  const { status, assignedTo, description } = req.body;
 
   const sets = [];
   const values = [];
@@ -59,6 +59,10 @@ app.patch("/tasks/:id", async (req, res) => {
   if (assignedTo !== undefined) {
     sets.push(`assigned_to = $${i++}`);
     values.push(assignedTo);
+  }
+  if (description !== undefined) {
+    sets.push(`description = $${i++}`);
+    values.push(description);
   }
   if (sets.length === 0) {
     return res.status(400).json({ error: "Nothing to update" });

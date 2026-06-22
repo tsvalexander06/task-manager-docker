@@ -36,6 +36,32 @@ flow that identifies the equipment from photos, drafts the listing, and
    [skills]` registers one — the worker must have started a chat with the
    bot first so it has a `chat id` to message them at.
 
+## Combining a follow-up note with an existing task
+
+If a new message references an existing task by `#<id>` (e.g.
+`#6 трябва да се грундира`), the bot doesn't create a new task — it appends
+the rest of the message to that task's description and replies with a
+short confirmation. If the task is already assigned to a worker, only the
+*new addition* (not the whole combined description) is sent to that
+worker's chat, so they aren't re-sent things they've already seen.
+
+## Worker replies and completion tracking
+
+Any chat ID registered via `/worker add` is treated as a worker's chat, not
+the owner's — messages from it never get analyzed as new notes. Instead:
+
+- Plain messages get a one-line "write 'готово' when you're done" nudge.
+- A message matching common completion phrasing ("готово", "свърших",
+  "приключих", "done", ...) triggers a check of that worker's open
+  (non-`done`) assigned tasks:
+  - **One open task** → marked done immediately, with confirmation back to
+    the worker.
+  - **Multiple open tasks** → the bot lists them and asks whether the
+    worker is done with all of them or only some (reply "всички" or the
+    specific `#id`s).
+- If `OWNER_CHAT_ID` is set, the bot notifies that chat whenever a worker
+  marks task(s) as done.
+
 ## Listing flow
 
 Triggered automatically when Claude detects listing intent in a text/voice
@@ -70,10 +96,13 @@ confirmed/published or `/cancel`'d.
      Leave blank to skip voice support.
    - `OLX_EMAIL` / `OLX_PASSWORD` — only needed for the listing flow's
      auto-publish step.
-   - `WORKER_CHAT_ID` — optional. The Telegram chat/group ID to forward
-     `worker` tasks to. To get it: add the bot to the group, send any
-     message, then check `https://api.telegram.org/bot<TOKEN>/getUpdates`
-     for the `chat.id` (it's negative for groups).
+   - `WORKER_CHAT_ID` — optional. Fallback Telegram chat/group ID to
+     forward `worker` tasks to when no per-worker registry entry exists
+     yet. To get it: add the bot to the group, send any message, then
+     check `https://api.telegram.org/bot<TOKEN>/getUpdates` for the
+     `chat.id` (it's negative for groups).
+   - `OWNER_CHAT_ID` — optional. Your own chat ID; if set, the bot notifies
+     you here whenever a worker marks task(s) as done.
 2. `docker compose up --build note-bot backend db`
 
 ## Notes

@@ -27,9 +27,13 @@ const ASSIGNEE_EMOJI = { worker: "👷", agent: "🤖" };
 const STATUS_EMOJI = { pending: "📌", in_progress: "⏳", done: "✅" };
 const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(__dirname, "..", "photos");
 const WORKER_CHAT_ID = process.env.WORKER_CHAT_ID;
+const OWNER_CHAT_ID = process.env.OWNER_CHAT_ID;
+const COMPLETION_PATTERN = /готов|готово|свърш|приключ|done|finish/i;
 
 // Per-chat listing-creation session: { state, photos: [{base64, mediaType, filePath}], item, draft }
 const listingSessions = new Map();
+// Per-worker-chat session while the bot is asking "done with everything?": { state, pendingTaskIds }
+const workerSessions = new Map();
 
 bot.start((ctx) =>
   ctx.reply(
@@ -209,6 +213,100 @@ async function promptAssignment(ctx, task) {
   );
 }
 
+async function findWorkerByChatId(chatId) {
+  const workers = await listWorkers();
+  return workers.find((w) => String(w.telegram_chat_id) === String(chatId));
+}
+
+// Detects a "#<id> <addition>" reference to an existing task and merges the
+// addition into its description instead of creating a duplicate task. Only
+// the addition (not the full combined description) is forwarded to whoever
+// the task is already assigned to.
+async function tryCombineWithExistingTask(ctx, text) {
+  const match = text.match(/#(\d+)/);
+  if (!match) return false;
+  const addition = text.replace(match[0], "").trim();
+  if (!addition) return false;
+
+  const tasks = await listTasks();
+  const task = tasks.find((t) => String(t.id) === match[1]);
+  if (!task) return false;
+
+  const combinedDescription = task.description ? `${task.description}\n${addition}` : addition;
+  const updated = await updateTask(task.id, { description: combinedDescription });
+  await ctx.reply(`➕ Добавено към задача #${updated.id} (${updated.title}).`);
+
+  if (updated.assigned_to) {
+    const workers = await listWorkers();
+    const worker = workers.find((w) => w.id === updated.assigned_to);
+    if (worker) {
+      await ctx.telegram.sendMessage(
+        worker.telegram_chat_id,
+        `➕ Допълнение към задача #${updated.id} (${updated.title}):\n${addition}`
+      );
+    }
+  }
+  return true;
+}
+
+async function handleWorkerMessage(ctx, worker, text) {
+  const session = workerSessions.get(ctx.chat.id);
+
+  if (session && session.state === "awaiting_completion_scope") {
+    const isAll = /всичк/i.test(text);
+    const mentioned = [...text.matchAll(/#(\d+)/g)].map((m) => Number(m[1]));
+    const idsToComplete = isAll
+      ? session.pendingTaskIds
+      : session.pendingTaskIds.filter((id) => mentioned.includes(id));
+
+    if (idsToComplete.length === 0) {
+      await ctx.reply('Не разбрах кои задачи. Напиши номерата (напр. "#6 #7") или "всички".');
+      return;
+    }
+
+    const completed = [];
+    for (const id of idsToComplete) {
+      completed.push(await updateTaskStatus(id, "done"));
+    }
+    workerSessions.delete(ctx.chat.id);
+    await ctx.reply(`✅ Отбелязах като свършени: ${completed.map((t) => `#${t.id}`).join(", ")}.`);
+
+    if (OWNER_CHAT_ID) {
+      const list = completed.map((t) => `#${t.id} ${t.title}`).join("\n");
+      await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи:\n${list}`);
+    }
+    return;
+  }
+
+  if (!COMPLETION_PATTERN.test(text)) {
+    await ctx.reply('Получено. Когато приключиш със задача, напиши "готово".');
+    return;
+  }
+
+  const tasks = await listTasks();
+  const open = tasks.filter((t) => t.assigned_to === worker.id && t.status !== "done");
+
+  if (open.length === 0) {
+    await ctx.reply("Нямаш активни задачи в момента.");
+    return;
+  }
+
+  if (open.length === 1) {
+    const task = await updateTaskStatus(open[0].id, "done");
+    await ctx.reply(`✅ Отбелязах задача #${task.id} (${task.title}) като свършена.`);
+    if (OWNER_CHAT_ID) {
+      await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи #${task.id}: ${task.title}`);
+    }
+    return;
+  }
+
+  workerSessions.set(ctx.chat.id, { state: "awaiting_completion_scope", pendingTaskIds: open.map((t) => t.id) });
+  const list = open.map((t) => `#${t.id} ${t.title}`).join("\n");
+  await ctx.reply(
+    `Готов си с всичко възложено?\n${list}\n\nНапиши "всички" или номерата на готовите (напр. "#6 #7").`
+  );
+}
+
 async function processNote(ctx, text, { photoPath } = {}) {
   const structured = await analyzeNote(text);
   const task = await createTask({ ...structured, rawNote: text, photoPath: photoPath || null });
@@ -300,12 +398,19 @@ bot.on("text", async (ctx) => {
   const text = ctx.message.text;
   if (text.startsWith("/")) return;
 
-  const session = listingSessions.get(ctx.chat.id);
-  if (session) {
-    return handleListingText(ctx, session, text.trim());
-  }
-
   try {
+    const worker = await findWorkerByChatId(ctx.chat.id);
+    if (worker) {
+      return handleWorkerMessage(ctx, worker, text.trim());
+    }
+
+    const session = listingSessions.get(ctx.chat.id);
+    if (session) {
+      return handleListingText(ctx, session, text.trim());
+    }
+
+    if (await tryCombineWithExistingTask(ctx, text)) return;
+
     const intent = await classifyIntent(text);
     if (intent === "listing") {
       listingSessions.set(ctx.chat.id, { state: "collecting_photos", photos: [], item: null, draft: null });
@@ -323,10 +428,17 @@ bot.on("voice", async (ctx) => {
     const buffer = await downloadFile(ctx, ctx.message.voice.file_id);
     const transcript = await transcribeVoice(buffer);
 
+    const worker = await findWorkerByChatId(ctx.chat.id);
+    if (worker) {
+      return handleWorkerMessage(ctx, worker, transcript.trim());
+    }
+
     const session = listingSessions.get(ctx.chat.id);
     if (session) {
       return handleListingText(ctx, session, transcript.trim());
     }
+
+    if (await tryCombineWithExistingTask(ctx, transcript)) return;
 
     const intent = await classifyIntent(transcript);
     if (intent === "listing") {
