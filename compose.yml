@@ -14,6 +14,14 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
 
+  telegram-bot:
+    build: ./telegram-bot
+    image: izabela/olx-listing-bot:latest
+    container_name: olx-listing-bot
+    env_file:
+      - ./telegram-bot/.env
+    restart: unless-stopped
+
   db:
     image: postgres:16
     container_name: task-manager-db
