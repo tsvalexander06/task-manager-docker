@@ -9,7 +9,8 @@ async function createTask({
   confidence,
   priority,
   rawNote,
-  photoPath
+  photoPath,
+  equipmentId
 }) {
   const res = await fetch(`${BACKEND_URL}/tasks`, {
     method: "POST",
@@ -23,7 +24,8 @@ async function createTask({
       confidence,
       priority,
       rawNote,
-      photoPath
+      photoPath,
+      equipmentId
     })
   });
   if (!res.ok) throw new Error(`Backend error: ${res.status}`);
@@ -67,11 +69,51 @@ async function createWorker({ name, telegramChatId, skills }) {
   return res.json();
 }
 
+async function listEquipment({ status, match } = {}) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (match) params.set("match", match);
+  const qs = params.toString();
+  const res = await fetch(`${BACKEND_URL}/equipment${qs ? `?${qs}` : ""}`);
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
+async function getEquipment(id) {
+  const res = await fetch(`${BACKEND_URL}/equipment/${id}`);
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
+async function createEquipment(fields) {
+  const res = await fetch(`${BACKEND_URL}/equipment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields)
+  });
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
+async function updateEquipment(id, fields) {
+  const res = await fetch(`${BACKEND_URL}/equipment/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields)
+  });
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
 module.exports = {
   createTask,
   listTasks,
   updateTask,
   updateTaskStatus,
   listWorkers,
-  createWorker
+  createWorker,
+  listEquipment,
+  getEquipment,
+  createEquipment,
+  updateEquipment
 };

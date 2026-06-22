@@ -9,7 +9,11 @@ const {
   updateTask,
   updateTaskStatus,
   listWorkers,
-  createWorker
+  createWorker,
+  listEquipment,
+  getEquipment,
+  createEquipment,
+  updateEquipment
 } = require("./backend");
 const { generateReport } = require("./report");
 const { transcribeVoice } = require("./transcribe");
@@ -25,6 +29,22 @@ const CONFIDENCE_THRESHOLD = 70;
 
 const ASSIGNEE_EMOJI = { worker: "👷", agent: "🤖" };
 const STATUS_EMOJI = { pending: "📌", in_progress: "⏳", done: "✅" };
+// Machine lifecycle: received -> servicing -> ready -> listed -> sold.
+const EQUIPMENT_STATUS_LABEL = {
+  received: "постъпила",
+  servicing: "в сервиз",
+  ready: "готова за продажба",
+  listed: "обявена",
+  sold: "продадена"
+};
+const EQUIPMENT_STATUS_EMOJI = {
+  received: "📥",
+  servicing: "🔧",
+  ready: "✅",
+  listed: "🏷️",
+  sold: "💰"
+};
+const EQUIPMENT_STATUS_ORDER = ["received", "servicing", "ready", "listed", "sold"];
 const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(__dirname, "..", "photos");
 const WORKER_CHAT_ID = process.env.WORKER_CHAT_ID;
 const OWNER_CHAT_ID = process.env.OWNER_CHAT_ID;
@@ -52,6 +72,105 @@ function nextStepReminder(task) {
   );
 }
 
+// Find-or-create an equipment record for each machine a note mentions, so the
+// same physical machine isn't duplicated across its wash -> fix -> list notes.
+// Matching is a fuzzy brand/model/name lookup that ignores already-sold units.
+async function resolveEquipmentForNote(structured) {
+  const machines = Array.isArray(structured.equipment) ? structured.equipment : [];
+  if (machines.length === 0) return { records: [], primaryId: null, createdIds: [] };
+
+  const isService = WASH_OR_REPAIR_PATTERN.test(`${structured.title} ${structured.category || ""}`);
+  const records = [];
+  const createdIds = [];
+
+  for (const m of machines) {
+    const query = m.model || m.brand || m.name;
+    if (!query) continue;
+
+    let existing = [];
+    try {
+      existing = await listEquipment({ match: query });
+    } catch {
+      existing = [];
+    }
+
+    let record = existing[0];
+    if (!record) {
+      record = await createEquipment({
+        name: m.name || [m.brand, m.model].filter(Boolean).join(" ") || "Машина",
+        brand: m.brand || null,
+        model: m.model || null,
+        category: m.category || null,
+        status: isService ? "servicing" : "received"
+      });
+      createdIds.push(record.id);
+    } else if (isService && record.status === "received") {
+      record = await updateEquipment(record.id, { status: "servicing" });
+    }
+    records.push(record);
+  }
+
+  return { records, primaryId: records[0]?.id ?? null, createdIds };
+}
+
+// When a task tied to a machine is completed, the machine moves out of
+// received/servicing and becomes ready to list. Returns a notice string or null.
+async function advanceEquipmentOnTaskDone(task) {
+  if (!task.equipment_id) return null;
+  try {
+    const eq = await getEquipment(task.equipment_id);
+    if (eq && (eq.status === "received" || eq.status === "servicing")) {
+      const updated = await updateEquipment(eq.id, { status: "ready" });
+      return `🔧 Оборудване #${updated.id} ${updated.name} → готово за продажба.`;
+    }
+  } catch (err) {
+    console.error("equipment advance failed:", err.message);
+  }
+  return null;
+}
+
+// When a listing publishes, persist the machine (or update the existing record
+// that was washed/fixed earlier) as `listed` with its OLX link and specs.
+async function captureListingEquipment(session, olxUrl) {
+  const item = session.item || {};
+  const name =
+    [item.brand, item.model, item.type].filter(Boolean).join(" ") || session.draft.title;
+  const query = item.model || item.brand || name;
+  const specs = JSON.stringify(item);
+
+  let existing = [];
+  try {
+    existing = await listEquipment({ match: query });
+  } catch {
+    existing = [];
+  }
+
+  if (existing[0]) {
+    await updateEquipment(existing[0].id, {
+      status: "listed",
+      price: session.draft.price,
+      olxUrl,
+      specs,
+      brand: item.brand || existing[0].brand,
+      model: item.model || existing[0].model,
+      category: item.type || existing[0].category,
+      condition: item.condition || existing[0].condition
+    });
+  } else {
+    await createEquipment({
+      name,
+      brand: item.brand || null,
+      model: item.model || null,
+      category: item.type || null,
+      condition: item.condition || null,
+      specs,
+      status: "listed",
+      price: session.draft.price,
+      olxUrl
+    });
+  }
+}
+
 async function sendDailyReminderIfDue() {
   if (!OWNER_CHAT_ID) return;
   const now = new Date();
@@ -77,6 +196,8 @@ bot.start((ctx) =>
       "/tasks — какво остава и какво е свършено\n" +
       "/done <id> — отбележи задача като свършена\n" +
       "/report — кратък отчет за статуса на задачите\n" +
+      "/equipment [статус] — оборудване по етап (received/servicing/ready/listed/sold)\n" +
+      "/sold <id> — отбележи оборудване като продадено\n" +
       "/workers — списък с работници\n" +
       "/worker add <име> <chat id> [умения] — добави работник\n" +
       "/cancel — отказва текуща обява в процес на създаване"
@@ -186,8 +307,50 @@ bot.command("done", async (ctx) => {
   try {
     const task = await updateTaskStatus(id, "done");
     await ctx.reply(`✅ Задача #${task.id} (${task.title}) е отбелязана като свършена.`);
+    const eqNotice = await advanceEquipmentOnTaskDone(task);
+    if (eqNotice) await ctx.reply(eqNotice);
     const reminder = nextStepReminder(task);
     if (reminder) await ctx.reply(reminder);
+  } catch (err) {
+    await ctx.reply(`Грешка: ${err.message}`);
+  }
+});
+
+bot.command("equipment", async (ctx) => {
+  const arg = ctx.message.text.split(" ")[1];
+  try {
+    const list = await listEquipment(arg ? { status: arg } : {});
+    if (list.length === 0) {
+      await ctx.reply(arg ? `Няма оборудване със статус "${arg}".` : "Няма записано оборудване.");
+      return;
+    }
+    const byStatus = {};
+    for (const e of list) {
+      (byStatus[e.status] = byStatus[e.status] || []).push(e);
+    }
+    const lines = [];
+    for (const s of EQUIPMENT_STATUS_ORDER) {
+      if (!byStatus[s]) continue;
+      lines.push(`${EQUIPMENT_STATUS_EMOJI[s] || ""} ${EQUIPMENT_STATUS_LABEL[s] || s}:`);
+      for (const e of byStatus[s]) {
+        lines.push(`  #${e.id} ${e.name}${e.olx_url ? ` — ${e.olx_url}` : ""}`);
+      }
+    }
+    await ctx.reply(lines.join("\n"));
+  } catch (err) {
+    await ctx.reply(`Грешка: ${err.message}`);
+  }
+});
+
+bot.command("sold", async (ctx) => {
+  const id = ctx.message.text.split(" ")[1];
+  if (!id) {
+    await ctx.reply("Използване: /sold <id на оборудване>");
+    return;
+  }
+  try {
+    const eq = await updateEquipment(id, { status: "sold" });
+    await ctx.reply(`💰 Оборудване #${eq.id} ${eq.name} → продадено.`);
   } catch (err) {
     await ctx.reply(`Грешка: ${err.message}`);
   }
@@ -308,9 +471,17 @@ async function handleWorkerMessage(ctx, worker, text) {
     workerSessions.delete(ctx.chat.id);
     await ctx.reply(`✅ Отбелязах като свършени: ${completed.map((t) => `#${t.id}`).join(", ")}.`);
 
+    const eqNotices = [];
+    for (const task of completed) {
+      const notice = await advanceEquipmentOnTaskDone(task);
+      if (notice) eqNotices.push(notice);
+    }
     if (OWNER_CHAT_ID) {
       const list = completed.map((t) => `#${t.id} ${t.title}`).join("\n");
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи:\n${list}`);
+      for (const notice of eqNotices) {
+        await ctx.telegram.sendMessage(OWNER_CHAT_ID, notice);
+      }
       for (const task of completed) {
         const reminder = nextStepReminder(task);
         if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
@@ -335,8 +506,10 @@ async function handleWorkerMessage(ctx, worker, text) {
   if (open.length === 1) {
     const task = await updateTaskStatus(open[0].id, "done");
     await ctx.reply(`✅ Отбелязах задача #${task.id} (${task.title}) като свършена.`);
+    const eqNotice = await advanceEquipmentOnTaskDone(task);
     if (OWNER_CHAT_ID) {
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи #${task.id}: ${task.title}`);
+      if (eqNotice) await ctx.telegram.sendMessage(OWNER_CHAT_ID, eqNotice);
       const reminder = nextStepReminder(task);
       if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
     }
@@ -352,8 +525,22 @@ async function handleWorkerMessage(ctx, worker, text) {
 
 async function processNote(ctx, text, { photoPath } = {}) {
   const structured = await analyzeNote(text);
-  const task = await createTask({ ...structured, rawNote: text, photoPath: photoPath || null });
+  const { records, primaryId, createdIds } = await resolveEquipmentForNote(structured);
+  const task = await createTask({
+    ...structured,
+    rawNote: text,
+    photoPath: photoPath || null,
+    equipmentId: primaryId
+  });
   await ctx.reply(`${ASSIGNEE_EMOJI[task.assignee_type] || ""} #${task.id} ${task.title}`);
+
+  if (records.length > 0) {
+    const lines = records.map((r) => {
+      const tag = createdIds.includes(r.id) ? "нова" : "съществуваща";
+      return `🔧 Оборудване #${r.id} ${r.name} (${EQUIPMENT_STATUS_LABEL[r.status] || r.status}, ${tag})`;
+    });
+    await ctx.reply(lines.join("\n"));
+  }
 
   const needsAssignment =
     task.assignee_type === "worker" || (task.confidence != null && task.confidence < CONFIDENCE_THRESHOLD);
@@ -424,6 +611,11 @@ async function handleListingText(ctx, session, text) {
         photoPaths: session.photos.map((p) => p.filePath)
       });
       await ctx.reply(`Готово! ${result.url}`);
+      try {
+        await captureListingEquipment(session, result.url);
+      } catch (eqErr) {
+        console.error("equipment capture failed:", eqErr.message);
+      }
     } catch (err) {
       console.error(err);
       await ctx.reply(

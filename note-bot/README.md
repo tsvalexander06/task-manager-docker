@@ -36,6 +36,40 @@ flow that identifies the equipment from photos, drafts the listing, and
    [skills]` registers one — the worker must have started a chat with the
    bot first so it has a `chat id` to message them at.
 
+## Equipment database
+
+Each physical machine is tracked as it moves through its lifecycle:
+
+```
+received → servicing → ready → listed → sold
+постъпила  в сервиз     готова   обявена  продадена
+```
+
+Machines enter and advance through this automatically — you don't maintain
+it by hand:
+
+- **From notes.** When a note concerns a specific machine, the analyze step
+  extracts it (brand/model/name) and the bot finds-or-creates an equipment
+  record. A note like `Foster и Electrolux миене` creates/links *two*
+  machines. Matching is a fuzzy brand/model/name lookup that ignores
+  already-sold units, so a later `Foster ремонт` reuses the same record
+  instead of duplicating it — the bot tells you which machine it linked
+  (`нова` vs `съществуваща`) so you can catch a wrong match. Wash/repair
+  notes set the machine to `servicing`.
+- **On task completion.** When a task tied to a machine is marked done (by
+  you or a worker), that machine advances from `received`/`servicing` to
+  `ready` (ready to list), and the owner is notified.
+- **On listing.** When an OLX listing publishes, the machine is recorded
+  (or the existing `ready` record updated) as `listed`, with its OLX link,
+  price, and specs from the vision/research step — the data the listing
+  flow used to throw away.
+- **On sale.** `/sold <id>` marks a machine `sold`.
+
+Query it with `/equipment` (everything, grouped by stage) or
+`/equipment <status>` (e.g. `/equipment ready` to see what's washed/fixed
+but not yet listed). Notes that aren't about a specific machine (e.g.
+"маса миене") create no equipment record.
+
 ## Combining a follow-up note with an existing task
 
 If a new message references an existing task by `#<id>` (e.g.
