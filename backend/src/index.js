@@ -17,17 +17,39 @@ app.get("/", (req, res) => {
 });
 
 app.get("/tasks", async (req, res) => {
-  const result = await pool.query("SELECT * FROM tasks ORDER BY id");
+  const { status } = req.query;
+  const result = status
+    ? await pool.query("SELECT * FROM tasks WHERE status = $1 ORDER BY id", [status])
+    : await pool.query("SELECT * FROM tasks ORDER BY id");
   res.json(result.rows);
 });
 
 app.post("/tasks", async (req, res) => {
-  const { title } = req.body;
+  const {
+    title,
+    description = null,
+    category = null,
+    assigneeType = "worker",
+    priority = "normal",
+    rawNote = null
+  } = req.body;
   const result = await pool.query(
-    "INSERT INTO tasks (title) VALUES ($1) RETURNING *",
-    [title]
+    `INSERT INTO tasks (title, description, category, assignee_type, priority, raw_note)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [title, description, category, assigneeType, priority, rawNote]
   );
   res.status(201).json(result.rows[0]);
+});
+
+app.patch("/tasks/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const result = await pool.query(
+    "UPDATE tasks SET status = $1, updated_at = now() WHERE id = $2 RETURNING *",
+    [status, id]
+  );
+  if (result.rows.length === 0) return res.status(404).json({ error: "Task not found" });
+  res.json(result.rows[0]);
 });
 
 async function initDb() {
@@ -37,6 +59,14 @@ async function initDb() {
       title TEXT NOT NULL
     )
   `);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category TEXT`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_type TEXT NOT NULL DEFAULT 'worker'`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal'`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS raw_note TEXT`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
   console.log("Database connected");
 }
 

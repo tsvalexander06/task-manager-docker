@@ -22,6 +22,16 @@ services:
       - ./telegram-bot/.env
     restart: unless-stopped
 
+  note-bot:
+    build: ./note-bot
+    image: izabela/note-bot:latest
+    container_name: note-bot
+    env_file:
+      - ./note-bot/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   db:
     image: postgres:16
     container_name: task-manager-db
