@@ -31,12 +31,13 @@ app.post("/tasks", async (req, res) => {
     category = null,
     assigneeType = "worker",
     priority = "normal",
-    rawNote = null
+    rawNote = null,
+    photoPath = null
   } = req.body;
   const result = await pool.query(
-    `INSERT INTO tasks (title, description, category, assignee_type, priority, raw_note)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [title, description, category, assigneeType, priority, rawNote]
+    `INSERT INTO tasks (title, description, category, assignee_type, priority, raw_note, photo_path)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [title, description, category, assigneeType, priority, rawNote, photoPath]
   );
   res.status(201).json(result.rows[0]);
 });
@@ -65,6 +66,7 @@ async function initDb() {
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal'`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS raw_note TEXT`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS photo_path TEXT`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
   console.log("Database connected");

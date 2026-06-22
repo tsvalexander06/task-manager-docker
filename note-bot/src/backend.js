@@ -1,10 +1,10 @@
 const BACKEND_URL = process.env.BACKEND_URL || "http://backend:3000";
 
-async function createTask({ title, description, category, assigneeType, priority, rawNote }) {
+async function createTask({ title, description, category, assigneeType, priority, rawNote, photoPath }) {
   const res = await fetch(`${BACKEND_URL}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, category, assigneeType, priority, rawNote })
+    body: JSON.stringify({ title, description, category, assigneeType, priority, rawNote, photoPath })
   });
   if (!res.ok) throw new Error(`Backend error: ${res.status}`);
   return res.json();

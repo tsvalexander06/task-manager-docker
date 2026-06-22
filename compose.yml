@@ -28,6 +28,8 @@ services:
     container_name: note-bot
     env_file:
       - ./note-bot/.env
+    volumes:
+      - note_bot_photos:/app/photos
     depends_on:
       - backend
     restart: unless-stopped
@@ -44,3 +46,4 @@ services:
 
 volumes:
   postgres_data:
+  note_bot_photos:
