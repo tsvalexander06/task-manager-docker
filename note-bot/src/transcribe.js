@@ -4,7 +4,7 @@ async function transcribeVoice(buffer, filename = "voice.ogg") {
 
   const form = new FormData();
   form.append("file", new Blob([buffer]), filename);
-  form.append("model", "whisper-1");
+  form.append("model", "gpt-4o-mini-transcribe");
   form.append("language", "bg");
 
   const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -13,7 +13,7 @@ async function transcribeVoice(buffer, filename = "voice.ogg") {
     body: form
   });
   if (!res.ok) {
-    throw new Error(`Whisper error: ${res.status} ${await res.text()}`);
+    throw new Error(`Transcription error: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
   return data.text;
