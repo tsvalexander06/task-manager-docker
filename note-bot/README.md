@@ -62,6 +62,19 @@ the owner's — messages from it never get analyzed as new notes. Instead:
 - If `OWNER_CHAT_ID` is set, the bot notifies that chat whenever a worker
   marks task(s) as done.
 
+## Next-step and daily reminders
+
+- Whenever a task whose title/category mentions washing/cleaning or
+  repair-type keywords (миене, почистване, ремонт, поправка, фикс) gets
+  marked done — by you via `/done` or by a worker confirming completion —
+  the bot reminds you of the usual next steps for that kind of job: take
+  photos, create the OLX listing, then hand the finished listing to the
+  website engineer to upload there too. This is a static reminder, not an
+  auto-created task, so it never gets buried in `/tasks`.
+- If `OWNER_CHAT_ID` is set, once a day at `REMINDER_HOUR` (default `9`,
+  server-local time) the bot sends you a digest of everything still
+  pending — a lighter-weight nudge than `/report`, with no AI call.
+
 ## Listing flow
 
 Triggered automatically when Claude detects listing intent in a text/voice
@@ -102,7 +115,10 @@ confirmed/published or `/cancel`'d.
      check `https://api.telegram.org/bot<TOKEN>/getUpdates` for the
      `chat.id` (it's negative for groups).
    - `OWNER_CHAT_ID` — optional. Your own chat ID; if set, the bot notifies
-     you here whenever a worker marks task(s) as done.
+     you here whenever a worker marks task(s) as done, and sends the daily
+     pending-tasks reminder.
+   - `REMINDER_HOUR` — optional, default `9`. Hour (0-23, server-local
+     time) the daily reminder is sent at, if `OWNER_CHAT_ID` is set.
 2. `docker compose up --build note-bot backend db`
 
 ## Notes

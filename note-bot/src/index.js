@@ -28,12 +28,47 @@ const STATUS_EMOJI = { pending: "📌", in_progress: "⏳", done: "✅" };
 const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(__dirname, "..", "photos");
 const WORKER_CHAT_ID = process.env.WORKER_CHAT_ID;
 const OWNER_CHAT_ID = process.env.OWNER_CHAT_ID;
+const REMINDER_HOUR = Number(process.env.REMINDER_HOUR || 9);
 const COMPLETION_PATTERN = /готов|готово|свърш|приключ|done|finish/i;
+const WASH_OR_REPAIR_PATTERN = /миене|почист|ремонт|поправ|фикс/i;
 
 // Per-chat listing-creation session: { state, photos: [{base64, mediaType, filePath}], item, draft }
 const listingSessions = new Map();
 // Per-worker-chat session while the bot is asking "done with everything?": { state, pendingTaskIds }
 const workerSessions = new Map();
+let lastReminderDate = null;
+
+// After washing/fixing a machine, the next steps (photos -> listing -> hand off
+// to the website engineer) are easy to forget — surface them as soon as that
+// kind of task is marked done.
+function nextStepReminder(task) {
+  const haystack = `${task.title} ${task.category || ""}`;
+  if (!WASH_OR_REPAIR_PATTERN.test(haystack)) return null;
+  return (
+    `🔁 Следваща стъпка за #${task.id} (${task.title}):\n` +
+    `1) Направи снимки на машината\n` +
+    `2) Създай обява (напиши бележка за обявата, ще влезеш в режим за обява)\n` +
+    `3) Изпрати готовата обява на уеб инженера, за да я качи и на сайта`
+  );
+}
+
+async function sendDailyReminderIfDue() {
+  if (!OWNER_CHAT_ID) return;
+  const now = new Date();
+  const todayKey = now.toISOString().slice(0, 10);
+  if (now.getHours() !== REMINDER_HOUR || lastReminderDate === todayKey) return;
+  lastReminderDate = todayKey;
+
+  try {
+    const tasks = await listTasks();
+    const pending = tasks.filter((t) => t.status !== "done");
+    if (pending.length === 0) return;
+    const lines = pending.map((t) => `${STATUS_EMOJI[t.status] || "📌"} #${t.id} ${t.title}`);
+    await bot.telegram.sendMessage(OWNER_CHAT_ID, `⏰ Напомняне за днешните задачи:\n${lines.join("\n")}`);
+  } catch (err) {
+    console.error("Daily reminder failed:", err.message);
+  }
+}
 
 bot.start((ctx) =>
   ctx.reply(
@@ -151,6 +186,8 @@ bot.command("done", async (ctx) => {
   try {
     const task = await updateTaskStatus(id, "done");
     await ctx.reply(`✅ Задача #${task.id} (${task.title}) е отбелязана като свършена.`);
+    const reminder = nextStepReminder(task);
+    if (reminder) await ctx.reply(reminder);
   } catch (err) {
     await ctx.reply(`Грешка: ${err.message}`);
   }
@@ -274,6 +311,10 @@ async function handleWorkerMessage(ctx, worker, text) {
     if (OWNER_CHAT_ID) {
       const list = completed.map((t) => `#${t.id} ${t.title}`).join("\n");
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи:\n${list}`);
+      for (const task of completed) {
+        const reminder = nextStepReminder(task);
+        if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+      }
     }
     return;
   }
@@ -296,6 +337,8 @@ async function handleWorkerMessage(ctx, worker, text) {
     await ctx.reply(`✅ Отбелязах задача #${task.id} (${task.title}) като свършена.`);
     if (OWNER_CHAT_ID) {
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи #${task.id}: ${task.title}`);
+      const reminder = nextStepReminder(task);
+      if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
     }
     return;
   }
@@ -522,6 +565,8 @@ bot.on("callback_query", async (ctx) => {
 
 bot.launch();
 console.log("note-bot started");
+
+setInterval(sendDailyReminderIfDue, 60 * 1000);
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
