@@ -15,15 +15,26 @@ flow that identifies the equipment from photos, drafts the listing, and
    - Photos are saved to disk and attached to the task; the caption (or a
      default placeholder if there isn't one) is used as the note text.
 2. Claude classifies intent. If it's not a listing request, it structures
-   the note into `{ title, description, category, assigneeType, priority }`.
-   `assigneeType` is `worker` if the task needs a person on-site, or
-   `agent` if an AI agent could plausibly do it (see `src/analyze.js` for
-   the exact rules).
+   the note into `{ title, description, category, assigneeType, agentType,
+   confidence, priority }`. `assigneeType` is `worker` if the task needs a
+   person on-site, or `agent` if an AI agent could plausibly do it, with
+   `agentType` describing what kind of agent (see `src/analyze.js` for the
+   exact rules). `confidence` (0-100) reflects how sure Claude is that the
+   chosen assignee/agent type is correct and fully actionable by an agent.
 3. The task is saved via `POST /tasks` on the backend and the bot replies
    with a one-line confirmation (no full JSON dump).
-4. If `assigneeType` is `worker` and `WORKER_CHAT_ID` is set, the bot also
-   forwards the task (with the photo, if any) to that chat.
+4. If the task needs a worker (`assigneeType === "worker"`, or `agent` with
+   `confidence` below 70), the bot asks you who should get it — tap a
+   worker's name on the inline keyboard and the bot DMs that worker
+   directly (with the photo, if any) and marks the task `in_progress`. If
+   no workers are registered yet, it falls back to `WORKER_CHAT_ID` (if
+   set) for `worker`-type tasks.
 5. `/tasks` shows what's pending vs. done. `/done <id>` marks a task done.
+   `/report` asks Claude for a short status digest (done / pending /
+   suggestions to speed things up) instead of a raw list.
+6. `/workers` lists registered workers. `/worker add <name> <chat id>
+   [skills]` registers one — the worker must have started a chat with the
+   bot first so it has a `chat id` to message them at.
 
 ## Listing flow
 

@@ -1,9 +1,17 @@
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
-const { Telegraf } = require("telegraf");
+const { Telegraf, Markup } = require("telegraf");
 const { analyzeNote } = require("./analyze");
-const { createTask, listTasks, updateTaskStatus } = require("./backend");
+const {
+  createTask,
+  listTasks,
+  updateTask,
+  updateTaskStatus,
+  listWorkers,
+  createWorker
+} = require("./backend");
+const { generateReport } = require("./report");
 const { transcribeVoice } = require("./transcribe");
 const { classifyIntent } = require("./intent");
 const { identifyFromPhotos } = require("./listing/vision");
@@ -12,6 +20,8 @@ const { buildDescription } = require("./listing/template");
 const { postListing } = require("./listing/olx");
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+
+const CONFIDENCE_THRESHOLD = 70;
 
 const ASSIGNEE_EMOJI = { worker: "👷", agent: "🤖" };
 const STATUS_EMOJI = { pending: "📌", in_progress: "⏳", done: "✅" };
@@ -27,6 +37,9 @@ bot.start((ctx) =>
       'Ако кажеш да пуснеш обява за продажба, ще премина в режим за създаване на обява.\n' +
       "/tasks — какво остава и какво е свършено\n" +
       "/done <id> — отбележи задача като свършена\n" +
+      "/report — кратък отчет за статуса на задачите\n" +
+      "/workers — списък с работници\n" +
+      "/worker add <име> <chat id> [умения] — добави работник\n" +
       "/cancel — отказва текуща обява в процес на създаване"
   )
 );
@@ -68,6 +81,55 @@ bot.command("tasks", async (ctx) => {
     await ctx.reply(lines.join("\n"));
   } catch (err) {
     await ctx.reply(`Грешка при четене на задачите: ${err.message}`);
+  }
+});
+
+bot.command("report", async (ctx) => {
+  try {
+    const tasks = await listTasks();
+    const report = await generateReport(tasks);
+    await ctx.reply(report);
+  } catch (err) {
+    await ctx.reply(`Грешка при генериране на отчет: ${err.message}`);
+  }
+});
+
+bot.command("workers", async (ctx) => {
+  try {
+    const workers = await listWorkers();
+    if (workers.length === 0) {
+      await ctx.reply('Няма добавени работници. Използвай "/worker add <име> <chat id> [умения]".');
+      return;
+    }
+    const lines = workers.map(
+      (w) => `#${w.id} ${w.name}${w.skills ? ` (${w.skills})` : ""}`
+    );
+    await ctx.reply(lines.join("\n"));
+  } catch (err) {
+    await ctx.reply(`Грешка: ${err.message}`);
+  }
+});
+
+bot.command("worker", async (ctx) => {
+  const parts = ctx.message.text.split(" ").slice(1);
+  if (parts[0] !== "add") {
+    await ctx.reply("Използване: /worker add <име> <chat id> [умения]");
+    return;
+  }
+  const [name, telegramChatId, ...skillParts] = parts.slice(1);
+  if (!name || !telegramChatId) {
+    await ctx.reply("Използване: /worker add <име> <chat id> [умения]");
+    return;
+  }
+  try {
+    const worker = await createWorker({
+      name,
+      telegramChatId,
+      skills: skillParts.length ? skillParts.join(" ") : null
+    });
+    await ctx.reply(`Добавен работник #${worker.id}: ${worker.name}`);
+  } catch (err) {
+    await ctx.reply(`Грешка: ${err.message}`);
   }
 });
 
@@ -126,12 +188,37 @@ async function notifyWorker(ctx, task, photoPath) {
   }
 }
 
+async function promptAssignment(ctx, task) {
+  const workers = await listWorkers();
+  if (workers.length === 0) {
+    await ctx.reply(
+      `На кого да възложа задача #${task.id} (${task.title})? Все още няма добавени работници — ` +
+        'използвай "/worker add <име> <chat id> [умения]", после опитай отново да я възложиш.'
+    );
+    if (task.assignee_type === "worker") {
+      await notifyWorker(ctx, task, task.photo_path);
+    }
+    return;
+  }
+  const buttons = workers.map((w) =>
+    Markup.button.callback(w.name, `assign:${task.id}:${w.id}`)
+  );
+  await ctx.reply(
+    `На кого да възложа задача #${task.id}: ${task.title}?`,
+    Markup.inlineKeyboard(buttons, { columns: 1 })
+  );
+}
+
 async function processNote(ctx, text, { photoPath } = {}) {
   const structured = await analyzeNote(text);
   const task = await createTask({ ...structured, rawNote: text, photoPath: photoPath || null });
   await ctx.reply(`${ASSIGNEE_EMOJI[task.assignee_type] || ""} #${task.id} ${task.title}`);
-  if (task.assignee_type === "worker") {
-    await notifyWorker(ctx, task, photoPath);
+
+  const needsAssignment =
+    task.assignee_type === "worker" || (task.confidence != null && task.confidence < CONFIDENCE_THRESHOLD);
+
+  if (needsAssignment) {
+    await promptAssignment(ctx, task);
   }
 }
 
@@ -286,6 +373,38 @@ bot.on("photo", async (ctx) => {
     await processNote(ctx, caption || "Снимка без коментар", { photoPath: stored.filePath });
   } catch (err) {
     await ctx.reply(`Не успях да обработя снимката: ${err.message}`);
+  }
+});
+
+bot.on("callback_query", async (ctx) => {
+  const data = ctx.callbackQuery.data || "";
+  const match = data.match(/^assign:(\d+):(\d+)$/);
+  if (!match) return;
+  const [, taskId, workerId] = match;
+
+  try {
+    const workers = await listWorkers();
+    const worker = workers.find((w) => String(w.id) === workerId);
+    if (!worker) {
+      await ctx.answerCbQuery("Работникът не е намерен.");
+      return;
+    }
+
+    const task = await updateTask(taskId, { assignedTo: worker.id, status: "in_progress" });
+    await ctx.answerCbQuery("Възложено.");
+    await ctx.editMessageText(`✅ Задача #${task.id} (${task.title}) е възложена на ${worker.name}.`);
+
+    const message = `👷 Нова задача #${task.id}: ${task.title}${
+      task.description ? "\n" + task.description : ""
+    }`;
+    if (task.photo_path) {
+      await ctx.telegram.sendPhoto(worker.telegram_chat_id, { source: task.photo_path }, { caption: message });
+    } else {
+      await ctx.telegram.sendMessage(worker.telegram_chat_id, message);
+    }
+  } catch (err) {
+    await ctx.answerCbQuery("Грешка при възлагане.");
+    await ctx.reply(`Грешка при възлагане на задачата: ${err.message}`);
   }
 });
 
