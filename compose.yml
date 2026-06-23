@@ -6,13 +6,15 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: taskdb
       DB_USER: postgres
       DB_PASSWORD: postgres
+    restart: unless-stopped
 
   telegram-bot:
     build: ./telegram-bot
@@ -31,7 +33,8 @@ services:
     volumes:
       - note_bot_photos:/app/photos
     depends_on:
-      - backend
+      backend:
+        condition: service_started
     restart: unless-stopped
 
   db:
@@ -43,6 +46,11 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   postgres_data:
