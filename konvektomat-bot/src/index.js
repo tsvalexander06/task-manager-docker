@@ -21,7 +21,10 @@ async function main() {
     onClientMessage: review.handleIncomingClientMessage,
     onApprove: review.handleApprove,
     onRewriteRequest: review.handleRewriteRequest,
-    onRewriteReply: review.handleRewriteReply,
+    onOperatorReply: review.handleOperatorReply,
+    onShowPrompt: review.handleShowPrompt,
+    onSetPromptRequest: review.handleSetPromptRequest,
+    onResetPrompt: review.handleResetPrompt,
   });
 
   // 2) Express + WhatsApp webhook.

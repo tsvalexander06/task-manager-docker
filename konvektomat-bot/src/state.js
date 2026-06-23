@@ -17,9 +17,12 @@ const histories = new Map();
 // Чакащи драфтове за одобрение: reviewId -> { channel, clientId, draft, operatorMessageId }
 const pendingDrafts = new Map();
 
-// Контекст за Rewrite: operatorPromptMessageId -> { channel, clientId }
-// Свързва съобщението "напиши новия отговор" с reply-а на оператора.
-const rewriteContexts = new Map();
+// Контекст за reply на оператора: operatorPromptMessageId -> contextObject
+// Свързва съобщение, на което операторът трябва да отговори (reply), със
+// съответното действие. Примери за contextObject:
+//   { type: 'rewrite', channel, clientId }  — пренаписване на отговор за клиент
+//   { type: 'setprompt' }                   — задаване на нов системен промпт
+const operatorReplyContexts = new Map();
 
 const MAX_HISTORY = 40; // пазим последните N реплики на клиент, за да не расте безкрай
 
@@ -71,18 +74,18 @@ export function deletePendingDraft(reviewId) {
   pendingDrafts.delete(reviewId);
 }
 
-// ── Rewrite контекст ─────────────────────────────────────────────────────────
+// ── Контекст за reply на оператора ───────────────────────────────────────────
 
-export function setRewriteContext(operatorPromptMessageId, channel, clientId) {
-  rewriteContexts.set(operatorPromptMessageId, { channel, clientId });
+export function setOperatorReplyContext(operatorPromptMessageId, contextObject) {
+  operatorReplyContexts.set(operatorPromptMessageId, contextObject);
 }
 
-export function getRewriteContext(operatorPromptMessageId) {
-  return rewriteContexts.get(operatorPromptMessageId) ?? null;
+export function getOperatorReplyContext(operatorPromptMessageId) {
+  return operatorReplyContexts.get(operatorPromptMessageId) ?? null;
 }
 
-export function deleteRewriteContext(operatorPromptMessageId) {
-  rewriteContexts.delete(operatorPromptMessageId);
+export function deleteOperatorReplyContext(operatorPromptMessageId) {
+  operatorReplyContexts.delete(operatorPromptMessageId);
 }
 
 // ── Помощни ──────────────────────────────────────────────────────────────────

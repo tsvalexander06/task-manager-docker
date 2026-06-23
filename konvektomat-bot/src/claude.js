@@ -4,29 +4,12 @@
 // Генерира черновa отговор на български въз основа на системния промпт и
 // историята на разговора с конкретния клиент.
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
 import { log } from './logger.js';
+import { getActivePrompt } from './prompt.js';
 
 const client = new Anthropic({ apiKey: config.claude.apiKey });
-
-// Системният промпт: приоритет на env (SYSTEM_PROMPT), иначе чете от файла
-// system-prompt.md до този модул.
-const systemPrompt = loadSystemPrompt();
-
-function loadSystemPrompt() {
-  if (config.systemPromptEnv) return config.systemPromptEnv;
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    return readFileSync(join(here, 'system-prompt.md'), 'utf8');
-  } catch (err) {
-    log.warn('Не успях да заредя system-prompt.md, използвам резервен промпт.', err.message);
-    return 'Ти си учтив клиентски асистент. Отговаряй на български.';
-  }
-}
 
 /**
  * Връща черновa отговор (string) за дадена история на разговора.
@@ -47,7 +30,8 @@ export async function generateDraft(history) {
     const response = await client.messages.create({
       model: config.claude.model,
       max_tokens: config.claude.maxTokens,
-      system: systemPrompt,
+      // Четем активния промпт при всяка заявка → живата редакция важи веднага.
+      system: getActivePrompt(),
       messages,
     });
 

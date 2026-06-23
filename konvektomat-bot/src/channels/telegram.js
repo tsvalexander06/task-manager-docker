@@ -26,8 +26,14 @@ let handlers = {
   onApprove: async () => {},
   // (reviewId, ctx) -> Promise<void>            — натиснат "Rewrite"
   onRewriteRequest: async () => {},
-  // (promptMessageId, text) -> Promise<boolean> — reply на оператора с нов текст
-  onRewriteReply: async () => false,
+  // (promptMessageId, text) -> Promise<boolean> — reply на оператора (диспечер по тип)
+  onOperatorReply: async () => false,
+  // (ctx) -> Promise<void>                      — /prompt
+  onShowPrompt: async () => {},
+  // () -> Promise<boolean>                      — /setprompt
+  onSetPromptRequest: async () => false,
+  // (ctx) -> Promise<void>                      — /resetprompt
+  onResetPrompt: async () => {},
 };
 
 export function setHandlers(next) {
@@ -118,9 +124,50 @@ export async function askForRewrite({ channel, clientId }) {
   }
 }
 
+/**
+ * Праща съобщение с force_reply, за да въведе операторът нов системен промпт.
+ * Връща message_id на prompt-а (или null).
+ */
+export async function askForPrompt() {
+  try {
+    const sent = await bot.telegram.sendMessage(
+      OPERATOR,
+      '✏️ Изпрати новия системен промпт като REPLY на това съобщение.',
+      { reply_markup: { force_reply: true, selective: true } },
+    );
+    return sent.message_id;
+  } catch (err) {
+    log.error('askForPrompt се провали:', err?.message ?? err);
+    return null;
+  }
+}
+
 // ── Регистриране на handler-и ────────────────────────────────────────────────
 
+// Помощник: изпълнява операторска команда само ако идва от чата на оператора.
+function operatorCommand(fn) {
+  return async (ctx) => {
+    if (String(ctx.chat.id) !== OPERATOR) return; // игнорираме команди от клиенти
+    try {
+      await fn(ctx);
+    } catch (err) {
+      log.error('Грешка при операторска команда:', err?.message ?? err);
+    }
+  };
+}
+
 function registerHandlers() {
+  // Операторски команди за системния промпт.
+  bot.command('prompt', operatorCommand((ctx) => handlers.onShowPrompt(ctx)));
+  bot.command('resetprompt', operatorCommand((ctx) => handlers.onResetPrompt(ctx)));
+  bot.command(
+    'setprompt',
+    operatorCommand(async (ctx) => {
+      const ok = await handlers.onSetPromptRequest();
+      if (!ok) await ctx.reply('❌ Не успях да започна смяна на промпта.');
+    }),
+  );
+
   // Callback от inline бутоните.
   bot.on('callback_query', async (ctx) => {
     const data = ctx.callbackQuery.data ?? '';
@@ -156,12 +203,13 @@ function registerHandlers() {
 
     try {
       if (chatId === OPERATOR) {
-        // Съобщение от оператора. Интересува ни само ако е REPLY на rewrite prompt.
+        // Съобщение от оператора. Интересува ни само ако е REPLY на наше съобщение
+        // (пренаписване на отговор ИЛИ нов системен промпт).
         const replyTo = ctx.message.reply_to_message?.message_id;
         if (replyTo) {
-          const handled = await handlers.onRewriteReply(replyTo, text);
+          const handled = await handlers.onOperatorReply(replyTo, text);
           if (!handled) {
-            await ctx.reply('ℹ️ Това не изглежда като активна заявка за пренаписване.');
+            await ctx.reply('ℹ️ Това не изглежда като активна заявка (пренаписване или нов промпт).');
           }
         }
         // Ако операторът просто пише (не reply) — игнорираме.

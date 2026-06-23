@@ -10,6 +10,7 @@ import { generateDraft } from './claude.js';
 import * as state from './state.js';
 import * as telegram from './channels/telegram.js';
 import * as whatsapp from './channels/whatsapp.js';
+import * as prompt from './prompt.js';
 import { log } from './logger.js';
 
 // ── 1) Входящо клиентско съобщение ───────────────────────────────────────────
@@ -85,7 +86,11 @@ export async function handleRewriteRequest(reviewId, ctx) {
 
   if (promptMessageId) {
     // Свързваме prompt-а с клиента/канала, за да хванем reply-а после.
-    state.setRewriteContext(promptMessageId, pending.channel, pending.clientId);
+    state.setOperatorReplyContext(promptMessageId, {
+      type: 'rewrite',
+      channel: pending.channel,
+      clientId: pending.clientId,
+    });
     // Драфтът остава чакащ — операторът може и да реши все пак да го прати по-късно.
     await safeAnswer(ctx, '✏️ Чакам новия текст (reply на съобщението).');
     await markHandled(ctx, '✏️ В процес на пренаписване');
@@ -94,26 +99,73 @@ export async function handleRewriteRequest(reviewId, ctx) {
   }
 }
 
-// ── 3b) Оператор отговори (reply) с нов текст ────────────────────────────────
+// ── 3b) Оператор отговори (reply) — общ диспечер по тип контекст ──────────────
 
 /**
- * Връща true, ако reply-ът е бил активна заявка за пренаписване и е обработен.
+ * Извиква се при всеки reply на оператора. Решава какво да прави според типа на
+ * контекста, свързан със съобщението, на което се отговаря.
+ * Връща true, ако reply-ът е разпознат и обработен.
  */
-export async function handleRewriteReply(promptMessageId, text) {
-  const ctxData = state.getRewriteContext(promptMessageId);
-  if (!ctxData) return false; // не е reply на наш rewrite prompt
+export async function handleOperatorReply(promptMessageId, text) {
+  const ctxData = state.getOperatorReplyContext(promptMessageId);
+  if (!ctxData) return false; // не е reply на наше съобщение с очакван отговор
 
-  const { channel, clientId } = ctxData;
-  const ok = await deliverToClient(channel, clientId, text);
-
-  if (ok) {
-    state.appendAssistantMessage(channel, clientId, text);
-    state.deleteRewriteContext(promptMessageId);
-    await telegram.notifyOperator(`✅ Коригираният отговор е изпратен на клиент ${clientId}.`);
-  } else {
-    await telegram.notifyOperator(`❌ Изпращането на коригирания отговор до ${clientId} се провали.`);
+  if (ctxData.type === 'rewrite') {
+    const { channel, clientId } = ctxData;
+    const ok = await deliverToClient(channel, clientId, text);
+    if (ok) {
+      state.appendAssistantMessage(channel, clientId, text);
+      await telegram.notifyOperator(`✅ Коригираният отговор е изпратен на клиент ${clientId}.`);
+    } else {
+      await telegram.notifyOperator(`❌ Изпращането на коригирания отговор до ${clientId} се провали.`);
+    }
+    state.deleteOperatorReplyContext(promptMessageId);
+    return true;
   }
+
+  if (ctxData.type === 'setprompt') {
+    prompt.setPromptOverride(text);
+    state.deleteOperatorReplyContext(promptMessageId);
+    await telegram.notifyOperator(
+      '✅ Системният промпт е сменен и важи веднага за новите отговори.\n\n' +
+        '⚠️ Това важи до следващ рестарт/redeploy. За да остане завинаги, копирай ' +
+        'текста в Railway → Variables → SYSTEM_PROMPT.',
+    );
+    return true;
+  }
+
+  return false;
+}
+
+// ── Команди за системния промпт (само оператор) ──────────────────────────────
+
+/** /prompt — показва текущия промпт и откъде идва. */
+export async function handleShowPrompt(ctx) {
+  const info = prompt.getPromptInfo();
+  // Telegram реже съобщения над ~4096 символа — режем за по-сигурно.
+  const shown = info.text.length > 3500 ? info.text.slice(0, 3500) + '\n…(отрязано)' : info.text;
+  await ctx.reply(
+    `📋 Текущ системен промпт (източник: ${info.source}):\n\n${shown}\n\n` +
+      `За смяна: /setprompt   •   За връщане на оригинала: /resetprompt`,
+  );
+}
+
+/**
+ * /setprompt — иска нов текст. Връща false, ако не е успяло (тогава telegram.js
+ * го съобщава). При успех записва контекст за reply-а.
+ */
+export async function handleSetPromptRequest() {
+  const promptMessageId = await telegram.askForPrompt();
+  if (!promptMessageId) return false;
+  state.setOperatorReplyContext(promptMessageId, { type: 'setprompt' });
   return true;
+}
+
+/** /resetprompt — връща оригиналния промпт (env или файл). */
+export async function handleResetPrompt(ctx) {
+  prompt.clearPromptOverride();
+  const info = prompt.getPromptInfo();
+  await ctx.reply(`↩️ Върнат е оригиналният промпт (източник: ${info.source}).`);
 }
 
 // ── Доставка по правилния канал ──────────────────────────────────────────────
