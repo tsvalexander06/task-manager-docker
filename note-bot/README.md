@@ -133,6 +133,69 @@ While a listing session is active for a chat, all messages from that chat
 go to the listing flow (not task capture) until `/done`'s result is
 confirmed/published or `/cancel`'d.
 
+## Architecture
+
+- **Telegram** (Telegraf) — the only user-facing surface.
+- **Anthropic Claude (`claude-sonnet-4-6`)** — intent classification
+  (`src/intent.js`, listing vs. task), note structuring (`src/analyze.js`),
+  status digests (`src/report.js`), and machine identification/spec
+  enrichment for listings (`src/listing/vision.js`, `src/listing/research.js`,
+  the latter using the `web_search_20250305` tool).
+- **OpenAI `gpt-4o-mini-transcribe`** — voice note transcription. Optional;
+  omitting `OPENAI_API_KEY` just disables voice support.
+- **Playwright** — drives a real browser session to auto-publish listings to
+  OLX.bg (`src/listing/olx.js`).
+- **Backend REST API** — all persistence (tasks/workers/equipment) goes
+  through the `backend` service; note-bot holds no direct DB connection. See
+  `backend/README.md` for endpoints and schema.
+
+## Commands
+
+| Command | Does |
+| --- | --- |
+| `/start` | Greeting/intro. |
+| `/cancel` | Aborts an in-progress listing session for that chat. |
+| `/tasks` | Lists pending vs. done tasks. |
+| `/done <id>` | Marks a task done; advances linked equipment, may trigger a next-step reminder. |
+| `/report` | Claude-generated status digest (done/pending/suggestions). |
+| `/workers` | Lists registered workers. |
+| `/worker add <name> <chat id> [skills]` | Registers a worker (must have DM'd the bot first to have a chat id). |
+| `/equipment [status]` | Lists machines, optionally filtered by lifecycle stage. |
+| `/sold <id>` | Marks a machine `sold`. |
+
+## State machines
+
+Both are in-memory `Map`s keyed by chat ID — state does **not** survive a
+restart/redeploy:
+
+- **`listingSessions`** — `collecting_photos → processing → awaiting_price →
+  awaiting_confirm`. While active for a chat, all messages from that chat go
+  to the listing flow instead of task capture.
+- **`workerSessions`** — `awaiting_completion_scope`, used when a worker has
+  multiple open tasks and replies with a completion phrase; the bot needs to
+  know whether they mean all of them or specific `#id`s.
+
+## Deployment
+
+`compose.yml` defines four services: `backend`, `db` (Postgres 16, with a
+healthcheck gating `backend`'s startup), `note-bot`, and the legacy
+`telegram-bot` (see Gaps & Risks below). Volumes: `postgres_data` (DB data),
+`note_bot_photos` (mounted at `/app/photos` in `note-bot`).
+
+### Railway
+
+Each `compose.yml` service maps to its own Railway service. Cross-service
+calls use Railway's private network: `http://<service-name>.railway.internal:<port>`.
+
+Railway auto-injects its own `PORT` env var per service, which silently
+overrides the app's `process.env.PORT || 3000` default — the backend may end
+up listening on a Railway-assigned port like `8080` instead of `3000`. Check
+the backend's deploy log line `Server running on port ___` and set
+`BACKEND_URL` on `note-bot` to match that actual port, not an assumed
+default. Monorepo services also need an explicit **Root Directory** (e.g.
+`backend`, `note-bot`) and Dockerfile builder set in their Railway settings,
+since auto-detection at the repo root won't find a single buildable target.
+
 ## Setup
 
 1. Copy `.env.example` to `.env` and fill in:
@@ -162,8 +225,30 @@ confirmed/published or `/cancel`'d.
   at that in-container path — it persists across restarts but isn't
   served over HTTP yet. Listing photos are deleted after the listing is
   published or cancelled.
-- The separate `telegram-bot` service is now redundant — this bot absorbs
-  its listing-creation logic. It's left in the repo for now; let me know
-  if you want it removed.
 - Still no Notion/n8n integration. Capture → structure → classify →
   (optionally) notify a worker chat or publish a listing.
+
+## Gaps & Risks
+
+- **`telegram-bot/` is fully redundant.** Its vision/research/olx/template
+  logic is duplicated under `src/listing/` in this bot, which also adds
+  automatic intent-based routing the old bot doesn't have. It's still
+  defined as its own service/image in `compose.yml`; safe to remove once
+  you're sure nothing external still points at it.
+- **No automated tests.** Neither `note-bot/` nor `backend/` has any test
+  coverage, and there's no CI workflow in the repo.
+- **No formal DB migrations.** The schema is grown via idempotent
+  `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN IF NOT EXISTS`
+  statements run on every boot (see `backend/README.md`). Fine for additive
+  changes; doesn't support renames, drops, or data backfills.
+- **Leaked-credential history.** Commit `ea75ab9` committed real secrets
+  into `.env.example` (removed later in `2e0a0be`, but still present in git
+  history). The Telegram bot token has since been rotated. **Anthropic API
+  key rotation is still unconfirmed** — rotate it if it hasn't been.
+- **Railway `PORT` brittleness.** Railway auto-injects its own `PORT` per
+  service, which can silently override the app's own default — see the
+  Deployment section above. Any dependent service's `BACKEND_URL` needs to
+  track the backend's *actual* assigned port.
+- **In-memory session state.** `listingSessions` and `workerSessions` are
+  plain `Map`s — an in-progress listing or worker completion flow is
+  silently dropped on restart/redeploy.
