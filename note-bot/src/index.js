@@ -58,6 +58,17 @@ const listingSessions = new Map();
 const workerSessions = new Map();
 let lastReminderDate = null;
 
+// Chats that were just told (via nextStepReminder) to send photos for a new
+// listing. A caption-less photo from one of these chats is treated as
+// listing intent instead of defaulting to "task", since there's no caption
+// text to classify. Expires on its own so it can't linger indefinitely.
+const pendingListingPrompt = new Map();
+function armListingPrompt(chatId) {
+  if (!chatId) return;
+  pendingListingPrompt.set(chatId, true);
+  setTimeout(() => pendingListingPrompt.delete(chatId), 30 * 60 * 1000);
+}
+
 // After washing/fixing a machine, the next steps (photos -> listing -> hand off
 // to the website engineer) are easy to forget — surface them as soon as that
 // kind of task is marked done.
@@ -310,7 +321,10 @@ bot.command("done", async (ctx) => {
     const eqNotice = await advanceEquipmentOnTaskDone(task);
     if (eqNotice) await ctx.reply(eqNotice);
     const reminder = nextStepReminder(task);
-    if (reminder) await ctx.reply(reminder);
+    if (reminder) {
+      await ctx.reply(reminder);
+      armListingPrompt(ctx.chat.id);
+    }
   } catch (err) {
     await ctx.reply(`Грешка: ${err.message}`);
   }
@@ -484,7 +498,10 @@ async function handleWorkerMessage(ctx, worker, text) {
       }
       for (const task of completed) {
         const reminder = nextStepReminder(task);
-        if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+        if (reminder) {
+          await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+          armListingPrompt(OWNER_CHAT_ID);
+        }
       }
     }
     return;
@@ -511,7 +528,10 @@ async function handleWorkerMessage(ctx, worker, text) {
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи #${task.id}: ${task.title}`);
       if (eqNotice) await ctx.telegram.sendMessage(OWNER_CHAT_ID, eqNotice);
       const reminder = nextStepReminder(task);
-      if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+      if (reminder) {
+        await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+        armListingPrompt(OWNER_CHAT_ID);
+      }
     }
     return;
   }
@@ -704,7 +724,10 @@ bot.on("photo", async (ctx) => {
       return ctx.reply(`Снимка получена (${existingSession.photos.length}). Изпрати още или напиши /done.`);
     }
 
-    const intent = caption ? await classifyIntent(caption) : "task";
+    const hadListingPrompt = pendingListingPrompt.get(ctx.chat.id);
+    pendingListingPrompt.delete(ctx.chat.id);
+
+    const intent = caption ? await classifyIntent(caption) : hadListingPrompt ? "listing" : "task";
     if (intent === "listing") {
       const stored = await downloadAndStorePhoto(ctx, largest.file_id);
       listingSessions.set(ctx.chat.id, {
