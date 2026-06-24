@@ -756,8 +756,17 @@ bot.on("callback_query", async (ctx) => {
   }
 });
 
-bot.launch();
-console.log("note-bot started");
+function launchWithRetry(delayMs = 5000) {
+  bot
+    .launch()
+    .then(() => console.log("note-bot started"))
+    .catch((err) => {
+      console.error("bot.launch() failed, retrying in", delayMs, "ms:", err.message);
+      setTimeout(() => launchWithRetry(Math.min(delayMs * 2, 60000)), delayMs);
+    });
+}
+
+launchWithRetry();
 
 setInterval(sendDailyReminderIfDue, 60 * 1000);
 
