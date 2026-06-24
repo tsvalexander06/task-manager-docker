@@ -654,6 +654,7 @@ bot.on("text", async (ctx) => {
     }
     await processNote(ctx, text);
   } catch (err) {
+    console.error("text handler failed:", err);
     await ctx.reply(`Не успях да обработя бележката: ${err.message}`);
   }
 });
