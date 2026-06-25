@@ -1,4 +1,5 @@
 const Anthropic = require("@anthropic-ai/sdk");
+const { FAST } = require("./models");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -12,7 +13,7 @@ const SYSTEM_PROMPT = `Ти класифицираш съобщение от с�
 
 async function classifyIntent(text) {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: FAST,
     max_tokens: 10,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: text }]

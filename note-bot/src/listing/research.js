@@ -1,4 +1,5 @@
 const Anthropic = require("@anthropic-ai/sdk");
+const { STRONG } = require("../models");
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -20,7 +21,7 @@ Respond with ONLY a JSON object containing the fields you found (use null if you
 Use the same units/format as a spec sheet, e.g. "230 V", "0.18 kW", "IP55", "41 x 53 x 80 см".`;
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: STRONG,
     max_tokens: 1024,
     tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
     messages: [{ role: "user", content: prompt }],

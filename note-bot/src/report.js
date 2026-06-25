@@ -1,4 +1,5 @@
 const Anthropic = require("@anthropic-ai/sdk");
+const { STRONG } = require("./models");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -33,7 +34,7 @@ async function generateReport(tasks) {
     .join("\n");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: STRONG,
     max_tokens: 800,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: input || "Няма задачи." }]
