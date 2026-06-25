@@ -105,6 +105,28 @@ async function updateEquipment(id, fields) {
   return res.json();
 }
 
+async function listSessions(kind) {
+  const url = kind ? `${BACKEND_URL}/sessions?kind=${kind}` : `${BACKEND_URL}/sessions`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
+async function saveSession(chatId, kind, state) {
+  const res = await fetch(`${BACKEND_URL}/sessions/${chatId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, state })
+  });
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
+async function deleteSession(chatId) {
+  const res = await fetch(`${BACKEND_URL}/sessions/${chatId}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) throw new Error(`Backend error: ${res.status}`);
+}
+
 module.exports = {
   createTask,
   listTasks,
@@ -115,5 +137,8 @@ module.exports = {
   listEquipment,
   getEquipment,
   createEquipment,
-  updateEquipment
+  updateEquipment,
+  listSessions,
+  saveSession,
+  deleteSession
 };

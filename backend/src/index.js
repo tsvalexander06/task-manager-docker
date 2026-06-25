@@ -184,6 +184,39 @@ app.patch("/equipment/:id", async (req, res) => {
   res.json(result.rows[0]);
 });
 
+// Per-chat bot session state (listing/worker-completion flows), persisted so
+// it survives a bot restart/redeploy instead of living only in memory.
+app.get("/sessions", async (req, res) => {
+  const { kind } = req.query;
+  const result = kind
+    ? await pool.query("SELECT * FROM bot_sessions WHERE kind = $1", [kind])
+    : await pool.query("SELECT * FROM bot_sessions");
+  res.json(result.rows);
+});
+
+app.get("/sessions/:chatId", async (req, res) => {
+  const result = await pool.query("SELECT * FROM bot_sessions WHERE chat_id = $1", [req.params.chatId]);
+  if (result.rows.length === 0) return res.status(404).json({ error: "Session not found" });
+  res.json(result.rows[0]);
+});
+
+app.put("/sessions/:chatId", async (req, res) => {
+  const { kind, state } = req.body;
+  const result = await pool.query(
+    `INSERT INTO bot_sessions (chat_id, kind, state, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (chat_id) DO UPDATE SET kind = $2, state = $3, updated_at = now()
+     RETURNING *`,
+    [req.params.chatId, kind, state]
+  );
+  res.json(result.rows[0]);
+});
+
+app.delete("/sessions/:chatId", async (req, res) => {
+  await pool.query("DELETE FROM bot_sessions WHERE chat_id = $1", [req.params.chatId]);
+  res.status(204).end();
+});
+
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -229,6 +262,15 @@ async function initDb() {
       olx_url TEXT,
       photo_paths TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bot_sessions (
+      chat_id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      state JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);

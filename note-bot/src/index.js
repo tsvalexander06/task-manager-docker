@@ -13,7 +13,10 @@ const {
   listEquipment,
   getEquipment,
   createEquipment,
-  updateEquipment
+  updateEquipment,
+  listSessions,
+  saveSession,
+  deleteSession
 } = require("./backend");
 const { generateReport } = require("./report");
 const { transcribeVoice } = require("./transcribe");
@@ -59,6 +62,43 @@ const listingSessions = new Map();
 // Per-worker-chat session while the bot is asking "done with everything?": { state, pendingTaskIds }
 const workerSessions = new Map();
 let lastReminderDate = null;
+
+// Both session maps are mirrored to the backend (bot_sessions table) so an
+// in-progress listing or worker-completion flow survives a bot
+// restart/redeploy instead of vanishing along with the in-memory Map.
+async function persistListingSession(chatId) {
+  try {
+    const session = listingSessions.get(chatId);
+    if (session) await saveSession(chatId, "listing", session);
+    else await deleteSession(chatId);
+  } catch (err) {
+    console.error("listing session persist failed:", err.message);
+  }
+}
+
+async function persistWorkerSession(chatId) {
+  try {
+    const session = workerSessions.get(chatId);
+    if (session) await saveSession(chatId, "worker", session);
+    else await deleteSession(chatId);
+  } catch (err) {
+    console.error("worker session persist failed:", err.message);
+  }
+}
+
+async function loadPersistedSessions() {
+  try {
+    const rows = await listSessions();
+    for (const row of rows) {
+      const chatId = Number(row.chat_id);
+      if (row.kind === "listing") listingSessions.set(chatId, row.state);
+      else if (row.kind === "worker") workerSessions.set(chatId, row.state);
+    }
+    if (rows.length > 0) console.log(`Restored ${rows.length} persisted session(s)`);
+  } catch (err) {
+    console.error("failed to restore persisted sessions:", err.message);
+  }
+}
 
 // Chats that were just told (via nextStepReminder) to send photos for a new
 // listing. A caption-less photo from one of these chats is treated as
@@ -217,10 +257,11 @@ bot.start((ctx) =>
   )
 );
 
-bot.command("cancel", (ctx) => {
+bot.command("cancel", async (ctx) => {
   if (listingSessions.has(ctx.chat.id)) {
     cleanupListingSession(listingSessions.get(ctx.chat.id));
     listingSessions.delete(ctx.chat.id);
+    await persistListingSession(ctx.chat.id);
     return ctx.reply("Обявата е отказана.");
   }
   ctx.reply("Няма активна обява за отказване.");
@@ -490,6 +531,7 @@ async function handleWorkerMessage(ctx, worker, text) {
       completed.push(await updateTaskStatus(id, "done"));
     }
     workerSessions.delete(ctx.chat.id);
+    await persistWorkerSession(ctx.chat.id);
     await ctx.reply(`✅ Отбелязах като свършени: ${completed.map((t) => `#${t.id}`).join(", ")}.`);
 
     const eqNotices = [];
@@ -544,6 +586,7 @@ async function handleWorkerMessage(ctx, worker, text) {
   }
 
   workerSessions.set(ctx.chat.id, { state: "awaiting_completion_scope", pendingTaskIds: open.map((t) => t.id) });
+  await persistWorkerSession(ctx.chat.id);
   const list = open.map((t) => `#${t.id} ${t.title}`).join("\n");
   await ctx.reply(
     `Готов си с всичко възложено?\n${list}\n\nНапиши "всички" или номерата на готовите (напр. "#6 #7").`
@@ -618,6 +661,7 @@ async function finishPhotoCollection(ctx, session) {
     return ctx.reply("Първо изпрати поне една снимка.");
   }
   session.state = "processing";
+  await persistListingSession(ctx.chat.id);
   await ctx.reply("Анализирам снимките...");
 
   try {
@@ -627,6 +671,7 @@ async function finishPhotoCollection(ctx, session) {
 
     session.item = item;
     session.state = "awaiting_price";
+    await persistListingSession(ctx.chat.id);
 
     const summary = Object.entries(item)
       .map(([k, v]) => `${k}: ${v ?? "—"}`)
@@ -635,6 +680,7 @@ async function finishPhotoCollection(ctx, session) {
   } catch (err) {
     console.error(err);
     session.state = "collecting_photos";
+    await persistListingSession(ctx.chat.id);
     await ctx.reply("Грешка при анализа. Опитай отново или /cancel.");
   }
 }
@@ -654,6 +700,7 @@ async function handleListingText(ctx, session, text) {
 
     session.draft = buildDescription(session.item, price);
     session.state = "awaiting_confirm";
+    await persistListingSession(ctx.chat.id);
 
     const conversionNote = isEuro ? ` (конвертирано от ${amount} €)` : "";
     return ctx.reply(
@@ -691,6 +738,7 @@ async function handleListingText(ctx, session, text) {
     } finally {
       cleanupListingSession(session);
       listingSessions.delete(ctx.chat.id);
+      await persistListingSession(ctx.chat.id);
     }
   }
 }
@@ -715,6 +763,7 @@ bot.on("text", async (ctx) => {
     const intent = await classifyIntent(text);
     if (intent === "listing") {
       listingSessions.set(ctx.chat.id, { state: "collecting_photos", photos: [], item: null, draft: null });
+      await persistListingSession(ctx.chat.id);
       await ctx.reply("Добре, нова обява. Изпрати снимки на машината, после напиши /done.");
       return;
     }
@@ -745,6 +794,7 @@ bot.on("voice", async (ctx) => {
     const intent = await classifyIntent(transcript);
     if (intent === "listing") {
       listingSessions.set(ctx.chat.id, { state: "collecting_photos", photos: [], item: null, draft: null });
+      await persistListingSession(ctx.chat.id);
       await ctx.reply("Добре, нова обява. Изпрати снимки на машината, после напиши /done.");
       return;
     }
@@ -767,6 +817,7 @@ bot.on("photo", async (ctx) => {
       }
       const stored = await downloadAndStorePhoto(ctx, largest.file_id);
       existingSession.photos.push(stored);
+      await persistListingSession(ctx.chat.id);
       return ctx.reply(`Снимка получена (${existingSession.photos.length}). Изпрати още или напиши /done.`);
     }
 
@@ -782,6 +833,7 @@ bot.on("photo", async (ctx) => {
         item: null,
         draft: null
       });
+      await persistListingSession(ctx.chat.id);
       await ctx.reply("Добре, нова обява. Изпрати още снимки или напиши /done.");
       return;
     }
@@ -838,7 +890,7 @@ function launchWithRetry(delayMs = 5000) {
     });
 }
 
-launchWithRetry();
+loadPersistedSessions().then(() => launchWithRetry());
 
 setInterval(sendDailyReminderIfDue, 60 * 1000);
 

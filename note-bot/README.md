@@ -249,6 +249,13 @@ since auto-detection at the repo root won't find a single buildable target.
   service, which can silently override the app's own default — see the
   Deployment section above. Any dependent service's `BACKEND_URL` needs to
   track the backend's *actual* assigned port.
-- **In-memory session state.** `listingSessions` and `workerSessions` are
-  plain `Map`s — an in-progress listing or worker completion flow is
-  silently dropped on restart/redeploy.
+- **Session state persistence.** `listingSessions` and `workerSessions` are
+  in-memory `Map`s, but every mutation is mirrored to the backend's
+  `bot_sessions` table (`GET/PUT/DELETE /sessions`), and on startup the bot
+  reloads all persisted rows before calling `bot.launch()`. An in-progress
+  listing or worker completion flow now survives a restart/redeploy. Note
+  that listing sessions store photo data as base64 inside the JSONB state
+  blob (not just file paths), so they stay restorable even on Railway's
+  ephemeral filesystem — the tradeoff is that a stalled listing session can
+  leave a non-trivial JSONB row in `bot_sessions` until it's completed or
+  cancelled.
