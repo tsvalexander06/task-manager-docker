@@ -9,12 +9,12 @@ Respond with ONLY a JSON object, no other text, with these keys (use null for an
 {
   "brand": string|null,
   "model": string|null,
-  "type": string|null,        // Bulgarian description of what the machine is, e.g. "професионална белачка за картофи"
+  "type": string|null,        // Bulgarian description of what the machine is, USING SIMPLE COMMON TERMS, e.g. "професионален хладилник" (not "хладилен шкаф"), "професионална белачка за картофи"
   "capacity": string|null,     // include unit, e.g. "7 кг"
   "voltage": string|null,      // e.g. "230 V"
   "power": string|null,        // e.g. "0.18 kW"
   "ipRating": string|null,     // e.g. "IP55"
-  "dimensions": string|null,   // "Ш x Д x В" in cm, e.g. "41 x 53 x 80 см"
+  "dimensions": string|null,   // ALWAYS in cm ("Ш x Д x В") -- if the label shows mm, convert by dividing by 10. e.g. "41 x 53 x 80 см"
   "condition": string|null     // default to "употребявана" (used) unless it looks new
 }`;
 

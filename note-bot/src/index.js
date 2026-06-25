@@ -26,6 +26,8 @@ const { postListing } = require("./listing/olx");
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
 const CONFIDENCE_THRESHOLD = 70;
+// Bulgarian lev is currency-board pegged to the euro at this fixed rate.
+const EUR_TO_BGN = 1.95583;
 
 const ASSIGNEE_EMOJI = { worker: "👷", agent: "🤖" };
 const STATUS_EMOJI = { pending: "📌", in_progress: "⏳", done: "✅" };
@@ -643,17 +645,20 @@ async function handleListingText(ctx, session, text) {
   }
 
   if (session.state === "awaiting_price") {
-    const price = Number(text.replace(/[^\d.]/g, ""));
-    if (!price) {
+    const amount = Number(text.replace(/[^\d.]/g, ""));
+    if (!amount) {
       return ctx.reply("Моля изпрати валидна цена (число).");
     }
+    const isEuro = /€|евро|eur\b/i.test(text);
+    const price = isEuro ? Math.round(amount * EUR_TO_BGN * 100) / 100 : amount;
 
     session.draft = buildDescription(session.item, price);
     session.state = "awaiting_confirm";
 
+    const conversionNote = isEuro ? ` (конвертирано от ${amount} €)` : "";
     return ctx.reply(
       `Чернова на обявата:\n\n` +
-        `Заглавие: ${session.draft.title}\n\n${session.draft.description}\n\nЦена: ${price} лв\n\n` +
+        `Заглавие: ${session.draft.title}\n\n${session.draft.description}\n\nЦена: ${price} лв${conversionNote}\n\n` +
         `Изпрати "да" за публикуване в OLX или /cancel за отказ.`
     );
   }
