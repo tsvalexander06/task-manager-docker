@@ -826,15 +826,18 @@ bot.on("photo", async (ctx) => {
 
     const intent = caption ? await classifyIntent(caption) : hadListingPrompt ? "listing" : "task";
     if (intent === "listing") {
+      // Reserve the session synchronously, before downloading the photo, so
+      // sibling photos from the same album (which arrive as separate updates
+      // and can interleave at the await below) see this session already
+      // exists instead of each independently deciding to start a new one.
+      if (!listingSessions.has(ctx.chat.id)) {
+        listingSessions.set(ctx.chat.id, { state: "collecting_photos", photos: [], item: null, draft: null });
+      }
+      const session = listingSessions.get(ctx.chat.id);
       const stored = await downloadAndStorePhoto(ctx, largest.file_id);
-      listingSessions.set(ctx.chat.id, {
-        state: "collecting_photos",
-        photos: [stored],
-        item: null,
-        draft: null
-      });
+      session.photos.push(stored);
       await persistListingSession(ctx.chat.id);
-      await ctx.reply("Добре, нова обява. Изпрати още снимки или напиши /done.");
+      await ctx.reply(`Снимка получена (${session.photos.length}). Изпрати още или напиши /done.`);
       return;
     }
 
