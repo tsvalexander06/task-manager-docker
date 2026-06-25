@@ -107,7 +107,19 @@ the owner's — messages from it never get analyzed as new notes. Instead:
   auto-created task, so it never gets buried in `/tasks`.
 - If `OWNER_CHAT_ID` is set, once a day at `REMINDER_HOUR` (default `9`,
   server-local time) the bot sends you a digest of everything still
-  pending — a lighter-weight nudge than `/report`, with no AI call.
+  pending — a lighter-weight nudge than `/report`, with no AI call. This
+  digest now also lists equipment stuck at `ready` (washed/fixed but never
+  photographed/listed), so forgetting to start a listing at all doesn't go
+  unnoticed indefinitely — it resurfaces every day until the machine is
+  listed.
+- If you *do* start a listing (photos sent, or mid price/confirm step) and
+  then go quiet, the bot checks every 15 minutes for sessions stalled more
+  than `LISTING_STALL_HOURS` (default `3`) since their last activity, and
+  sends a one-time nudge appropriate to where you left off (still waiting
+  for photos, waiting for `/done`, waiting for a price, or waiting for `да`
+  to confirm). It won't repeat the nudge again until you interact with the
+  session (which resets the stall timer), so it's a single tap on the
+  shoulder rather than a recurring spam.
 
 ## Listing flow
 
@@ -216,6 +228,9 @@ since auto-detection at the repo root won't find a single buildable target.
      pending-tasks reminder.
    - `REMINDER_HOUR` — optional, default `9`. Hour (0-23, server-local
      time) the daily reminder is sent at, if `OWNER_CHAT_ID` is set.
+   - `LISTING_STALL_HOURS` — optional, default `3`. How long a listing
+     session can sit untouched (waiting for photos/`/done`/price/confirm)
+     before the bot sends a one-time nudge to that chat.
 2. `docker compose up --build note-bot backend db`
 
 ## Notes

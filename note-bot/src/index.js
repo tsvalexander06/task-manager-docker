@@ -54,6 +54,7 @@ const PHOTOS_DIR = process.env.PHOTOS_DIR || path.join(__dirname, "..", "photos"
 const WORKER_CHAT_ID = process.env.WORKER_CHAT_ID;
 const OWNER_CHAT_ID = process.env.OWNER_CHAT_ID;
 const REMINDER_HOUR = Number(process.env.REMINDER_HOUR || 9);
+const LISTING_STALL_HOURS = Number(process.env.LISTING_STALL_HOURS || 3);
 const COMPLETION_PATTERN = /готов|готово|свърш|приключ|done|finish/i;
 const WASH_OR_REPAIR_PATTERN = /миене|почист|ремонт|поправ|фикс/i;
 
@@ -69,8 +70,16 @@ let lastReminderDate = null;
 async function persistListingSession(chatId) {
   try {
     const session = listingSessions.get(chatId);
-    if (session) await saveSession(chatId, "listing", session);
-    else await deleteSession(chatId);
+    if (session) {
+      // Touch the activity timestamp and clear any prior stall reminder on
+      // every real mutation, so checkStalledListingSessions() below only
+      // nudges once per period of actual inactivity.
+      session.updatedAt = Date.now();
+      session.stallReminded = false;
+      await saveSession(chatId, "listing", session);
+    } else {
+      await deleteSession(chatId);
+    }
   } catch (err) {
     console.error("listing session persist failed:", err.message);
   }
@@ -234,11 +243,54 @@ async function sendDailyReminderIfDue() {
   try {
     const tasks = await listTasks();
     const pending = tasks.filter((t) => t.status !== "done");
-    if (pending.length === 0) return;
-    const lines = pending.map((t) => `${STATUS_EMOJI[t.status] || "📌"} #${t.id} ${t.title}`);
-    await bot.telegram.sendMessage(OWNER_CHAT_ID, `⏰ Напомняне за днешните задачи:\n${lines.join("\n")}`);
+    const readyEquipment = await listEquipment({ status: "ready" });
+    if (pending.length === 0 && readyEquipment.length === 0) return;
+
+    const lines = [];
+    if (pending.length > 0) {
+      lines.push("⏰ Напомняне за днешните задачи:");
+      lines.push(...pending.map((t) => `${STATUS_EMOJI[t.status] || "📌"} #${t.id} ${t.title}`));
+    }
+    if (readyEquipment.length > 0) {
+      if (lines.length > 0) lines.push("");
+      lines.push("📸 Чакат снимки/обява (готови за продажба, но още не обявени):");
+      lines.push(...readyEquipment.map((e) => `✅ #${e.id} ${e.name}`));
+    }
+    await bot.telegram.sendMessage(OWNER_CHAT_ID, lines.join("\n"));
   } catch (err) {
     console.error("Daily reminder failed:", err.message);
+  }
+}
+
+// Listing sessions that have been waiting on the user (mid-photos, mid-price,
+// mid-confirm) for too long get a one-time nudge per stall, so a forgotten
+// listing doesn't just sit silently until /cancel or a manual restart.
+async function checkStalledListingSessions() {
+  const thresholdMs = LISTING_STALL_HOURS * 60 * 60 * 1000;
+  const now = Date.now();
+  for (const [chatId, session] of listingSessions.entries()) {
+    if (session.stallReminded || session.state === "processing") continue;
+    if (now - (session.updatedAt || 0) < thresholdMs) continue;
+
+    let message = null;
+    if (session.state === "collecting_photos" && session.photos.length === 0) {
+      message = "📸 Все още чакам снимки на машината за обявата. Изпрати ги, или напиши /cancel ако вече не е нужно.";
+    } else if (session.state === "collecting_photos") {
+      message = `📸 Имаш ${session.photos.length} снимка(и) чакащи — напиши /done за да продължим с обявата, или изпрати още.`;
+    } else if (session.state === "awaiting_price") {
+      message = "💰 Чакам цена за обявата — напиши я, за да продължим.";
+    } else if (session.state === "awaiting_confirm") {
+      message = '✅ Обявата е готова и чака потвърждение — напиши "да" за да се качи, или /cancel.';
+    }
+    if (!message) continue;
+
+    try {
+      await bot.telegram.sendMessage(chatId, message);
+      session.stallReminded = true;
+      await saveSession(chatId, "listing", session);
+    } catch (err) {
+      console.error("stalled listing reminder failed:", err.message);
+    }
   }
 }
 
@@ -896,6 +948,7 @@ function launchWithRetry(delayMs = 5000) {
 loadPersistedSessions().then(() => launchWithRetry());
 
 setInterval(sendDailyReminderIfDue, 60 * 1000);
+setInterval(checkStalledListingSessions, 15 * 60 * 1000);
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
