@@ -14,6 +14,9 @@ flow that identifies the equipment from photos, drafts the listing, and
    - Voice messages are transcribed first (OpenAI `gpt-4o-mini-transcribe`).
    - Photos are saved to disk and attached to the task; the caption (or a
      default placeholder if there isn't one) is used as the note text.
+   - A text message with several notes typed on separate lines (e.g. "маса
+     миене" on one line, "Foster хладилник ремонт" on the next) is split
+     into one task per non-empty line instead of being merged into one.
 2. Claude classifies intent. If it's not a listing request, it structures
    the note into `{ title, description, category, assigneeType, agentType,
    confidence, priority }`. `assigneeType` is `worker` if the task needs a
@@ -29,9 +32,10 @@ flow that identifies the equipment from photos, drafts the listing, and
    directly (with the photo, if any) and marks the task `in_progress`. If
    no workers are registered yet, it falls back to `WORKER_CHAT_ID` (if
    set) for `worker`-type tasks.
-5. `/tasks` shows what's pending vs. done. `/done <id>` marks a task done.
-   `/report` asks Claude for a short status digest (done / pending /
-   suggestions to speed things up) instead of a raw list.
+5. `/tasks` shows what's pending vs. done. `/done <id>` marks a task done,
+   `/done all` marks every open task done at once. `/report` asks Claude
+   for a short status digest (done / pending / suggestions to speed things
+   up) instead of a raw list.
 6. `/workers` lists registered workers. `/worker add <name> <chat id>
    [skills]` registers one — the worker must have started a chat with the
    bot first so it has a `chat id` to message them at.
@@ -169,6 +173,7 @@ confirmed/published or `/cancel`'d.
 | `/cancel` | Aborts an in-progress listing session for that chat. |
 | `/tasks` | Lists pending vs. done tasks. |
 | `/done <id>` | Marks a task done; advances linked equipment, may trigger a next-step reminder. |
+| `/done all` | Marks every open task done at once (same per-task side effects as above). |
 | `/report` | Claude-generated status digest (done/pending/suggestions). |
 | `/workers` | Lists registered workers. |
 | `/worker add <name> <chat id> [skills]` | Registers a worker (must have DM'd the bot first to have a chat id). |

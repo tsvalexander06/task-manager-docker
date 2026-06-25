@@ -406,13 +406,42 @@ bot.command("done", async (ctx) => {
   }
 
   let id = ctx.message.text.split(" ")[1];
+
+  if (id && id.toLowerCase() === "all") {
+    try {
+      const tasks = await listTasks();
+      const open = tasks.filter((t) => t.status !== "done");
+      if (open.length === 0) {
+        await ctx.reply("Няма активни задачи.");
+        return;
+      }
+      const completed = [];
+      for (const t of open) {
+        completed.push(await updateTaskStatus(t.id, "done"));
+      }
+      await ctx.reply(`✅ Отбелязах като свършени: ${completed.map((t) => `#${t.id}`).join(", ")}.`);
+      for (const task of completed) {
+        const eqNotice = await advanceEquipmentOnTaskDone(task);
+        if (eqNotice) await ctx.reply(eqNotice);
+        const reminder = nextStepReminder(task);
+        if (reminder) {
+          await ctx.reply(reminder);
+          armListingPrompt(ctx.chat.id);
+        }
+      }
+    } catch (err) {
+      await ctx.reply(`Грешка: ${err.message}`);
+    }
+    return;
+  }
+
   if (!id && ctx.message.reply_to_message) {
     const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || "";
     const match = replyText.match(/#(\d+)/);
     if (match) id = match[1];
   }
   if (!id) {
-    await ctx.reply("Използване: /done <id> (или отговори с /done на съобщението със задачата)");
+    await ctx.reply("Използване: /done <id>, /done all, или отговори с /done на съобщението със задачата");
     return;
   }
   try {
@@ -645,7 +674,21 @@ async function handleWorkerMessage(ctx, worker, text) {
   );
 }
 
-async function processNote(ctx, text, { photoPath, photoForVision } = {}) {
+// A message can contain several tasks typed on separate lines (e.g. "маса
+// миене\nFoster хладилник ремонт") -- treat each non-empty line as its own
+// note/task instead of asking the model to merge them into one.
+async function processNote(ctx, text, opts = {}) {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    for (const line of lines) {
+      await processSingleNote(ctx, line, opts);
+    }
+    return;
+  }
+  return processSingleNote(ctx, text, opts);
+}
+
+async function processSingleNote(ctx, text, { photoPath, photoForVision } = {}) {
   const structured = await analyzeNote(text);
 
   // The note's text alone may not name the machine (e.g. "миене на" with a
