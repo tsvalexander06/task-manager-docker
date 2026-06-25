@@ -22,6 +22,7 @@ const {
 const { generateReport } = require("./report");
 const { transcribeVoice } = require("./transcribe");
 const { classifyIntent } = require("./intent");
+const { matchTaskByText } = require("./matchTask");
 const { identifyFromPhotos } = require("./listing/vision");
 const { enrichWithWebSearch } = require("./listing/research");
 const { buildDescription } = require("./listing/template");
@@ -334,7 +335,7 @@ bot.start((ctx) =>
     "Пиши, проговори или изпрати снимка с бележка (напр. \"маса миене\") и ще я превърна в задача.\n" +
       'Ако кажеш да пуснеш обява за продажба, ще премина в режим за създаване на обява.\n' +
       "/tasks — какво остава и какво е свършено\n" +
-      "/done <id> или /done all — отбележи задача(и) като свършена(и)\n" +
+      "/done <id>, /done all, или /done <описание> — отбележи задача(и) като свършена(и)\n" +
       "/report — кратък отчет за статуса на задачите\n" +
       "/equipment [статус] — оборудване по етап (received/servicing/ready/listed/sold)\n" +
       "/sold <id> — отбележи оборудване като продадено\n" +
@@ -458,12 +459,12 @@ bot.command("done", async (ctx) => {
       await ctx.reply(`✅ Отбелязах като свършени: ${completed.map((t) => `#${t.id}`).join(", ")}.`);
       for (const task of completed) {
         const eqNotice = await advanceEquipmentOnTaskDone(task);
-        if (eqNotice) await ctx.reply(eqNotice);
-        const reminder = nextStepReminder(task);
-        if (reminder) {
-          await ctx.reply(reminder);
+        if (eqNotice) {
+          await ctx.reply(eqNotice);
           armListingPrompt(ctx.chat.id);
         }
+        const reminder = nextStepReminder(task);
+        if (reminder) await ctx.reply(reminder);
       }
     } catch (err) {
       await ctx.reply(`Грешка: ${err.message}`);
@@ -476,20 +477,47 @@ bot.command("done", async (ctx) => {
     const match = replyText.match(/#(\d+)/);
     if (match) id = match[1];
   }
+
+  // No id, no "all", no reply -- treat the rest of the message as a free-text
+  // description of which task is done and let Claude pick it out, instead of
+  // forcing the owner to look up the id or reply to the original message.
   if (!id) {
-    await ctx.reply("Използване: /done <id>, /done all, или отговори с /done на съобщението със задачата");
-    return;
+    const description = ctx.message.text.split(" ").slice(1).join(" ").trim();
+    if (!description) {
+      await ctx.reply("Използване: /done <id>, /done all, /done <описание на задачата>, или отговори с /done на съобщението със задачата");
+      return;
+    }
+    try {
+      const tasks = await listTasks();
+      const open = tasks.filter((t) => t.status !== "done");
+      if (open.length === 0) {
+        await ctx.reply("Няма активни задачи.");
+        return;
+      }
+      id = await matchTaskByText(description, open);
+      if (!id) {
+        await ctx.reply(
+          "Не успях да позная еднозначно коя задача е — посочи /done <id> или отговори с /done на съобщението със задачата.\n" +
+            open.map((t) => `${STATUS_EMOJI[t.status] || "📌"} #${t.id} ${t.title}`).join("\n")
+        );
+        return;
+      }
+    } catch (err) {
+      await ctx.reply(`Грешка: ${err.message}`);
+      return;
+    }
   }
+
   try {
     const task = await updateTaskStatus(id, "done");
     await ctx.reply(`✅ Задача #${task.id} (${task.title}) е отбелязана като свършена.`);
     const eqNotice = await advanceEquipmentOnTaskDone(task);
-    if (eqNotice) await ctx.reply(eqNotice);
-    const reminder = nextStepReminder(task);
-    if (reminder) {
-      await ctx.reply(reminder);
+    if (eqNotice) {
+      await ctx.reply(eqNotice);
       armListingPrompt(ctx.chat.id);
     }
+    const reminder = nextStepReminder(task);
+    if (reminder) await ctx.reply(reminder);
   } catch (err) {
     await ctx.reply(`Грешка: ${err.message}`);
   }
@@ -702,13 +730,11 @@ async function handleWorkerMessage(ctx, worker, text) {
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи:\n${list}`);
       for (const notice of eqNotices) {
         await ctx.telegram.sendMessage(OWNER_CHAT_ID, notice);
+        armListingPrompt(OWNER_CHAT_ID);
       }
       for (const task of completed) {
         const reminder = nextStepReminder(task);
-        if (reminder) {
-          await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
-          armListingPrompt(OWNER_CHAT_ID);
-        }
+        if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
       }
     }
     return;
@@ -733,12 +759,12 @@ async function handleWorkerMessage(ctx, worker, text) {
     const eqNotice = await advanceEquipmentOnTaskDone(task);
     if (OWNER_CHAT_ID) {
       await ctx.telegram.sendMessage(OWNER_CHAT_ID, `✅ ${worker.name} приключи #${task.id}: ${task.title}`);
-      if (eqNotice) await ctx.telegram.sendMessage(OWNER_CHAT_ID, eqNotice);
-      const reminder = nextStepReminder(task);
-      if (reminder) {
-        await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
+      if (eqNotice) {
+        await ctx.telegram.sendMessage(OWNER_CHAT_ID, eqNotice);
         armListingPrompt(OWNER_CHAT_ID);
       }
+      const reminder = nextStepReminder(task);
+      if (reminder) await ctx.telegram.sendMessage(OWNER_CHAT_ID, reminder);
     }
     return;
   }
@@ -1005,7 +1031,10 @@ bot.on("photo", async (ctx) => {
     const hadListingPrompt = pendingListingPrompt.get(ctx.chat.id);
     pendingListingPrompt.delete(ctx.chat.id);
 
-    const intent = caption ? await classifyIntent(caption) : hadListingPrompt ? "listing" : "task";
+    // If the owner was just told a machine is ready for a listing, any photo
+    // sent right after is almost certainly for that listing -- even with a
+    // caption, since captions here are rarely explicit about "list this".
+    const intent = hadListingPrompt ? "listing" : caption ? await classifyIntent(caption) : "task";
     if (intent === "listing") {
       // Reserve the session synchronously, before downloading the photo, so
       // sibling photos from the same album (which arrive as separate updates

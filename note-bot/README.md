@@ -33,7 +33,11 @@ flow that identifies the equipment from photos, drafts the listing, and
    no workers are registered yet, it falls back to `WORKER_CHAT_ID` (if
    set) for `worker`-type tasks.
 5. `/tasks` shows what's pending vs. done. `/done <id>` marks a task done,
-   `/done all` marks every open task done at once. `/report` asks Claude
+   `/done all` marks every open task done at once, and `/done <free text>`
+   (e.g. `/done маса миене`) lets Claude match the description against your
+   open tasks instead of requiring an id or a reply to the task's message —
+   if it can't pick a single clear match, it lists the open tasks and asks
+   you to be more specific. `/report` asks Claude
    for a short status digest (done / pending / suggestions to speed things
    up) instead of a raw list.
 6. `/workers` lists registered workers. `/worker add <name> <chat id>
@@ -122,6 +126,14 @@ the owner's — messages from it never get analyzed as new notes. Instead:
   photographed/listed), so forgetting to start a listing at all doesn't go
   unnoticed indefinitely — it resurfaces every day until the machine is
   listed.
+- If you *do* start a listing (photos sent, or mid price/confirm step) and
+  then go quiet, the bot checks every 15 minutes for sessions stalled more
+  than `LISTING_STALL_HOURS` (default `3`) since their last activity, and
+  sends a one-time nudge appropriate to where you left off (still waiting
+  for photos, waiting for `/done`, waiting for a price, or waiting for `да`
+  to confirm). It won't repeat the nudge again until you interact with the
+  session (which resets the stall timer), so it's a single tap on the
+  shoulder rather than a recurring spam.
 
 ## Reminder / nudge tasks
 
@@ -145,19 +157,16 @@ All reminder timing is computed and compared as Sofia (`Europe/Sofia`)
 wall-clock time via `src/time.js`, stored as a plain `"YYYY-MM-DDTHH:mm:ss"`
 string (column type `TEXT`, not `TIMESTAMPTZ`) — this sidesteps Postgres
 reinterpreting a naive local time as UTC and firing reminders hours off.
-- If you *do* start a listing (photos sent, or mid price/confirm step) and
-  then go quiet, the bot checks every 15 minutes for sessions stalled more
-  than `LISTING_STALL_HOURS` (default `3`) since their last activity, and
-  sends a one-time nudge appropriate to where you left off (still waiting
-  for photos, waiting for `/done`, waiting for a price, or waiting for `да`
-  to confirm). It won't repeat the nudge again until you interact with the
-  session (which resets the stall timer), so it's a single tap on the
-  shoulder rather than a recurring spam.
 
 ## Listing flow
 
 Triggered automatically when Claude detects listing intent in a text/voice
-message, or in a photo's caption (see `src/intent.js`).
+message, or in a photo's caption (see `src/intent.js`). It's also armed
+directly (skipping caption classification) for ~30 minutes any time the bot
+just told you a piece of equipment became ready for sale — whether via a
+`/done`-triggered "→ готово за продажба" notice or the next-step reminder —
+so a photo you send right after (with or without a caption) starts the
+listing flow instead of being filed as a new task.
 
 1. Bot enters "collecting photos" mode for that chat — send one or more
    photos of the machine, then `/done`.
@@ -203,6 +212,7 @@ confirmed/published or `/cancel`'d.
 | `/tasks` | Lists pending vs. done tasks. |
 | `/done <id>` | Marks a task done; advances linked equipment, may trigger a next-step reminder. |
 | `/done all` | Marks every open task done at once (same per-task side effects as above). |
+| `/done <free text>` | Same as `/done <id>`, but Claude matches the description to an open task instead of you needing the id or a reply. |
 | `/report` | Claude-generated status digest (done/pending/suggestions). |
 | `/workers` | Lists registered workers. |
 | `/worker add <name> <chat id> [skills]` | Registers a worker (must have DM'd the bot first to have a chat id). |
