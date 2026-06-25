@@ -67,7 +67,12 @@ it by hand:
   (or the existing `ready` record updated) as `listed`, with its OLX link,
   price, and specs from the vision/research step — the data the listing
   flow used to throw away.
-- **On sale.** `/sold <id>` marks a machine `sold`.
+- **On sale.** `/sold <id>` marks a machine `sold` — the record is kept.
+- **On mistake/cleanup.** `/remove <id>` deletes the equipment record
+  outright (or reply to the machine's message with `/remove`), for entries
+  added by mistake or duplicated. Unlike `/sold`, this doesn't keep a
+  history row; any task still linked to that `equipment_id` is left as-is
+  (no foreign-key constraint ties them together).
 
 Query it with `/equipment` (everything, grouped by stage) or
 `/equipment <status>` (e.g. `/equipment ready` to see what's washed/fixed
@@ -179,6 +184,7 @@ confirmed/published or `/cancel`'d.
 | `/worker add <name> <chat id> [skills]` | Registers a worker (must have DM'd the bot first to have a chat id). |
 | `/equipment [status]` | Lists machines, optionally filtered by lifecycle stage. |
 | `/sold <id>` | Marks a machine `sold`. |
+| `/remove <id>` | Deletes an equipment record entirely (not just a status change). |
 
 ## State machines
 

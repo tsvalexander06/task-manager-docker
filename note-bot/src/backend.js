@@ -105,6 +105,11 @@ async function updateEquipment(id, fields) {
   return res.json();
 }
 
+async function deleteEquipment(id) {
+  const res = await fetch(`${BACKEND_URL}/equipment/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) throw new Error(`Backend error: ${res.status}`);
+}
+
 async function listSessions(kind) {
   const url = kind ? `${BACKEND_URL}/sessions?kind=${kind}` : `${BACKEND_URL}/sessions`;
   const res = await fetch(url);
@@ -138,6 +143,7 @@ module.exports = {
   getEquipment,
   createEquipment,
   updateEquipment,
+  deleteEquipment,
   listSessions,
   saveSession,
   deleteSession

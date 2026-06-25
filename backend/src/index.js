@@ -184,6 +184,12 @@ app.patch("/equipment/:id", async (req, res) => {
   res.json(result.rows[0]);
 });
 
+app.delete("/equipment/:id", async (req, res) => {
+  const result = await pool.query("DELETE FROM equipment WHERE id = $1 RETURNING *", [req.params.id]);
+  if (result.rows.length === 0) return res.status(404).json({ error: "Equipment not found" });
+  res.status(204).end();
+});
+
 // Per-chat bot session state (listing/worker-completion flows), persisted so
 // it survives a bot restart/redeploy instead of living only in memory.
 app.get("/sessions", async (req, res) => {

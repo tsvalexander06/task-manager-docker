@@ -14,6 +14,7 @@ const {
   getEquipment,
   createEquipment,
   updateEquipment,
+  deleteEquipment,
   listSessions,
   saveSession,
   deleteSession
@@ -299,10 +300,11 @@ bot.start((ctx) =>
     "Пиши, проговори или изпрати снимка с бележка (напр. \"маса миене\") и ще я превърна в задача.\n" +
       'Ако кажеш да пуснеш обява за продажба, ще премина в режим за създаване на обява.\n' +
       "/tasks — какво остава и какво е свършено\n" +
-      "/done <id> — отбележи задача като свършена\n" +
+      "/done <id> или /done all — отбележи задача(и) като свършена(и)\n" +
       "/report — кратък отчет за статуса на задачите\n" +
       "/equipment [статус] — оборудване по етап (received/servicing/ready/listed/sold)\n" +
       "/sold <id> — отбележи оборудване като продадено\n" +
+      "/remove <id> — премахни оборудване (изтрива записа)\n" +
       "/workers — списък с работници\n" +
       "/worker add <име> <chat id> [умения] — добави работник\n" +
       "/cancel — отказва текуща обява в процес на създаване"
@@ -494,6 +496,29 @@ bot.command("sold", async (ctx) => {
   try {
     const eq = await updateEquipment(id, { status: "sold" });
     await ctx.reply(`💰 Оборудване #${eq.id} ${eq.name} → продадено.`);
+  } catch (err) {
+    await ctx.reply(`Грешка: ${err.message}`);
+  }
+});
+
+// Unlike /sold (which keeps the record, marked sold), /remove deletes the
+// equipment row entirely -- for machines that were added by mistake,
+// duplicated, or should otherwise no longer be tracked.
+bot.command("remove", async (ctx) => {
+  let id = ctx.message.text.split(" ")[1];
+  if (!id && ctx.message.reply_to_message) {
+    const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || "";
+    const match = replyText.match(/#(\d+)/);
+    if (match) id = match[1];
+  }
+  if (!id) {
+    await ctx.reply("Използване: /remove <id на оборудване> (или отговори с /remove на съобщението с машината)");
+    return;
+  }
+  try {
+    const eq = await getEquipment(id);
+    await deleteEquipment(id);
+    await ctx.reply(`🗑️ Оборудване #${eq.id} ${eq.name} е премахнато.`);
   } catch (err) {
     await ctx.reply(`Грешка: ${err.message}`);
   }

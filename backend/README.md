@@ -35,6 +35,9 @@ Tracks each physical machine through `received → servicing → ready → liste
   `photoPaths`.
 - `PATCH /equipment/:id` — body: any of `name`, `brand`, `model`, `category`,
   `condition`, `specs`, `status`, `price`, `olxUrl`, `photoPaths`.
+- `DELETE /equipment/:id` — deletes the row outright (`204`). No FK
+  constraint to `tasks.equipment_id`, so any task still pointing at the
+  deleted id is left untouched.
 
 ### Health
 
