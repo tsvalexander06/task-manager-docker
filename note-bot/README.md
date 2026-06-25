@@ -70,9 +70,10 @@ it by hand:
 - **On sale.** `/sold <id>` marks a machine `sold` — the record is kept.
 - **On mistake/cleanup.** `/remove <id>` deletes the equipment record
   outright (or reply to the machine's message with `/remove`), for entries
-  added by mistake or duplicated. Unlike `/sold`, this doesn't keep a
-  history row; any task still linked to that `equipment_id` is left as-is
-  (no foreign-key constraint ties them together).
+  added by mistake or duplicated. `/remove all` wipes every equipment
+  record in one go. Unlike `/sold`, this doesn't keep a history row; any
+  task still linked to that `equipment_id` is left as-is (no foreign-key
+  constraint ties them together).
 
 Query it with `/equipment` (everything, grouped by stage) or
 `/equipment <status>` (e.g. `/equipment ready` to see what's washed/fixed
@@ -185,6 +186,7 @@ confirmed/published or `/cancel`'d.
 | `/equipment [status]` | Lists machines, optionally filtered by lifecycle stage. |
 | `/sold <id>` | Marks a machine `sold`. |
 | `/remove <id>` | Deletes an equipment record entirely (not just a status change). |
+| `/remove all` | Deletes every equipment record. |
 
 ## State machines
 

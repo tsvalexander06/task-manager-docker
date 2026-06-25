@@ -506,13 +506,31 @@ bot.command("sold", async (ctx) => {
 // duplicated, or should otherwise no longer be tracked.
 bot.command("remove", async (ctx) => {
   let id = ctx.message.text.split(" ")[1];
+
+  if (id && id.toLowerCase() === "all") {
+    try {
+      const list = await listEquipment();
+      if (list.length === 0) {
+        await ctx.reply("Няма записано оборудване.");
+        return;
+      }
+      for (const eq of list) {
+        await deleteEquipment(eq.id);
+      }
+      await ctx.reply(`🗑️ Премахнато оборудване: ${list.map((e) => `#${e.id}`).join(", ")}.`);
+    } catch (err) {
+      await ctx.reply(`Грешка: ${err.message}`);
+    }
+    return;
+  }
+
   if (!id && ctx.message.reply_to_message) {
     const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || "";
     const match = replyText.match(/#(\d+)/);
     if (match) id = match[1];
   }
   if (!id) {
-    await ctx.reply("Използване: /remove <id на оборудване> (или отговори с /remove на съобщението с машината)");
+    await ctx.reply("Използване: /remove <id>, /remove all, или отговори с /remove на съобщението с машината");
     return;
   }
   try {
