@@ -310,9 +310,14 @@ bot.command("done", async (ctx) => {
     return finishPhotoCollection(ctx, session);
   }
 
-  const id = ctx.message.text.split(" ")[1];
+  let id = ctx.message.text.split(" ")[1];
+  if (!id && ctx.message.reply_to_message) {
+    const replyText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || "";
+    const match = replyText.match(/#(\d+)/);
+    if (match) id = match[1];
+  }
   if (!id) {
-    await ctx.reply("Използване: /done <id>");
+    await ctx.reply("Използване: /done <id> (или отговори с /done на съобщението със задачата)");
     return;
   }
   try {
@@ -543,8 +548,44 @@ async function handleWorkerMessage(ctx, worker, text) {
   );
 }
 
-async function processNote(ctx, text, { photoPath } = {}) {
+async function processNote(ctx, text, { photoPath, photoForVision } = {}) {
   const structured = await analyzeNote(text);
+
+  // The note's text alone may not name the machine (e.g. "миене на" with a
+  // nameplate photo attached) -- read the label off the photo to fill in
+  // brand/model so resolveEquipmentForNote can still match/create the right
+  // equipment record.
+  if (photoForVision && (structured.equipment.length === 0 || structured.equipment.some((e) => !e.brand && !e.model))) {
+    try {
+      const identified = await identifyFromPhotos([photoForVision]);
+      if (identified && (identified.brand || identified.model || identified.type)) {
+        if (structured.equipment.length === 0) {
+          structured.equipment = [
+            {
+              name: [identified.brand, identified.model, identified.type].filter(Boolean).join(" ") || "Машина",
+              brand: identified.brand || null,
+              model: identified.model || null,
+              category: identified.type || null
+            }
+          ];
+        } else {
+          structured.equipment = structured.equipment.map((e) =>
+            !e.brand && !e.model
+              ? {
+                  ...e,
+                  brand: identified.brand || e.brand,
+                  model: identified.model || e.model,
+                  category: e.category || identified.type
+                }
+              : e
+          );
+        }
+      }
+    } catch (err) {
+      console.error("photo equipment identification failed:", err.message);
+    }
+  }
+
   const { records, primaryId, createdIds } = await resolveEquipmentForNote(structured);
   const task = await createTask({
     ...structured,
@@ -741,7 +782,10 @@ bot.on("photo", async (ctx) => {
     }
 
     const stored = await downloadAndStorePhoto(ctx, largest.file_id);
-    await processNote(ctx, caption || "Снимка без коментар", { photoPath: stored.filePath });
+    await processNote(ctx, caption || "Снимка без коментар", {
+      photoPath: stored.filePath,
+      photoForVision: { base64: stored.base64, mediaType: stored.mediaType }
+    });
   } catch (err) {
     await ctx.reply(`Не успях да обработя снимката: ${err.message}`);
   }
