@@ -12,7 +12,9 @@ directly.
 - `POST /tasks` — body: `title` (required), `description`, `category`,
   `assigneeType` (`worker`|`agent`, default `worker`), `agentType`,
   `confidence` (0-100), `priority` (default `normal`), `rawNote`,
-  `photoPath`, `equipmentId`.
+  `photoPath`, `equipmentId`, `chatId` (Telegram chat the note came from),
+  `remindAt` (Sofia-local `"YYYY-MM-DDTHH:mm:ss"` string, no timezone — see
+  below; only set for `agentType: "reminder"` tasks with a concrete time).
 - `PATCH /tasks/:id` — body: any of `status`, `assignedTo`, `description`,
   `equipmentId`. Updates `updated_at`.
 
@@ -52,7 +54,10 @@ schema changes are additive-only by convention.
 - **tasks** — `id`, `title`, `description`, `category`, `assignee_type`
   (default `worker`), `agent_type`, `confidence`, `priority` (default
   `normal`), `status` (default `pending`), `raw_note`, `photo_path`,
-  `assigned_to`, `equipment_id`, `created_at`, `updated_at`.
+  `assigned_to`, `equipment_id`, `chat_id`, `remind_at` (`TEXT`, not
+  `TIMESTAMPTZ` — deliberately a naive Sofia-local string so Postgres never
+  reinterprets it against a different session timezone), `created_at`,
+  `updated_at`.
 - **workers** — `id`, `name`, `telegram_chat_id`, `skills`, `created_at`.
 - **equipment** — `id`, `name`, `brand`, `model`, `category`, `condition`,
   `specs` (jsonb), `status` (default `received`), `price`, `olx_url`,

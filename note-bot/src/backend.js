@@ -10,7 +10,9 @@ async function createTask({
   priority,
   rawNote,
   photoPath,
-  equipmentId
+  equipmentId,
+  chatId,
+  remindAt
 }) {
   const res = await fetch(`${BACKEND_URL}/tasks`, {
     method: "POST",
@@ -25,7 +27,9 @@ async function createTask({
       priority,
       rawNote,
       photoPath,
-      equipmentId
+      equipmentId,
+      chatId,
+      remindAt
     })
   });
   if (!res.ok) throw new Error(`Backend error: ${res.status}`);

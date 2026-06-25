@@ -122,6 +122,29 @@ the owner's — messages from it never get analyzed as new notes. Instead:
   photographed/listed), so forgetting to start a listing at all doesn't go
   unnoticed indefinitely — it resurfaces every day until the machine is
   listed.
+
+## Reminder / nudge tasks
+
+A note that asks the bot to remind/nudge you later ("напомни ми", "подсети
+ме", "не забравяй да ми кажеш" — explicit or implied) is classified as
+`assigneeType: "agent"`, `agentType: "reminder"`. What happens next depends
+on whether the note also gave a concrete time:
+
+- **A time/date was mentioned** (even relative, e.g. "утре в 10ч", "след 2
+  часа"), Claude resolves it to an absolute `remindAt` timestamp and the bot
+  confirms when it'll remind you. A background check (`checkDueReminders`,
+  every minute) sends you `🔔 Напомняне: <title>` in the same chat the note
+  came from once that time passes, then marks the task done automatically —
+  no manual `/done` needed.
+- **No time was mentioned**, `remindAt` stays `null` — the task is simply
+  tagged for the bot and sits in `/tasks` like any other open task, with no
+  automated follow-up; you (or the bot) close it manually whenever it's
+  actually handled.
+
+All reminder timing is computed and compared as Sofia (`Europe/Sofia`)
+wall-clock time via `src/time.js`, stored as a plain `"YYYY-MM-DDTHH:mm:ss"`
+string (column type `TEXT`, not `TIMESTAMPTZ`) — this sidesteps Postgres
+reinterpreting a naive local time as UTC and firing reminders hours off.
 - If you *do* start a listing (photos sent, or mid price/confirm step) and
   then go quiet, the bot checks every 15 minutes for sessions stalled more
   than `LISTING_STALL_HOURS` (default `3`) since their last activity, and

@@ -35,12 +35,14 @@ app.post("/tasks", async (req, res) => {
     priority = "normal",
     rawNote = null,
     photoPath = null,
-    equipmentId = null
+    equipmentId = null,
+    chatId = null,
+    remindAt = null
   } = req.body;
   const result = await pool.query(
-    `INSERT INTO tasks (title, description, category, assignee_type, agent_type, confidence, priority, raw_note, photo_path, equipment_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-    [title, description, category, assigneeType, agentType, confidence, priority, rawNote, photoPath, equipmentId]
+    `INSERT INTO tasks (title, description, category, assignee_type, agent_type, confidence, priority, raw_note, photo_path, equipment_id, chat_id, remind_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+    [title, description, category, assigneeType, agentType, confidence, priority, rawNote, photoPath, equipmentId, chatId, remindAt]
   );
   res.status(201).json(result.rows[0]);
 });
@@ -241,6 +243,8 @@ async function initDb() {
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS photo_path TEXT`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to INTEGER`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS equipment_id INTEGER`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS chat_id TEXT`);
+  await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS remind_at TEXT`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
 

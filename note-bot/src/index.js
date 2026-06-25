@@ -26,6 +26,7 @@ const { identifyFromPhotos } = require("./listing/vision");
 const { enrichWithWebSearch } = require("./listing/research");
 const { buildDescription } = require("./listing/template");
 const { postListing } = require("./listing/olx");
+const { sofiaNowString, formatSofiaForHuman } = require("./time");
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
@@ -291,6 +292,39 @@ async function checkStalledListingSessions() {
       await saveSession(chatId, "listing", session);
     } catch (err) {
       console.error("stalled listing reminder failed:", err.message);
+    }
+  }
+}
+
+// Reminder tasks (assigneeType "agent", agentType "reminder") only fire an
+// automated message if the note gave a concrete time; otherwise they just
+// sit as regular agent-tagged tasks with no scheduled follow-up.
+async function checkDueReminders() {
+  let tasks;
+  try {
+    tasks = await listTasks();
+  } catch (err) {
+    console.error("checkDueReminders fetch failed:", err.message);
+    return;
+  }
+  const now = sofiaNowString();
+  const due = tasks.filter(
+    (t) =>
+      t.agent_type === "reminder" &&
+      t.remind_at &&
+      t.remind_at <= now &&
+      t.status !== "done"
+  );
+  for (const task of due) {
+    const chatId = task.chat_id || OWNER_CHAT_ID;
+    if (!chatId) continue;
+    try {
+      const lines = [`🔔 Напомняне: ${task.title}`];
+      if (task.description) lines.push(task.description);
+      await bot.telegram.sendMessage(chatId, lines.join("\n"));
+      await updateTaskStatus(task.id, "done");
+    } catch (err) {
+      console.error(`reminder for task #${task.id} failed:`, err.message);
     }
   }
 }
@@ -774,9 +808,18 @@ async function processSingleNote(ctx, text, { photoPath, photoForVision } = {}) 
     ...structured,
     rawNote: text,
     photoPath: photoPath || null,
-    equipmentId: primaryId
+    equipmentId: primaryId,
+    chatId: ctx.chat.id
   });
   await ctx.reply(`${ASSIGNEE_EMOJI[task.assignee_type] || ""} #${task.id} ${task.title}`);
+
+  if (task.agent_type === "reminder") {
+    await ctx.reply(
+      task.remind_at
+        ? `🔔 Ще ти напомня на ${formatSofiaForHuman(task.remind_at)}.`
+        : "🔔 Записано — ще е за бота, но няма зададено конкретно време, така че няма да напомня сам (напиши /done за да го затвориш)."
+    );
+  }
 
   if (records.length > 0) {
     const lines = records.map((r) => {
@@ -1035,6 +1078,7 @@ loadPersistedSessions().then(() => launchWithRetry());
 
 setInterval(sendDailyReminderIfDue, 60 * 1000);
 setInterval(checkStalledListingSessions, 15 * 60 * 1000);
+setInterval(checkDueReminders, 60 * 1000);
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
