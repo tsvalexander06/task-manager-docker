@@ -1,2 +1,4 @@
 backend/node_modules
+telegram-bot/node_modules
+note-bot/node_modules
 .env

@@ -6,13 +6,36 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: taskdb
       DB_USER: postgres
       DB_PASSWORD: postgres
+    restart: unless-stopped
+
+  telegram-bot:
+    build: ./telegram-bot
+    image: izabela/olx-listing-bot:latest
+    container_name: olx-listing-bot
+    env_file:
+      - ./telegram-bot/.env
+    restart: unless-stopped
+
+  note-bot:
+    build: ./note-bot
+    image: izabela/note-bot:latest
+    container_name: note-bot
+    env_file:
+      - ./note-bot/.env
+    volumes:
+      - note_bot_photos:/app/photos
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
 
   db:
     image: postgres:16
@@ -23,6 +46,12 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   postgres_data:
+  note_bot_photos:
