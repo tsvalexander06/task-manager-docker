@@ -123,6 +123,25 @@ function armListingPrompt(chatId) {
   setTimeout(() => pendingListingPrompt.delete(chatId), 30 * 60 * 1000);
 }
 
+// Telegram album photos arrive as separate "photo" updates sharing a
+// media_group_id, and updates can be processed concurrently. Without
+// coordination, each photo independently decides listing-vs-task intent --
+// and since only one of them typically carries the caption/reply context,
+// a caption-driven classifyIntent() call on the lead photo can still be
+// in flight when its caption-less siblings resolve "task" first and get
+// filed as separate notes before the lead photo's "listing" decision lands.
+// Pinning every member of a group to the SAME decision promise (computed
+// once, from whichever member arrives first) makes that impossible.
+const albumIntentDecisions = new Map();
+function decidePhotoIntentForGroup(groupId, decide) {
+  if (!groupId) return decide();
+  if (!albumIntentDecisions.has(groupId)) {
+    albumIntentDecisions.set(groupId, decide());
+    setTimeout(() => albumIntentDecisions.delete(groupId), 2 * 60 * 1000);
+  }
+  return albumIntentDecisions.get(groupId);
+}
+
 // After washing/fixing a machine, the next steps (photos -> listing -> hand off
 // to the website engineer) are easy to forget — surface them as soon as that
 // kind of task is marked done.
@@ -1044,26 +1063,24 @@ bot.on("photo", async (ctx) => {
       return ctx.reply(`Снимка получена (${existingSession.photos.length}). Изпрати още или напиши /done.`);
     }
 
-    const hadListingPrompt = pendingListingPrompt.get(ctx.chat.id);
-    pendingListingPrompt.delete(ctx.chat.id);
+    const intent = await decidePhotoIntentForGroup(ctx.message.media_group_id, async () => {
+      const hadListingPrompt = pendingListingPrompt.get(ctx.chat.id);
+      pendingListingPrompt.delete(ctx.chat.id);
 
-    // Replying directly to a "machine is ready for listing"/"готово(а) за
-    // продажба" notice is a strong, time-independent signal of listing
-    // intent -- unlike pendingListingPrompt, it still works even if that
-    // notice is old and the prompt window already expired.
-    const replyText =
-      ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption || "";
-    const repliedToReadyNotice = /готов\w* за продажба/i.test(replyText);
+      // Replying directly to a "machine is ready for listing"/"готово(а) за
+      // продажба" notice is a strong, time-independent signal of listing
+      // intent -- unlike pendingListingPrompt, it still works even if that
+      // notice is old and the prompt window already expired.
+      const replyText =
+        ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption || "";
+      const repliedToReadyNotice = /готов\w* за продажба/i.test(replyText);
 
-    // If the owner was just told a machine is ready for a listing, any photo
-    // sent right after is almost certainly for that listing -- even with a
-    // caption, since captions here are rarely explicit about "list this".
-    const intent =
-      hadListingPrompt || repliedToReadyNotice
-        ? "listing"
-        : caption
-          ? await classifyIntent(caption)
-          : "task";
+      // If the owner was just told a machine is ready for a listing, any photo
+      // sent right after is almost certainly for that listing -- even with a
+      // caption, since captions here are rarely explicit about "list this".
+      if (hadListingPrompt || repliedToReadyNotice) return "listing";
+      return caption ? classifyIntent(caption) : "task";
+    });
     if (intent === "listing") {
       // Reserve the session synchronously, before downloading the photo, so
       // sibling photos from the same album (which arrive as separate updates
