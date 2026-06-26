@@ -166,7 +166,13 @@ directly (skipping caption classification) for ~30 minutes any time the bot
 just told you a piece of equipment became ready for sale — whether via a
 `/done`-triggered "→ готово за продажба" notice or the next-step reminder —
 so a photo you send right after (with or without a caption) starts the
-listing flow instead of being filed as a new task.
+listing flow instead of being filed as a new task. Replying directly to any
+message containing a "готов(o/а) за продажба" notice with photos also
+starts the flow, regardless of how much time has passed since that notice
+(the 30-minute window only covers the no-reply case). If neither applies —
+e.g. you come back to an old equipment-ready notice days later and Claude's
+caption classification doesn't catch it — use `/listing` to enter the flow
+explicitly.
 
 1. Bot enters "collecting photos" mode for that chat — send one or more
    photos of the machine, then `/done`.
@@ -208,6 +214,7 @@ confirmed/published or `/cancel`'d.
 | Command | Does |
 | --- | --- |
 | `/start` | Greeting/intro. |
+| `/listing` | Manually enters the listing flow (collecting photos) without waiting for intent classification. |
 | `/cancel` | Aborts an in-progress listing session for that chat. |
 | `/tasks` | Lists pending vs. done tasks. |
 | `/done <id>` | Marks a task done; advances linked equipment, may trigger a next-step reminder. |

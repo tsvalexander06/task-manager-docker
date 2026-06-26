@@ -342,6 +342,7 @@ bot.start((ctx) =>
       "/remove <id> — премахни оборудване (изтрива записа)\n" +
       "/workers — списък с работници\n" +
       "/worker add <име> <chat id> [умения] — добави работник\n" +
+      "/listing — започва обява ръчно (изпрати снимки, после /done)\n" +
       "/cancel — отказва текуща обява в процес на създаване"
   )
 );
@@ -354,6 +355,21 @@ bot.command("cancel", async (ctx) => {
     return ctx.reply("Обявата е отказана.");
   }
   ctx.reply("Няма активна обява за отказване.");
+});
+
+// Manual entry point into the listing flow, for when intent classification
+// doesn't kick in on its own (e.g. a stale/expired listing-prompt window).
+bot.command("listing", async (ctx) => {
+  const existing = listingSessions.get(ctx.chat.id);
+  if (existing) {
+    if (existing.state !== "collecting_photos") {
+      return ctx.reply("Вече има обява в процес. Напиши /cancel за да започнеш отначало.");
+    }
+    return ctx.reply(`Вече събирам снимки за тази обява (${existing.photos.length}). Изпрати още или напиши /done.`);
+  }
+  listingSessions.set(ctx.chat.id, { state: "collecting_photos", photos: [], item: null, draft: null });
+  await persistListingSession(ctx.chat.id);
+  await ctx.reply("📸 Изпрати снимки на машината за обявата, после напиши /done.");
 });
 
 bot.command("tasks", async (ctx) => {
@@ -1031,10 +1047,23 @@ bot.on("photo", async (ctx) => {
     const hadListingPrompt = pendingListingPrompt.get(ctx.chat.id);
     pendingListingPrompt.delete(ctx.chat.id);
 
+    // Replying directly to a "machine is ready for listing"/"готово(а) за
+    // продажба" notice is a strong, time-independent signal of listing
+    // intent -- unlike pendingListingPrompt, it still works even if that
+    // notice is old and the prompt window already expired.
+    const replyText =
+      ctx.message.reply_to_message?.text || ctx.message.reply_to_message?.caption || "";
+    const repliedToReadyNotice = /готов\w* за продажба/i.test(replyText);
+
     // If the owner was just told a machine is ready for a listing, any photo
     // sent right after is almost certainly for that listing -- even with a
     // caption, since captions here are rarely explicit about "list this".
-    const intent = hadListingPrompt ? "listing" : caption ? await classifyIntent(caption) : "task";
+    const intent =
+      hadListingPrompt || repliedToReadyNotice
+        ? "listing"
+        : caption
+          ? await classifyIntent(caption)
+          : "task";
     if (intent === "listing") {
       // Reserve the session synchronously, before downloading the photo, so
       // sibling photos from the same album (which arrive as separate updates
