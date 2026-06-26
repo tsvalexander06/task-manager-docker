@@ -177,8 +177,18 @@ explicitly.
 1. Bot enters "collecting photos" mode for that chat — send one or more
    photos of the machine, then `/done`.
 2. Bot identifies the machine (`src/listing/vision.js`) and fills in
-   missing specs via web search (`src/listing/research.js`).
-3. Reply with the price (number, лв).
+   missing specs via web search (`src/listing/research.js`). Vision is
+   instructed to return `null` for anything it can't read off a nameplate
+   rather than guess, and web search is skipped entirely when no brand was
+   found (nothing to search for). If both `type` and `brand` come back
+   `null` (e.g. no visible label/logo), the bot says so and asks you to
+   describe the machine — but doesn't block on an answer.
+3. Reply with the price (number, лв) to continue. If the bot just asked
+   you to clarify what the machine is, you can instead reply with a short
+   description first (it's stored as the type) and then send the price —
+   or skip straight to the price and the listing is built from whatever
+   was identified, falling back to a generic title
+   ("Професионално кухненско оборудване") if type/brand are still unknown.
 4. Bot shows the full draft listing (`src/listing/template.js`) — reply
    `да` to publish to OLX (`src/listing/olx.js`, via Playwright), or
    `/cancel` to abort.

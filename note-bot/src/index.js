@@ -918,7 +918,20 @@ async function finishPhotoCollection(ctx, session) {
     const summary = Object.entries(item)
       .map(([k, v]) => `${k}: ${v ?? "—"}`)
       .join("\n");
-    await ctx.reply(`Разпознато:\n${summary}\n\nИзпрати цена (само число, лв).`);
+
+    // No nameplate/logo visible -> identifyFromPhotos correctly returned
+    // null instead of guessing. Ask what the machine is rather than letting
+    // a blank/generic title go out, but don't block the flow on an answer --
+    // sending a price as-is still produces a listing from what we do have.
+    if (!item.type && !item.brand) {
+      await ctx.reply(
+        `Разпознато:\n${summary}\n\n` +
+          `⚠️ Не успях да позная какъв е уредът от снимките (няма видим етикет/лого). ` +
+          `Напиши какъв е (тип/марка), или просто изпрати цена и ще пусна обявата само с наличните данни.`
+      );
+    } else {
+      await ctx.reply(`Разпознато:\n${summary}\n\nИзпрати цена (само число, лв).`);
+    }
   } catch (err) {
     console.error(err);
     session.state = "collecting_photos";
@@ -935,6 +948,13 @@ async function handleListingText(ctx, session, text) {
   if (session.state === "awaiting_price") {
     const amount = Number(text.replace(/[^\d.]/g, ""));
     if (!amount) {
+      // Non-numeric reply while we still don't know what the machine is --
+      // treat it as the clarification we asked for instead of rejecting it.
+      if (!session.item.type && !session.item.brand) {
+        session.item.type = text.trim();
+        await persistListingSession(ctx.chat.id);
+        return ctx.reply(`Добре, отбелязах "${text.trim()}". Сега изпрати цена (само число, лв).`);
+      }
       return ctx.reply("Моля изпрати валидна цена (число).");
     }
     const isEuro = /€|евро|eur\b/i.test(text);

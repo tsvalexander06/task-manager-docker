@@ -36,7 +36,7 @@ function formatDimensions(raw) {
 
 function buildTitle(item) {
   const parts = [item.type, item.brand].filter(Boolean);
-  let title = capitalize(parts.join(" "));
+  let title = capitalize(parts.join(" ")) || "Професионално кухненско оборудване";
   const capacity = formatCapacityShort(item.capacity);
   if (capacity) title += ` - ${capacity}`;
   return title;
