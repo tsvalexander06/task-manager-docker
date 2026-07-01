@@ -85,6 +85,19 @@ app.patch("/tasks/:id", async (req, res) => {
   res.json(result.rows[0]);
 });
 
+// Bulk delete. Unlike marking tasks done (PATCH status), this removes the rows
+// entirely -- for wiping the whole list at once.
+app.delete("/tasks", async (req, res) => {
+  const result = await pool.query("DELETE FROM tasks RETURNING id");
+  res.json({ deleted: result.rows.length });
+});
+
+app.delete("/tasks/:id", async (req, res) => {
+  const result = await pool.query("DELETE FROM tasks WHERE id = $1 RETURNING *", [req.params.id]);
+  if (result.rows.length === 0) return res.status(404).json({ error: "Task not found" });
+  res.status(204).end();
+});
+
 app.get("/workers", async (req, res) => {
   const result = await pool.query("SELECT * FROM workers ORDER BY id");
   res.json(result.rows);

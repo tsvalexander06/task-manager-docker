@@ -17,6 +17,8 @@ directly.
   below; only set for `agentType: "reminder"` tasks with a concrete time).
 - `PATCH /tasks/:id` — body: any of `status`, `assignedTo`, `description`,
   `equipmentId`. Updates `updated_at`.
+- `DELETE /tasks` — deletes **all** task rows. Returns `{ deleted: <count> }`.
+- `DELETE /tasks/:id` — deletes a single task. `204` on success, `404` if not found.
 
 ### Workers
 

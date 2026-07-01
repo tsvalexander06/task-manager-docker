@@ -57,6 +57,17 @@ async function updateTaskStatus(id, status) {
   return updateTask(id, { status });
 }
 
+async function deleteTask(id) {
+  const res = await fetch(`${BACKEND_URL}/tasks/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) throw new Error(`Backend error: ${res.status}`);
+}
+
+async function deleteAllTasks() {
+  const res = await fetch(`${BACKEND_URL}/tasks`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+  return res.json();
+}
+
 async function listWorkers() {
   const res = await fetch(`${BACKEND_URL}/workers`);
   if (!res.ok) throw new Error(`Backend error: ${res.status}`);
@@ -141,6 +152,8 @@ module.exports = {
   listTasks,
   updateTask,
   updateTaskStatus,
+  deleteTask,
+  deleteAllTasks,
   listWorkers,
   createWorker,
   listEquipment,

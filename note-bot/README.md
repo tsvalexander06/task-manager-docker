@@ -230,6 +230,7 @@ confirmed/published or `/cancel`'d.
 | `/done <id>` | Marks a task done; advances linked equipment, may trigger a next-step reminder. |
 | `/done all` | Marks every open task done at once (same per-task side effects as above). |
 | `/done <free text>` | Same as `/done <id>`, but Claude matches the description to an open task instead of you needing the id or a reply. |
+| `/cleartasks` | Deletes **all** tasks (pending and done) — removes the records entirely, unlike `/done all` which keeps them marked done. |
 | `/report` | Claude-generated status digest (done/pending/suggestions). |
 | `/workers` | Lists registered workers. |
 | `/worker add <name> <chat id> [skills]` | Registers a worker (must have DM'd the bot first to have a chat id). |

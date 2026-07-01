@@ -8,6 +8,7 @@ const {
   listTasks,
   updateTask,
   updateTaskStatus,
+  deleteAllTasks,
   listWorkers,
   createWorker,
   listEquipment,
@@ -355,6 +356,7 @@ bot.start((ctx) =>
       'Ако кажеш да пуснеш обява за продажба, ще премина в режим за създаване на обява.\n' +
       "/tasks — какво остава и какво е свършено\n" +
       "/done <id>, /done all, или /done <описание> — отбележи задача(и) като свършена(и)\n" +
+      "/cleartasks — изтрива ВСИЧКИ задачи (изтрива записите, не ги отбелязва свършени)\n" +
       "/report — кратък отчет за статуса на задачите\n" +
       "/equipment [статус] — оборудване по етап (received/servicing/ready/listed/sold)\n" +
       "/sold <id> — отбележи оборудване като продадено\n" +
@@ -419,6 +421,22 @@ bot.command("tasks", async (ctx) => {
     await ctx.reply(lines.join("\n"));
   } catch (err) {
     await ctx.reply(`Грешка при четене на задачите: ${err.message}`);
+  }
+});
+
+// Wipes every task row (pending and done alike). Unlike /done all -- which
+// marks tasks done but keeps them -- this deletes the records entirely.
+bot.command("cleartasks", async (ctx) => {
+  try {
+    const tasks = await listTasks();
+    if (tasks.length === 0) {
+      await ctx.reply("Няма записани задачи.");
+      return;
+    }
+    const { deleted } = await deleteAllTasks();
+    await ctx.reply(`🗑️ Изтрити всички задачи (${deleted}).`);
+  } catch (err) {
+    await ctx.reply(`Грешка при изтриване на задачите: ${err.message}`);
   }
 });
 
