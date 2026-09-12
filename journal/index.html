@@ -1298,6 +1298,12 @@
   .cfp-sum{grid-column:1/-1;font-size:11px;color:var(--accent-bright);font-weight:600;margin-top:2px}
   @media(max-width:760px){ .cfp-grid{grid-template-columns:1fr} }
 
+  .set-rows{display:flex;flex-direction:column}
+  .set-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+    font-size:12.5px;color:var(--muted);padding:9px 0;border-bottom:1px solid var(--border-soft)}
+  .set-row:last-child{border-bottom:none}
+  .set-row b{color:var(--text);font-weight:600;text-align:right;max-width:62%}
+
   /* ---- First-run setup -------------------------------------- */
   .onb-dots{display:flex;gap:6px;margin-bottom:14px}
   .onb-dot{width:26px;height:3px;border-radius:2px;background:#18212E}
@@ -2794,6 +2800,51 @@ const Shots = (function(){
     try{ await Store.delete('falcon:shot:'+id); }catch(e){}
   }
 
+  /* Read one screenshot back as a data URI, for inclusion in a backup. */
+  async function raw(id){
+    if(Store.backend==='supabase'){
+      const {data,error}=await Store.client.storage.from(BUCKET).download(Store.user.id+'/'+id+'.jpg');
+      if(error||!data) return null;
+      return await blobToDataUrl(data);
+    }
+    try{ const bl=await idbOp('readonly',st=>st.get(id)); if(bl) return await blobToDataUrl(bl); }catch(e){}
+    try{ const r=await Store.get('falcon:shot:'+id); if(r&&r.value) return r.value; }catch(e){}
+    return null;
+  }
+  /* Write a screenshot back under its original id, so restoring a backup keeps
+     every trade pointing at the right image. */
+  async function putRaw(id,dataUrl){
+    const blob=await dataUrlToBlob(dataUrl);
+    if(Store.backend==='supabase'){
+      const {error}=await Store.client.storage.from(BUCKET)
+        .upload(Store.user.id+'/'+id+'.jpg', blob, {contentType:'image/jpeg', upsert:true});
+      if(error) throw new Error(error.message);
+      return;
+    }
+    if(Store.backend==='artifact'){ await Store.set('falcon:shot:'+id, dataUrl); return; }
+    await idbOp('readwrite',st=>st.put(blob,id));
+  }
+  function blobToDataUrl(bl){
+    return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(bl); });
+  }
+  async function dataUrlToBlob(u){ return await (await fetch(u)).blob(); }
+
+  /* Every stored screenshot id, so orphans can be found. null if unreadable. */
+  async function list(){
+    if(Store.backend==='supabase'){
+      const {data,error}=await Store.client.storage.from(BUCKET).list(Store.user.id,{limit:10000});
+      if(error) return null;
+      return (data||[]).map(f=>f.name.replace(/\.jpg$/,''));
+    }
+    try{
+      const db=await idbDB();
+      return await new Promise((res,rej)=>{
+        const rq=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).getAllKeys();
+        rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error);
+      });
+    }catch(e){ return null; }
+  }
+
   /* What the trader has used, for the Settings readout. */
   async function usage(){
     if(Store.backend==='supabase'){
@@ -2812,7 +2863,7 @@ const Shots = (function(){
     }catch(e){ return null; }
   }
 
-  return {put, url, remove, usage};
+  return {put, url, remove, usage, list, raw, putRaw};
 })();
 function fmtBytes(n){
   if(n==null) return '—';
@@ -2820,6 +2871,34 @@ function fmtBytes(n){
   if(n<1024*1024) return (n/1024).toFixed(0)+' KB';
   if(n<1024*1024*1024) return (n/1024/1024).toFixed(1)+' MB';
   return (n/1024/1024/1024).toFixed(2)+' GB';
+}
+
+/* Deleting the thing that owns a screenshot has to delete the screenshot too,
+   or storage fills with images nothing points at. */
+async function removeShots(ids){
+  for(const id of (ids||[])){ await Shots.remove(id); }
+}
+/* Every screenshot id the journal currently points at, from all four owners. */
+function referencedShotIds(){
+  const ids=new Set();
+  trades.forEach(t=>(t.shots||[]).forEach(s=>ids.add(s)));
+  MISSED.forEach(m=>(m.shots||[]).forEach(s=>ids.add(s)));
+  (PLAYBOOK||[]).forEach(p=>(p.shots||[]).forEach(s=>ids.add(s)));
+  [...(PREPDAY.pairs||[]),...(PREPDAY.eveningPairs||[])].forEach(p=>{ if(p.shot) ids.add(p.shot); });
+  return ids;
+}
+/* Sweep images left behind by earlier versions, which deleted the owner but
+   not its files. Reports what it removed rather than running silently. */
+async function sweepOrphanShots(){
+  const keep=referencedShotIds();
+  const found=await Shots.list();
+  if(found==null){ toast('Could not read stored screenshots','err'); return; }
+  const orphans=found.filter(id=>!keep.has(id));
+  if(!orphans.length){ toast('No orphaned screenshots','ok'); return; }
+  if(!confirm('Delete '+orphans.length+' screenshot'+(orphans.length===1?'':'s')+' that no trade, setup or missed trade points at?\n\nThis cannot be undone.')) return;
+  await removeShots(orphans);
+  toast('Removed '+orphans.length+' orphaned screenshot'+(orphans.length===1?'':'s'),'ok');
+  if(currentView==='settings') renderSettings();
 }
 
 /* ---------- Account bar ----------
@@ -5453,7 +5532,14 @@ async function addMissed(){
   const m={id:'m'+Date.now(),date:ymd(new Date()),symbol:'',direction:'',entryType:'',timeframe:'',setup:'',riskGrade:'',r:null,slPips:null,pGrade:'',sGrade:'',eGrade:'',accounts:[],pnl:null,reasons:[],whatHappened:'',shots:[],lessonId:null};
   MISSED.push(m); await saveJSON('falcon:missed',MISSED); openMissedDetail(m.id);
 }
-async function removeMissed(id){ MISSED=MISSED.filter(m=>m.id!==id); await saveJSON('falcon:missed',MISSED); renderJournal(); }
+async function removeMissed(id){
+  const m=MISSED.find(x=>x.id===id);
+  const shots=m? (m.shots||[]).slice() : [];
+  MISSED=MISSED.filter(x=>x.id!==id);
+  await saveJSON('falcon:missed',MISSED);
+  await removeShots(shots);
+  renderJournal();
+}
 async function handleMissedShotFiles(id,files){
   const m=MISSED.find(x=>x.id===id); if(!m)return;
   if(!Array.isArray(m.shots))m.shots=[];
@@ -5616,7 +5702,15 @@ function renderPlaybook(){
 }
 function togglePb(id){ pbOpen = pbOpen===id? null : id; renderPlaybook(); }
 async function addSetup(){ const n=document.getElementById('pbName'); if(!n)return; const name=(n.value||'').trim(); if(!name)return; const id='pb'+Date.now()+Math.random().toString(36).slice(2,5); PLAYBOOK.push({id,name,about:'',plan:'',shots:[]}); pbOpen=id; await saveJSON('falcon:playbook',PLAYBOOK); renderPlaybook(); }
-async function removeSetup(id){ PLAYBOOK=PLAYBOOK.filter(s=>s.id!==id); if(pbOpen===id)pbOpen=null; await saveJSON('falcon:playbook',PLAYBOOK); renderPlaybook(); }
+async function removeSetup(id){
+  const s=PLAYBOOK.find(x=>x.id===id);
+  const shots=s? (s.shots||[]).slice() : [];
+  PLAYBOOK=PLAYBOOK.filter(x=>x.id!==id);
+  if(pbOpen===id)pbOpen=null;
+  await saveJSON('falcon:playbook',PLAYBOOK);
+  await removeShots(shots);
+  renderPlaybook();
+}
 async function savePb(id,field,val){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; s[field]=val; await saveJSON('falcon:playbook',PLAYBOOK); if(field==='name')renderPlaybook(); }
 async function addPbShots(id,files){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; if(!Array.isArray(s.shots))s.shots=[];
   for(const f of files){ if(!f.type||!f.type.startsWith('image/'))continue; try{ s.shots.push(await Shots.put(f)); }catch(e){ console.error('screenshot failed',e); } }
@@ -6237,7 +6331,7 @@ function renderSettings(){
     <div class="dv-sub">Your profile, your data, and where it is kept</div></div>
   </div>
 
-  <div class="card" style="max-width:560px;margin-bottom:14px">
+  <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Profile</div>
     <div class="field full"><label>Name</label>
       <input value="${esc(PROFILE.name||'')}" placeholder="Your name" onchange="onbSetName(this.value)"></div>
@@ -6250,26 +6344,54 @@ function renderSettings(){
     <div style="margin-top:14px"><button class="btn ghost" onclick="openOnboarding()">Run setup again</button></div>
   </div>
 
-  <div class="card" style="max-width:560px;margin-bottom:14px">
+  <div class="card" style="max-width:620px;margin-bottom:14px">
+    <div class="panel-title">Where your data lives</div>
+    <div id="storeFacts" class="set-rows">Checking…</div>
+  </div>
+
+  <div class="card" style="max-width:620px;margin-bottom:14px">
+    <div class="panel-title">Backup &amp; restore</div>
+    <div class="hl-muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">
+      Take a full backup before you deploy a change. The restore below reads the
+      same file back, so a backup is always recoverable.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn primary" onclick="exportAll(true)">Back up everything</button>
+      <button class="btn ghost" onclick="exportAll(false)">Back up without screenshots</button>
+      <button class="btn ghost" onclick="pickBackupFile()">Restore from a backup…</button>
+    </div>
+    <div id="snapRow" class="hl-muted" style="font-size:12px;margin-top:14px"></div>
+  </div>
+
+  <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Screenshots</div>
     <div id="shotUsage" class="hl-muted" style="font-size:12.5px">Checking…</div>
     <div class="hl-muted" style="font-size:11.5px;margin-top:10px;line-height:1.6">
-      Chart captures are resized to 1920px and stored as JPEG. Paste straight from
-      TradingView with <b>Ctrl/Cmd + V</b> while a trade is open, or drag the file in.
+      Paste straight from TradingView with <b>Ctrl/Cmd + V</b> while a trade is open,
+      or drag the file in. Captures are resized to 1920px and stored as JPEG.
+      Deleting a trade, setup or missed trade now deletes its screenshots too.
     </div>
+    <div style="margin-top:14px"><button class="btn ghost" onclick="sweepOrphanShots()">Find orphaned screenshots</button></div>
   </div>
 
-  <div class="card" style="max-width:560px">
-    <div class="panel-title">Your data</div>
+  <div class="card" style="max-width:620px">
+    <div class="panel-title">Danger zone</div>
     <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn ghost" onclick="exportAll()">Export everything (backup)</button>
-      <button class="btn ghost" onclick="exportTrades()">Export trades (JSON)</button>
-      <button class="btn ghost" onclick="loadDemoData()">Load demo data</button>
+      <button class="btn ghost" onclick="loadDemoData()">Load demo record</button>
       <button class="btn ghost" style="color:var(--danger)" onclick="resetAll()">Clear all trades</button>
+    </div>
+    <div class="hl-muted" style="font-size:11.5px;margin-top:12px">
+      Both ask first and take a snapshot you can roll back.
     </div>
   </div>`;
   showShotUsage();
+  showStoreFacts();
+  showSnapshotRow();
 }
+
+/* The three questions worth answering before trusting a journal with real
+   trades: what is holding the data, which origin it belongs to, and whether it
+   would survive this browser. */
 /* Storage is the one resource a trader can actually run out of, so it is
    stated plainly rather than left to be discovered. */
 async function showShotUsage(){
@@ -6281,6 +6403,34 @@ async function showShotUsage(){
     + (u.where==='this device'
         ? ' <span style="color:var(--muted-2)">— sign in to keep them with your account instead</span>'
         : '');
+}
+async function showStoreFacts(){
+  const el=document.getElementById('storeFacts'); if(!el) return;
+  const b=Store.backend;
+  const where = b==='supabase' ? 'Your account, synced'
+              : b==='artifact' ? 'Your Claude account'
+              : 'This browser only (IndexedDB)';
+  const survives = b==='supabase'
+      ? 'Yes — any browser you sign in from.'
+      : 'No. Clearing site data, or a different browser or device, starts empty.';
+  const rows=[
+    ['Holding your data', where],
+    ['Origin', location.origin==='null' ? 'file:// (a local file)' : location.origin],
+    ['Survives this browser', survives]
+  ];
+  if(b!=='supabase'){
+    rows.push(['Note','Each origin has its own storage. A file, a Netlify preview and your live domain are three separate journals.']);
+  }
+  el.innerHTML=rows.map(([l,v])=>`<div class="set-row"><span>${l}</span><b>${esc(v)}</b></div>`).join('');
+}
+async function showSnapshotRow(){
+  const el=document.getElementById('snapRow'); if(!el) return;
+  const snap=await readSnapshot();
+  if(!snap){ el.textContent='No snapshot yet. One is taken automatically before anything that replaces the journal.'; return; }
+  let n='?'; try{ n=JSON.parse(snap.kv['falcon:trades']||'[]').length; }catch(e){}
+  el.innerHTML=`Snapshot from <b style="color:var(--text)">${new Date(snap.at).toLocaleString()}</b>`
+    + (snap.reason?` (${esc(snap.reason)})`:'')
+    + ` · ${n} trades <button class="btn ghost" style="padding:5px 10px;font-size:11.5px;margin-left:8px" onclick="restoreSnapshot()">Roll back</button>`;
 }
 
 function renderSoon(name){
@@ -6501,24 +6651,164 @@ async function saveTrade(){
   switchView(wasEditing ? (currentView==='log'?'dashboard':currentView) : 'dashboard');
   toast(wasEditing?'Trade updated':'Trade saved');
 }
-async function delTrade(id){ trades=trades.filter(t=>t.id!==id); await persist(); renderGreeting(); renderJournal(); }
-async function resetAll(){ trades=[]; await persist(); try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} renderGreeting(); switchView('dashboard'); }
-async function loadDemoData(){ trades=migrate(DEMO_TRADES); await persist(); try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){} ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth(); renderGreeting(); switchView('dashboard'); toast('Import completed'); }
+async function delTrade(id){
+  const t=trades.find(x=>x.id===id);
+  if(!t) return;
+  const n=(t.shots||[]).length;
+  if(!confirm('Delete the '+(t.symbol||'')+' trade from '+(t.date||'')+'?'+
+              (n? '\n\nIts '+n+' screenshot'+(n===1?'':'s')+' will be deleted too.':''))) return;
+  const shots=(t.shots||[]).slice();
+  trades=trades.filter(x=>x.id!==id);
+  await persist();
+  await removeShots(shots);
+  renderGreeting(); renderJournal();
+}
+async function resetAll(){
+  if(!trades.length){ toast('No trades to clear','info'); return; }
+  if(!confirm('Delete all '+trades.length+' trades?\n\n'+
+              'Screenshots attached to them are deleted too. A snapshot is taken first, '+
+              'and Settings can roll it back.')) return;
+  await snapshotNow('before clearing all trades');
+  const shots=[]; trades.forEach(t=>(t.shots||[]).forEach(x=>shots.push(x)));
+  trades=[];
+  await persist();
+  await removeShots(shots);
+  renderGreeting(); switchView('dashboard');
+  toast('Journal cleared','ok');
+}
+async function loadDemoData(){
+  // This replaces the journal, so it must never be a one-click action once the
+  // trader has a real record.
+  if(trades.length && !confirm('Replace your '+trades.length+' real trades with the demo record?\n\n'+
+      'A snapshot is taken first, and Settings can roll it back.')) return;
+  if(trades.length) await snapshotNow('before loading demo data');
+  trades=migrate(DEMO_TRADES);
+  await persist();
+  try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){}
+  ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth();
+  renderGreeting(); switchView('dashboard');
+  toast('Demo record loaded','ok');
+}
 function exportTrades(){ const blob=new Blob([JSON.stringify(trades,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='odyssey-trades.json'; a.click(); }
-async function exportAll(){
-  const dump={};
+/* ---------- Backup and restore ----------
+   A backup you cannot restore is not a backup. These two are a matched pair:
+   exportAll writes a file importAll can read, screenshots included. */
+const BACKUP_FORMAT=1;
+
+async function journalKeys(){
   let keys=[];
   try{ keys=await Store.keys(); }catch(e){}
-  // The artifact runtime can enumerate its own keys; fall back to the known set.
+  // The artifact runtime enumerates its own keys; otherwise fall back to the
+  // known set so a backup is never silently partial.
   if(!keys.length && typeof window.storage==='object' && window.storage && window.storage.list){
     try{ const r=await window.storage.list('falcon:'); keys=(r&&r.keys)||[]; }catch(e){}
   }
   if(!keys.length) keys=['falcon:trades','falcon:accounts','falcon:playbook','falcon:reviews',
                          'falcon:missed','falcon:routineDef','falcon:confluences','falcon:workshop',
-                         'falcon:preplog','falcon:mistakeSeverity','falcon:lessons','falcon:dna'];
-  for(const k of keys){ try{ const v=await Store.get(k); if(v&&v.value!=null) dump[k]=v.value; }catch(e){} }
-  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='odyssey-journal-backup-'+ymd(new Date())+'.json'; a.click();
+                         'falcon:preplog','falcon:mistakeSeverity','falcon:lessons','falcon:dna',
+                         'falcon:profile','falcon:symbols','falcon:dataVersion'];
+  return keys.filter(k=>k.indexOf('falcon:')===0);
+}
+
+async function exportAll(withShots){
+  const btn=document.activeElement;
+  if(btn&&btn.classList) btn.classList.add('is-loading');
+  try{
+    const kv={};
+    for(const k of await journalKeys()){
+      if(k.indexOf('falcon:shot:')===0) continue;   // images travel in shots, not kv
+      try{ const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value; }catch(e){}
+    }
+    const payload={format:BACKUP_FORMAT, exportedAt:new Date().toISOString(),
+                   trader:PROFILE.name||'', counts:{trades:trades.length}, kv, shots:{}};
+    if(withShots){
+      const ids=[...referencedShotIds()];
+      for(const id of ids){
+        try{ const d=await Shots.raw(id); if(d) payload.shots[id]=d; }catch(e){}
+      }
+      payload.counts.shots=Object.keys(payload.shots).length;
+    }
+    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='odyssey-backup-'+ymd(new Date())+(withShots?'-full':'')+'.json';
+    a.click();
+    toast('Backup downloaded'+(withShots?' with screenshots':''),'ok');
+  } finally { if(btn&&btn.classList) btn.classList.remove('is-loading'); }
+}
+
+function pickBackupFile(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='application/json,.json';
+  inp.onchange=()=>{ if(inp.files&&inp.files[0]) importAll(inp.files[0]); };
+  inp.click();
+}
+
+async function importAll(file){
+  let payload;
+  try{ payload=JSON.parse(await file.text()); }
+  catch(e){ toast('That file is not readable JSON','err'); return; }
+  if(!payload || typeof payload!=='object' || !payload.kv){
+    toast('That does not look like an Odyssey backup','err'); return;
+  }
+  if(payload.format>BACKUP_FORMAT){
+    toast('That backup was written by a newer version of the journal','err'); return;
+  }
+  const nTrades=(()=>{ try{ return JSON.parse(payload.kv['falcon:trades']||'[]').length; }catch(e){ return '?'; } })();
+  const nShots=Object.keys(payload.shots||{}).length;
+  const when=payload.exportedAt? new Date(payload.exportedAt).toLocaleString() : 'unknown date';
+
+  if(!confirm(
+      'Restore this backup?\n\n'+
+      'From: '+when+'\n'+
+      'Contains: '+nTrades+' trades'+(nShots?', '+nShots+' screenshots':', no screenshots')+'\n\n'+
+      'This REPLACES the journal currently in this browser'+
+      (Store.backend==='supabase'?' and in your account':'')+'.\n'+
+      'A snapshot of the current state is taken first, and Settings can roll it back.')) return;
+
+  await snapshotNow('before restoring a backup');
+
+  for(const [k,v] of Object.entries(payload.kv)){
+    if(k.indexOf('falcon:')!==0) continue;    // never write a key outside the journal's namespace
+    try{ await Store.set(k,v); }catch(e){ console.error('restore failed for',k,e); }
+  }
+  let shotsDone=0;
+  for(const [id,dataUrl] of Object.entries(payload.shots||{})){
+    try{ await Shots.putRaw(id,dataUrl); shotsDone++; }catch(e){ console.error('screenshot restore failed',id,e); }
+  }
+  alert('Restored '+nTrades+' trades'+(shotsDone?' and '+shotsDone+' screenshots':'')+'.\n\nThe page will reload.');
+  location.reload();
+}
+
+/* ---------- Safety snapshot ----------
+   Taken automatically before anything that replaces the journal wholesale, so
+   a mis-click during development is recoverable without a file. */
+async function snapshotNow(reason){
+  try{
+    const kv={};
+    for(const k of await journalKeys()){
+      if(k.indexOf('falcon:shot:')===0) continue;
+      if(k==='falcon:snapshot') continue;
+      const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value;
+    }
+    await Store.set('falcon:snapshot', JSON.stringify({at:new Date().toISOString(), reason:reason||'', kv}));
+  }catch(e){ console.warn('snapshot failed',e); }
+}
+async function readSnapshot(){
+  try{ const r=await Store.get('falcon:snapshot'); return r&&r.value? JSON.parse(r.value) : null; }catch(e){ return null; }
+}
+async function restoreSnapshot(){
+  const snap=await readSnapshot();
+  if(!snap){ toast('No snapshot stored','err'); return; }
+  const n=(()=>{ try{ return JSON.parse(snap.kv['falcon:trades']||'[]').length; }catch(e){ return '?'; } })();
+  if(!confirm('Roll back to the snapshot taken '+new Date(snap.at).toLocaleString()+
+              (snap.reason?' ('+snap.reason+')':'')+'?\n\n'+
+              'It holds '+n+' trades. Screenshots are not part of a snapshot and are left alone.')) return;
+  for(const [k,v] of Object.entries(snap.kv)){
+    if(k.indexOf('falcon:')!==0) continue;
+    try{ await Store.set(k,v); }catch(e){}
+  }
+  location.reload();
 }
 
 // ---------- Control setters ----------
