@@ -1192,6 +1192,96 @@
   @media(max-width:900px){ .break-body.open{grid-template-columns:1fr} }
 
 
+  /* ============================================================
+     PRINT — A4, black on white.
+     The screen theme is near-black with glows; none of that survives a
+     printer, so everything is flattened to rules and plain type. Only the
+     open view prints, under a small header block.
+     ============================================================ */
+  .print-head{display:none}
+  @page{ size:A4 portrait; margin:14mm 12mm; }
+  @media print{
+    :root{
+      --bg:#fff; --bg-2:#fff; --panel:#fff; --panel-2:#fff; --panel-hover:#fff;
+      --border:#000; --border-soft:#bbb; --edge:#bbb; --edge-strong:#000;
+      --text:#000; --muted:#333; --muted-2:#555;
+      --accent:#000; --accent-bright:#000; --accent-soft:#eee; --accent-line:#999;
+      --cyan:#000; --cyan-2:#444; --green:#000; --red:#000; --danger:#000;
+      --bloom:none; --bloom-hover:none; --accent-glow:transparent;
+    }
+    html,body{background:#fff!important;color:#000!important}
+    body{font-size:10pt;line-height:1.35}
+
+    /* Only the open dashboard prints. */
+    .sidebar,.mobile-top,.nav-backdrop,.topbar,.fab,.focus-btn,.focus-panel,
+    .toast-host,.overlay,.lightbox,.side-panel,.side-backdrop,.controls,
+    .splash,.ghost-btn,.rbtn,.seg,.rtabs-acts,.ci-add,.tag-add,.cr-acts,
+    .break-toggle,.disc-btn,.cal-today,.log-search,.view-seg,.filter-bar,
+    .an-range,.row-del,.sr-car{ display:none!important }
+    .app{display:block}
+    .main{padding:0;max-width:none}
+
+    .print-head{display:block;border-bottom:2pt solid #000;padding-bottom:6pt;margin-bottom:10pt}
+    .print-title{font-size:16pt;font-weight:800;letter-spacing:-.01em}
+    .print-meta{font-size:9pt;color:#333;margin-top:2pt}
+
+    /* Panels become ruled boxes. */
+    .card,.cal-wrap,.rt-wrap,.streak-bar,.day-card,.mini-month,.wday-cell,
+    .prep-step-card,.placeholder,.an-row-2 .an-tile,.wr-tile,.trade-card{
+      background:#fff!important;border:.75pt solid #999!important;box-shadow:none!important;
+      border-radius:2pt!important;padding:7pt 9pt!important;break-inside:avoid
+    }
+    .axis-card,.q-tile,.mk-box,.mk-row,.sp-stat,.ki-row,.fx-row,.cw-row,
+    .ph-row,.setup-row,.cf-row,.pr-item,.wt-card,.rs-row,.disc-hero,.disc-stat,
+    .disc-tile,.perf-panel,.check-row,.prep-sub{
+      background:#fff!important;border:.5pt solid #bbb!important;box-shadow:none!important;
+      border-radius:2pt!important;break-inside:avoid
+    }
+    /* Meters print as a filled bar on a ruled track. */
+    .mf-fill,.usage-fill,.axis-fill,.tr-fill,.cw-fill,.phr-fill,.sr-fill,.mk-fill,
+    .qb-seg{background:#000!important;box-shadow:none!important}
+    .mf-track,.usage-track,.axis-track,.cw-track,.phr-track,.sr-track,.mk-track,
+    .wl-track{background:#e6e6e6!important;box-shadow:none!important}
+    .qb-seg.q-small{background:#777!important}
+    .qb-seg.q-crucial{background:#c4c4c4!important}
+    .q-tile.q-small .qt-dot{background:#777!important}
+    .q-tile.q-crucial .qt-dot{background:#c4c4c4!important}
+    .qt-dot,.pl-d,.cl-d{box-shadow:none!important}
+
+    .ring{filter:none!important}
+    .ring-track{stroke:#ddd!important}
+    .ring-prog{stroke:#000!important}
+    .ring-num,.ring-cap{fill:#000!important}
+    .pill,.wt-tag,.mk-sev,.rs-chip,.badge-pro{
+      background:#fff!important;color:#000!important;box-shadow:inset 0 0 0 .5pt #666!important}
+    .pos,.neg,.an-v,.wrt-v,.sp-v,.qt-n{color:#000!important}
+    /* Losses stay legible without colour by carrying their sign only. */
+    /* A canvas prints as its last-rendered bitmap and cannot re-lay out, so
+       pin the box rather than letting height:auto collapse it. */
+    .chart-box{height:52mm!important;break-inside:avoid}
+    canvas{max-width:100%!important}
+    /* Nothing may spill past the page margin. */
+    .main,#viewRoot{width:100%!important;max-width:100%!important}
+    .an-row,.wr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    .an-charts,.wr-two,.bento{grid-template-columns:1fr!important}
+    a,.link{color:#000!important;text-decoration:none}
+    thead th{background:#f0f0f0!important;color:#000!important;border-top:.5pt solid #999!important}
+    tbody td{border-top:.5pt solid #ddd!important}
+    table{font-size:8.5pt}
+
+    /* Keep related blocks together across page breaks. */
+    .bento,.an-row,.wr-tiles,.q-tiles,.sp-grid,.break-body.open{
+      display:grid!important;gap:6pt!important}
+    .section-label,.panel-h,.page-h{break-after:avoid}
+    .wt-list{max-height:none!important;overflow:visible!important}
+
+    /* Only the requested report prints, not every sibling block. */
+    body[data-print="weekly"] #viewRoot > *:not(#wrReport){display:none!important}
+    body[data-print="analytics"] #viewRoot > .bento:not(.an-charts),
+    body[data-print="analytics"] #viewRoot > .section-label,
+    body[data-print="analytics"] #viewRoot > .today-hero{display:none!important}
+  }
+
   /* ---- Weekly trading report -------------------------------- */
   .wr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}
   .wr-tile{background:linear-gradient(180deg,var(--panel) 0%,#070A0F 100%);
@@ -1495,6 +1585,10 @@
 <div class="mobile-top">
   <button class="hamburger" id="hamburger" aria-label="Menu"><svg viewBox="0 0 24 24" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
   <span class="mt-brand"><span class="dot">◆</span> ODYSSEY <span style="color:var(--muted-2);font-weight:500">/ journal</span></span>
+</div>
+<div class="print-head" aria-hidden="true">
+  <div class="print-title" id="printTitle"></div>
+  <div class="print-meta" id="printMeta"></div>
 </div>
 <div class="nav-backdrop" id="navBackdrop"></div>
 <div class="app">
@@ -3906,8 +4000,11 @@ function prepHabitCardHTML(s){
 
 /* ---------- Analytics charts ---------- */
 let anCharts=[];
+let PRINT_MODE=false;
+let lastDashStats=null;
 function destroyAnCharts(){ anCharts.forEach(c=>{ try{c.destroy();}catch(e){} }); anCharts=[]; }
 function drawAnalytics(s){
+  lastDashStats=s;
   destroyAnCharts();
   if(typeof Chart==='undefined') return;
   const sorted=s.list.slice().sort((a,b)=>a.date<b.date?1:-1).reverse();
@@ -3938,28 +4035,65 @@ function drawAnalytics(s){
 function mkChart(id,type,labels,data,opt){
   const el=document.getElementById(id); if(!el) return;
   const ctx=el.getContext('2d');
+  // A canvas cannot be restyled by the print stylesheet, so the chart is
+  // redrawn in greyscale before printing and back in colour afterwards.
+  const P=PRINT_MODE;
+  const line = P? '#000' : '#60A5FA';
+  const grid = P? '#d8d8d8' : '#101823';
+  const tick = P? '#444'    : '#5A6473';
   let bg;
   if(type==='line' && opt.fill){
     bg=ctx.createLinearGradient(0,0,0,200);
-    bg.addColorStop(0,'rgba(59,130,246,.34)'); bg.addColorStop(1,'rgba(0,0,0,0)');
+    bg.addColorStop(0, P? 'rgba(0,0,0,.18)' : 'rgba(59,130,246,.34)');
+    bg.addColorStop(1,'rgba(0,0,0,0)');
   }
   const colors = type==='bar'
-    ? data.map(v=>v>=0?'#60A5FA':'#9AA6B6')
-    : '#60A5FA';
+    ? data.map(v=> P ? (v>=0?'#1a1a1a':'#b4b4b4') : (v>=0?'#60A5FA':'#9AA6B6'))
+    : line;
   const fmt = opt.pct? (v=>v+'%') : (opt.count? (v=>v) : (v=>'$'+v));
   const c=new Chart(ctx,{
     type,
     data:{labels,datasets:[{data,
-      borderColor:type==='line'?'#60A5FA':undefined,
+      borderColor:type==='line'?line:undefined,
       backgroundColor: type==='bar'? colors : bg,
       borderWidth:type==='line'?2:0, borderRadius:type==='bar'?4:0,
       fill:!!opt.fill, tension:.18, pointRadius:0}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>String(fmt(x.raw))}}},
-      scales:{x:{grid:{display:false},ticks:{color:'#5A6473',font:{size:10},maxTicksLimit:8,autoSkip:true,maxRotation:0}},
-              y:{grid:{color:'#101823'},ticks:{color:'#5A6473',font:{size:10},callback:fmt}}}}
+      scales:{x:{grid:{display:false},ticks:{color:tick,font:{size:10},maxTicksLimit:8,autoSkip:true,maxRotation:0}},
+              y:{grid:{color:grid},ticks:{color:tick,font:{size:10},callback:fmt}}}}
   });
   anCharts.push(c);
+}
+
+/* ---------- Export as PDF ----------
+   Prints the open dashboard through the browser's own print pipeline, so the
+   user picks "Save as PDF" and gets a real vector A4 document rather than a
+   screenshot. A print stylesheet flattens the dark theme to black on white. */
+function exportPDF(kind){
+  const root=document.getElementById('viewRoot');
+  if(!root) return;
+  const title = kind==='weekly'
+    ? 'Weekly trading report · '+(typeof reviewLabel==='function'?reviewLabel():'')
+    : 'Analytics · '+rangeLabel(...periodBounds());
+  document.body.dataset.print=kind;
+  document.getElementById('printTitle').textContent=title;
+  document.getElementById('printMeta').textContent=
+    TRADER+' · '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const restore=()=>{
+    delete document.body.dataset.print;
+    PRINT_MODE=false;
+    if(kind==='analytics' && lastDashStats) drawAnalytics(lastDashStats);
+  };
+  if(kind==='analytics' && lastDashStats){
+    PRINT_MODE=true;
+    drawAnalytics(lastDashStats);   // redraw greyscale at the print box size
+  }
+  // Give the canvases a frame to repaint before the dialog blocks the thread.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    window.print();
+    setTimeout(restore,500);
+  }));
 }
 
 function chartOpts(){
