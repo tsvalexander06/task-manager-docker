@@ -213,7 +213,12 @@
   .cal-legend .cl-d.loss{background:rgba(174,184,198,.16);border-color:var(--red-line)}
   .cal-legend .cl-d.be{background:#18212E}
   .cal-legend .cl-d.none{background:transparent}
-  @media(max-width:1100px){ .cal-grid{grid-template-columns:repeat(7,1fr)} .cal-week,.cal-dow-wk{display:none} }
+  @media(max-width:1100px){
+    /* Same minmax(0,..) reason as above: a bare 1fr keeps a min-content floor,
+       so the P&L text in a cell would widen the grid past the viewport. */
+    .cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+    .cal-week,.cal-dow-wk{display:none}
+  }
   .cal-dow{text-align:center;color:var(--muted-2);font-size:11px;font-weight:600;padding:4px 0 8px;letter-spacing:.04em;margin-bottom:2px}
   .cal-cell{
     aspect-ratio:1.55/1;border-radius:9px;border:1px solid var(--border-soft);
@@ -227,8 +232,8 @@
   .cal-cell.today{outline:1px solid #243044}
   .cal-cell.win{background:rgba(59,130,246,.16);border-color:var(--green-line);box-shadow:0 0 14px rgba(59,130,246,.14) inset}
   .cal-cell.loss{background:rgba(174,184,198,.04);border-color:var(--red-line)}
-  .cal-cell .cpnl{margin-top:auto;font-size:13px;font-weight:700}
-  .cal-cell .cwl{font-size:9.5px;color:var(--muted);margin-top:2px}
+  .cal-cell .cpnl{margin-top:auto;font-size:13px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-cell .cwl{font-size:9.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cal-multi{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:14px}
   .mini-month{border:1px solid var(--border-soft);border-radius:11px;padding:12px 12px 14px;background:#080B11}
   .mini-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:12.5px;margin-bottom:9px}
@@ -993,7 +998,10 @@
     .metric-row{grid-template-columns:1fr 1fr}
     .bd-grid,.bd-2{grid-template-columns:1fr}
     .form-grid{grid-template-columns:1fr}
-    .cal-cell{min-height:52px}
+    /* aspect-ratio plus min-height sets a min-WIDTH too (52 x 1.55 = 81px),
+       which is what kept the 7-column grid wider than a phone. */
+    .cal-cell{aspect-ratio:auto;min-height:52px;padding:5px 6px}
+    .cal-cell .cpnl{font-size:11px}
     .bento{grid-template-columns:1fr!important}
   }
 
@@ -1220,6 +1228,29 @@
     border-top:1px solid var(--border-soft);padding-top:8px;margin-top:3px}
   .trade-card .tc-foot span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media(max-width:760px){ .logs-h .ph-side{width:100%;flex-wrap:wrap} .log-search{width:auto;flex:1;min-width:0} }
+
+
+  /* ---- Narrow screens -------------------------------------- */
+  /* Rows that hold several controls wrap instead of pushing the page wide. */
+  .toggle-set{flex-wrap:wrap;row-gap:8px}
+  .cal-head{flex-wrap:wrap;row-gap:10px}
+  .cal-head-right{flex-wrap:wrap;row-gap:8px}
+  /* Wide tables scroll inside their panel rather than the document. */
+  .table-scroll{overflow-x:auto;max-width:100%}
+  @media(max-width:760px){
+    /* Tabs scroll sideways; the actions drop to their own row underneath. */
+    .rtabs{flex-wrap:wrap;row-gap:0;gap:18px;overflow-x:auto;scrollbar-width:none}
+    .rtabs::-webkit-scrollbar{display:none}
+    .rtabs-acts{margin-left:0;width:100%;padding-bottom:10px;order:2}
+    .rtab{white-space:nowrap}
+    .page-h{align-items:flex-start}
+    /* Greeting and badges share a row at desktop width; on a phone the badges
+       drop underneath rather than crowding into the wrapped heading. */
+    .topbar{flex-direction:column;align-items:flex-start;gap:12px}
+    .greeting h1{font-size:23px}
+    .trade-grid{grid-template-columns:1fr}
+    .cal-mode button{padding:5px 9px}
+  }
 
   /* ---- Welcome splash — plays once per load, then hands over ---- */
   .splash{position:fixed;inset:0;z-index:200;display:grid;place-items:center;
@@ -2993,9 +3024,9 @@ function tradesTable(list, withDelete){
       <td class="r ${pnlClass(t.pnl)}">${disp(mv(t))}</td>
       ${withDelete?`<td class="r"><span class="row-del" onclick="event.stopPropagation();editTrade('${t.id}')">✎</span> &nbsp; <span class="row-del" onclick="event.stopPropagation();delTrade('${t.id}')">🗑</span></td>`:''}
     </tr>`).join('');
-  return `<table><thead><tr>
+  return `<div class="table-scroll"><table><thead><tr>
     <th>Close Date</th><th>Symbol</th><th>Side</th><th>Session</th><th>Type</th><th class="r">Net P&L</th>${withDelete?'<th class="r"></th>':''}
-  </tr></thead><tbody class="stagger-rows">${rows}</tbody></table>`;
+  </tr></thead><tbody class="stagger-rows">${rows}</tbody></table></div>`;
 }
 
 // ---------- Charts ----------
