@@ -32,8 +32,10 @@ Supabase magic links redirect to an origin, and `file://` has none.
 | Review | Open a week, then **Export PDF** |
 | Storage | The pill in the top right says where your data is being kept |
 
-The journal ships with 37 imported trades so every dashboard has something to
-show. **Settings → Reset** clears them.
+A new journal starts completely empty — no trades, accounts, setups,
+confluences or instruments. First run walks through setting those up, and
+**Settings → Load demo data** fills it with a sample record if you want to look
+around before committing to anything.
 
 ---
 
@@ -102,13 +104,46 @@ automatic merge so that signing in can never silently overwrite either side.
 
 ---
 
+## Screenshots
+
+Paste straight from TradingView with **Ctrl/Cmd + V** while a trade is open, or
+drag the file in. Captures are resized to 1920px and re-encoded as JPEG on the
+way in, which takes a 2560x1440 chart from roughly 3MB to about 60KB.
+
+Where they go follows the same rule as everything else:
+
+| Backend | Screenshots |
+|---|---|
+| Supabase | the `screenshots` bucket, one private folder per user |
+| IndexedDB | the image itself as a Blob, on that device |
+| Claude artifact | inline, because that runtime only holds strings |
+
+They are deliberately **not** kept in `journal_kv`. A database row would carry
+the image as base64, costing a third again in size, counting against the 500MB
+database quota rather than the 1GB storage quota, and slowing every unrelated
+read. At ~60KB each, the free storage tier holds roughly 16,000 screenshots.
+
+The bucket is private. The app hands out signed URLs valid for eight hours, so
+nothing is readable by guessing a path.
+
+**Settings → Screenshots** shows how many are stored and how much space they
+take, so a trader can see the one resource they can actually run out of.
+
+### If you need more room
+
+Supabase storage is billed per GB beyond the free tier and needs no code
+change. If you outgrow it, the only thing tying the app to Supabase Storage is
+the `Shots` module in `index.html` — swapping in S3, R2 or Backblaze is a
+change to `put`, `url` and `remove`, nothing else.
+
+---
+
 ## Known limits
 
-- **Screenshots are stored inline.** Images live as data URIs in the same
-  key/value rows as everything else. That is fine for one trader, but for a
-  product they belong in Supabase Storage with the row holding only a path.
-  Worth changing before you have paying users with large image libraries.
 - **No conflict resolution.** Last write wins. Editing the same journal in two
   tabs at once can lose an edit.
 - **Charts need the CDN.** If cdnjs is unreachable the charts are blank and
   everything else still works.
+- **Orphaned screenshots.** Deleting a whole trade leaves its images in
+  storage; only removing an image individually deletes it. Worth a periodic
+  sweep once you have real volume.

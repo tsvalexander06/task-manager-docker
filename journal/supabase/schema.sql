@@ -30,3 +30,44 @@ create policy "own rows: delete" on public.journal_kv for delete using (auth.uid
 -- Listing a user's own keys is a common read; this keeps it cheap as the
 -- journal grows.
 create index if not exists journal_kv_user_idx on public.journal_kv (user_id);
+
+-- ---------------------------------------------------------------------------
+-- Screenshots
+--
+-- Chart captures are the bulk of a journal by size, so they live in Storage
+-- rather than in journal_kv. Each user gets a folder named after their id, and
+-- the policies below are what confine them to it: the first path segment must
+-- equal the caller's uid.
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public)
+values ('screenshots', 'screenshots', false)
+on conflict (id) do nothing;
+
+drop policy if exists "screenshots: read own"   on storage.objects;
+drop policy if exists "screenshots: insert own" on storage.objects;
+drop policy if exists "screenshots: update own" on storage.objects;
+drop policy if exists "screenshots: delete own" on storage.objects;
+
+create policy "screenshots: read own" on storage.objects
+  for select using (
+    bucket_id = 'screenshots' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "screenshots: insert own" on storage.objects
+  for insert with check (
+    bucket_id = 'screenshots' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "screenshots: update own" on storage.objects
+  for update using (
+    bucket_id = 'screenshots' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "screenshots: delete own" on storage.objects
+  for delete using (
+    bucket_id = 'screenshots' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- The bucket is private, so the app hands out short-lived signed URLs. Nothing
+-- is readable by guessing a path.
