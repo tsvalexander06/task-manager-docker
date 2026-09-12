@@ -1,12 +1,13 @@
 # Netlify — Odyssey Journal
 #
 # The journal is a single static page, so there is nothing to bundle. The build
-# step only writes config.js from the environment, which is what keeps the
-# Supabase values out of the repository.
+# step copies the page into dist/ and writes config.js from the environment.
+# Publishing dist/ rather than the source directory keeps the README, the
+# going-live checklist and the SQL schema off the public web.
 
 [build]
   base    = "journal"
-  publish = "."
+  publish = "dist"
   command = "node scripts/build-config.js"
 
 [[headers]]

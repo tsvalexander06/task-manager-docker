@@ -1,0 +1,11 @@
+# Netlify writes this at build time from environment variables. Committing a
+# filled-in copy is allowed (the anon key is public by design), but a local
+# experiment should not be able to overwrite the deployed one by accident.
+config.local.js
+
+# Test and screenshot output. A misdirected output path once committed 550KB of
+# Playwright captures into the site directory, which would have been deployed.
+undefined/
+*.png
+!docs/**/*.png
+dist/

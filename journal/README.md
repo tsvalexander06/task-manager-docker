@@ -1,7 +1,11 @@
 # Odyssey Journal
 
-> Setting this up for real? Work through **[GOING-LIVE.md](GOING-LIVE.md)** —
-> it lists what still needs doing, in the order that matters.
+> **Putting it online for the first time?** Follow
+> **[DEPLOY.md](DEPLOY.md)** — click by click, ending with you journalling real
+> trades on a private site.
+>
+> **Getting ready for customers?** **[GOING-LIVE.md](GOING-LIVE.md)** lists what
+> still needs doing, in the order that matters.
 
 A trading journal that runs as one static page. No build step, no framework,
 no server of its own.
