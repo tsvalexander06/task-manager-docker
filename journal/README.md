@@ -4,6 +4,9 @@
 > **[DEPLOY.md](DEPLOY.md)** — click by click, ending with you journalling real
 > trades on a private site.
 >
+> **Charging for it?** **[BILLING.md](BILLING.md)** sets up the subscription —
+> one plan, everything in it, gated in the database rather than the browser.
+>
 > **Getting ready for customers?** **[GOING-LIVE.md](GOING-LIVE.md)** lists what
 > still needs doing, in the order that matters.
 

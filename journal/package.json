@@ -1,0 +1,13 @@
+{
+  "name": "odyssey-journal",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Trading journal — a single static page, with Netlify Functions for Stripe billing.",
+  "scripts": {
+    "build": "node scripts/build-config.js",
+    "dev": "npx http-server -p 8080 ."
+  },
+  "dependencies": {
+    "stripe": "^16.12.0"
+  }
+}

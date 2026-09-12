@@ -6,9 +6,10 @@
 # going-live checklist and the SQL schema off the public web.
 
 [build]
-  base    = "journal"
-  publish = "dist"
-  command = "node scripts/build-config.js"
+  base      = "journal"
+  publish   = "dist"
+  command   = "node scripts/build-config.js"
+  functions = "netlify/functions"
 
 [[headers]]
   for = "/*"
@@ -17,7 +18,7 @@
     # Supabase over HTTPS, and renders pasted screenshots as data: URIs.
     # Nothing else should be reachable. 'unsafe-inline' is required because the
     # whole app is one inline script and one inline stylesheet.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
     X-Frame-Options        = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy        = "strict-origin-when-cross-origin"

@@ -74,11 +74,10 @@ Cleared since this was written:
 
 ## 3. Not built — decide before launch
 
-- [ ] **Nothing gates access.** Anyone who signs in gets a full journal. This is
-      the one genuinely missing piece of a paid product. The usual shape is
-      Stripe Checkout, a `plan` column on a profiles table, and a check at
-      boot — but whether you sell a trial, a one-off licence or a subscription
-      changes the design, so it needs your decision first.
+- [x] ~~**Nothing gates access.**~~ Built: one subscription, everything in it,
+      enforced by row level security rather than by the browser. Writing needs
+      an active subscription; reading and exporting never do. Set it up with
+      [BILLING.md](BILLING.md).
 - [ ] **No password sign-in.** Magic link only. Fine for most people, a
       complaint from some.
 - [ ] **No error reporting.** When it breaks for a customer you will not know.

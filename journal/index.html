@@ -1337,6 +1337,35 @@
   .onb-cru.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-bright)}
   .onb-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:20px}
 
+  /* ---- Subscription ----------------------------------------- */
+  .read-only-bar{display:none;position:sticky;top:0;z-index:46;align-items:center;gap:12px;flex-wrap:wrap;
+    background:linear-gradient(180deg,#1E1A0F,#16140E);border-bottom:1px solid var(--edge-strong);
+    padding:10px 18px;font-size:12.5px;color:var(--text);font-weight:600}
+  .read-only-bar.show{display:flex}
+  .read-only-bar .btn{padding:6px 13px;font-size:12px}
+  .link-btn{background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;
+    color:var(--muted);cursor:pointer;padding:4px 2px;text-decoration:underline;text-underline-offset:3px}
+  .link-btn:hover{color:var(--text)}
+
+  .pay-overlay{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;
+    padding:24px 16px;overflow-y:auto;
+    background:radial-gradient(120% 90% at 50% 40%,#17150F 0%,#0B0B0C 65%,#000 100%)}
+  .pay-overlay.show{display:flex;animation:fadeIn var(--dur-base) var(--ease-out) both}
+  .pay-card{width:100%;max-width:430px;text-align:center;
+    background:linear-gradient(180deg,#141415,#0D0D0E);border:1px solid var(--edge-strong);
+    border-radius:18px;padding:30px 28px 24px;box-shadow:0 30px 70px rgba(0,0,0,.6)}
+  .pay-mark{width:46px;height:46px;margin:0 auto 16px;border-radius:13px;display:grid;place-items:center;
+    background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--accent-bright)}
+  .pay-mark svg{width:22px;height:22px}
+  .pay-card h2{font-size:21px;font-weight:800;letter-spacing:-.01em}
+  .pay-sub{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5}
+  .pay-list{list-style:none;text-align:left;margin:20px 0 22px;display:flex;flex-direction:column;gap:9px}
+  .pay-list li{font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+  .pay-list li::before{content:'✓';color:var(--accent-bright);font-weight:800;flex:0 0 auto}
+  .pay-cta{width:100%;padding:13px;font-size:14px}
+  .pay-foot{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;
+    font-size:12px;color:var(--muted-2)}
+
   /* ---- Account / sync bar ----------------------------------- */
   .acct-bar{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
     background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:5px 10px}
@@ -1749,6 +1778,8 @@
 <div class="overlay" id="comparisonOverlay">
   <div class="modal" style="max-width:520px"><div id="comparisonBody"></div></div>
 </div>
+<div class="read-only-bar" id="roBar"></div>
+<div class="pay-overlay" id="payOverlay"></div>
 <div class="overlay" id="onbOverlay">
   <div class="modal" style="max-width:520px"><div id="onbBody"></div></div>
 </div>
@@ -1884,6 +1915,9 @@ let PROFILE={name:'', onboarded:false};
 // localStorage is deliberately not used: screenshots are held as data URIs
 // and would blow through its ~5MB quota after a handful of trades.
 // ============================================================
+/* Called when the database refuses a write. Declared before Store so the
+   module can reach it; the real handler is installed once the app boots. */
+let onWriteDenied = ()=>{};
 const Store = (function(){
   const DB='odyssey', STORE='kv';
   let backend='idb', idb=null, sb=null, user=null;
@@ -1940,7 +1974,7 @@ const Store = (function(){
   // The app expects get() to resolve to {value} or null, matching the
   // artifact runtime's own shape.
   async function get(key){
-    if(backend==='artifact') return Store.get(key);
+    if(backend==='artifact') return window.storage.get(key);
     if(backend==='supabase'){
       const {data,error}=await sb.from('journal_kv').select('v').eq('user_id',user.id).eq('k',key).maybeSingle();
       if(error) throw error;
@@ -1950,17 +1984,27 @@ const Store = (function(){
     return v==null? null : {value:v};
   }
   async function set(key,value){
-    if(backend==='artifact') return Store.set(key,value);
+    if(backend==='artifact') return window.storage.set(key,value);
     if(backend==='supabase'){
       const {error}=await sb.from('journal_kv')
         .upsert({user_id:user.id,k:key,v:value,updated_at:new Date().toISOString()},{onConflict:'user_id,k'});
-      if(error) throw error;
+      if(error){
+        // Row level security refuses the write when the subscription is not
+        // active. Surface that instead of failing quietly.
+        if(isDenied(error)) onWriteDenied();
+        throw error;
+      }
       return;
     }
     return idbOp('readwrite',st=>st.put(value,key));
   }
+  // Postgres raises 42501 for a policy refusal; PostgREST reports it as 401/403.
+  function isDenied(err){
+    return err && (err.code==='42501' || err.status===401 || err.status===403 ||
+                   /row-level security|permission denied/i.test(err.message||''));
+  }
   async function del(key){
-    if(backend==='artifact') return Store.delete(key);
+    if(backend==='artifact') return window.storage.delete(key);
     if(backend==='supabase'){
       const {error}=await sb.from('journal_kv').delete().eq('user_id',user.id).eq('k',key);
       if(error) throw error;
@@ -2346,6 +2390,11 @@ function pnlClass(n){ return n>0?'pos':(n<0?'neg':''); }
 
 // ---------- Motion system (JS hooks) ----------
 const __reduceMotionMQ = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+/* Wraps a handler so a burst of failures produces one message, not fifty. */
+function onceEvery(fn,ms){
+  let last=0;
+  return (...a)=>{ const now=Date.now(); if(now-last<ms) return; last=now; fn(...a); };
+}
 function prefersReduced(){ return !!(__reduceMotionMQ && __reduceMotionMQ.matches); }
 // Re-trigger the section entrance, then clear the class so in-place data refreshes
 // (filter / account / period changes) never re-fade the whole view.
@@ -3021,6 +3070,120 @@ async function removeMistakeTag(name){
   ]);
   refreshMistakeTags();
   openMistakeSeverity();
+}
+
+// ============================================================
+// SUBSCRIPTION
+// One plan, everything in it. What the browser knows is only for showing the
+// right screen — the database policies are the real gate, so editing anything
+// here in devtools changes what you see and nothing you can do.
+// ============================================================
+let PLAN = {status:'unknown', periodEnd:null, cancelAtPeriodEnd:false};
+
+function planActive(){ return PLAN.status==='active' || PLAN.status==='trialing'; }
+/* Billing only applies when there are accounts at all. Running on this device
+   with no Supabase configured is the local mode, not an unpaid one. */
+function billingApplies(){ return Store.backend==='supabase'; }
+
+async function loadPlan(){
+  if(!billingApplies()){ PLAN={status:'local', periodEnd:null, cancelAtPeriodEnd:false}; return; }
+  try{
+    const {data,error}=await Store.client.from('profiles')
+      .select('subscription_status,current_period_end,cancel_at_period_end')
+      .eq('id',Store.user.id).maybeSingle();
+    if(error) throw error;
+    PLAN={
+      status: data? (data.subscription_status||'none') : 'none',
+      periodEnd: data? data.current_period_end : null,
+      cancelAtPeriodEnd: !!(data && data.cancel_at_period_end)
+    };
+  }catch(e){
+    console.warn('Could not read subscription status:', e.message);
+    PLAN={status:'unknown', periodEnd:null, cancelAtPeriodEnd:false};
+  }
+}
+
+async function callBilling(path){
+  const {data}=await Store.client.auth.getSession();
+  const token=data && data.session ? data.session.access_token : null;
+  if(!token) throw new Error('Not signed in');
+  const res=await fetch('/.netlify/functions/'+path,{
+    method:'POST', headers:{Authorization:'Bearer '+token}
+  });
+  const body=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(body.error||('Request failed ('+res.status+')'));
+  return body;
+}
+async function startSubscription(btn){
+  if(btn) btn.classList.add('is-loading');
+  try{ const {url}=await callBilling('create-checkout'); location.href=url; }
+  catch(e){ toast(e.message,'err'); if(btn) btn.classList.remove('is-loading'); }
+}
+async function openBillingPortal(btn){
+  if(btn) btn.classList.add('is-loading');
+  try{ const {url}=await callBilling('create-portal'); location.href=url; }
+  catch(e){ toast(e.message,'err'); if(btn) btn.classList.remove('is-loading'); }
+}
+
+/* Returning from Stripe, the webhook may not have landed yet. Poll briefly
+   rather than showing a paid customer the paywall. */
+async function settleAfterCheckout(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('checkout')!=='success') return false;
+  history.replaceState({},'',location.pathname);
+  for(let i=0;i<10;i++){
+    await loadPlan();
+    if(planActive()) return true;
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  return false;
+}
+
+/* ---------- Paywall ----------
+   Shown over the app rather than instead of it: a lapsed subscriber can still
+   read and export everything they wrote. Only writing is blocked. */
+function showPaywall(){
+  const lapsed = PLAN.status==='past_due' || PLAN.status==='canceled' || PLAN.status==='unpaid';
+  const el=document.getElementById('payOverlay');
+  el.innerHTML=`
+    <div class="pay-card">
+      <div class="pay-mark">${ic('trophy')}</div>
+      <h2>${lapsed? 'Your subscription has lapsed' : 'Odyssey Journal'}</h2>
+      <p class="pay-sub">${lapsed
+        ? 'Your journal is still here and you can still read and export all of it. Renew to start writing again.'
+        : 'One subscription. Everything in it.'}</p>
+      <ul class="pay-list">
+        <li>Every dashboard — analytics, mistakes, edge score, technicals</li>
+        <li>Unlimited trades, screenshots and missed trades</li>
+        <li>Weekly reports and printable A4 exports</li>
+        <li>Improvement workshop and the full trading plan</li>
+        <li>Synced across every device you sign in from</li>
+      </ul>
+      <button class="btn primary pay-cta" onclick="startSubscription(this)">
+        ${lapsed? 'Renew subscription' : 'Subscribe'}
+      </button>
+      <div class="pay-foot">
+        <button class="link-btn" onclick="hidePaywall()">Look around read-only</button>
+        <span>·</span>
+        <button class="link-btn" onclick="signOut()">Sign out</button>
+      </div>
+    </div>`;
+  el.classList.add('show');
+}
+function hidePaywall(){ document.getElementById('payOverlay').classList.remove('show'); }
+
+/* A banner rather than a silent failure. Someone typing into a journal that
+   cannot save needs to know before they lose the entry, not after. */
+function renderReadOnlyBar(){
+  const el=document.getElementById('roBar');
+  if(!el) return;
+  const show = billingApplies() && !planActive() && PLAN.status!=='unknown';
+  el.classList.toggle('show', show);
+  if(show){
+    el.innerHTML=`<span>Read-only — changes will not save.</span>
+      <button class="btn primary" onclick="startSubscription(this)">Subscribe</button>
+      <button class="link-btn" onclick="exportAll(true)">Export everything</button>`;
+  }
 }
 
 /* ---------- Account bar ----------
@@ -6513,6 +6676,11 @@ function renderSettings(){
     <div style="margin-top:14px"><button class="btn ghost" onclick="openOnboarding()">Run setup again</button></div>
   </div>
 
+  <div class="card" style="max-width:620px;margin-bottom:14px" id="subCard">
+    <div class="panel-title">Subscription</div>
+    <div id="subBody" class="hl-muted" style="font-size:12.5px">Checking…</div>
+  </div>
+
   <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Where your data lives</div>
     <div id="storeFacts" class="set-rows">Checking…</div>
@@ -6556,6 +6724,7 @@ function renderSettings(){
   showShotUsage();
   showStoreFacts();
   showSnapshotRow();
+  showSubscription();
 }
 
 /* The three questions worth answering before trusting a journal with real
@@ -6572,6 +6741,28 @@ async function showShotUsage(){
     + (u.where==='this device'
         ? ' <span style="color:var(--muted-2)">— sign in to keep them with your account instead</span>'
         : '');
+}
+async function showSubscription(){
+  const card=document.getElementById('subCard'), el=document.getElementById('subBody');
+  if(!el) return;
+  if(!billingApplies()){
+    card.style.display='none';   // no accounts configured, so nothing to bill
+    return;
+  }
+  const fmt=d=>d? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const LABEL={active:'Active', trialing:'Free trial', past_due:'Payment failed',
+               canceled:'Cancelled', unpaid:'Unpaid', none:'No subscription', unknown:'Unknown'};
+  const rows=[['Status', LABEL[PLAN.status]||PLAN.status]];
+  if(PLAN.periodEnd) rows.push([PLAN.cancelAtPeriodEnd?'Ends':'Renews', fmt(PLAN.periodEnd)]);
+
+  el.innerHTML=`<div class="set-rows">${rows.map(([l,v])=>
+      `<div class="set-row"><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    ${PLAN.cancelAtPeriodEnd? '<div class="hl-muted" style="font-size:11.5px;margin-top:10px">Cancelled — you keep full access until the date above.</div>':''}
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      ${planActive()
+        ? '<button class="btn ghost" onclick="openBillingPortal(this)">Manage billing</button>'
+        : '<button class="btn primary" onclick="startSubscription(this)">Subscribe</button>'}
+    </div>`;
 }
 async function showStoreFacts(){
   const el=document.getElementById('storeFacts'); if(!el) return;
@@ -7002,6 +7193,12 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
 (async function(){
   // Storage has to be up before anything reads from it.
   try{ await Store.init(); }catch(e){ console.warn('storage init failed',e); }
+  await loadPlan();
+  await settleAfterCheckout();
+  onWriteDenied = onceEvery(()=>{
+    toast('Not saved — your subscription is not active','err');
+    loadPlan().then(renderReadOnlyBar);
+  }, 4000);
   renderAccountBar();
   // A new journal starts empty. Only an existing record gets migrated.
   const saved=await loadTrades();
@@ -7072,6 +7269,10 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   renderDashboard();
   playViewAnim();
   dismissSplash();
+  renderReadOnlyBar();
+  if(billingApplies() && !planActive() && PLAN.status!=='unknown'){
+    setTimeout(showPaywall, prefersReduced()?0:1500);
+  }
   if(!PROFILE.onboarded && !trades.length) setTimeout(openOnboarding, prefersReduced()?0:1500);
   // nav wiring + icons
   document.querySelectorAll('.nav-item').forEach(n=>{
