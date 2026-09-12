@@ -175,13 +175,44 @@
   .ghost-btn:hover{background:var(--panel-hover)}
 
   /* ---------- Calendar ---------- */
-  .cal-wrap{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px 18px 18px;margin-bottom:18px}
+  .cal-wrap{min-width:0;background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px 18px 18px;margin-bottom:18px}
   .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
   .cal-nav{display:flex;align-items:center;gap:10px}
   .cal-title{font-weight:700;font-size:15px;min-width:130px;text-align:center}
   .cal-total{font-weight:700;font-size:14px}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-  .cal-dow{text-align:center;color:var(--muted-2);font-size:11.5px;font-weight:600;padding:6px 0;background:var(--panel-2);border-radius:7px;margin-bottom:2px}
+  /* minmax(0,..) on every track: a bare 1fr keeps a min-content floor, which
+     lets the week column push the grid out past the card. */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,.92fr);gap:6px;min-width:0}
+  .cal-dow-wk{color:var(--accent-bright)}
+  /* Week-summary column, as in the reference's month view */
+  .cal-week{border:1px solid var(--edge);border-radius:9px;background:#080B11;padding:7px 8px;
+    display:flex;flex-direction:column;gap:2px;min-height:64px;min-width:0;font-size:9px;overflow:hidden}
+  .cal-week.empty{border:none;background:transparent}
+  .cal-week .cw-range{font-size:9.5px;font-weight:700;color:var(--accent-bright);margin-bottom:3px;letter-spacing:.02em}
+  .cal-week .cw-row{display:flex;align-items:baseline;justify-content:space-between;gap:5px;color:var(--muted-2);min-width:0}
+  .cal-week .cw-row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-week .cw-row b{white-space:nowrap}
+  .cal-week .cw-row b{font-weight:700;color:var(--text)}
+  .cal-week .cw-none{color:var(--muted-2)}
+  .cal-cell.be{border-color:var(--border-soft)}
+  .cal-head-right{display:flex;align-items:center;gap:12px}
+  .cal-mode button{padding:5px 11px;font-size:11.5px}
+  .cal-today{background:var(--accent);color:var(--on-accent);border:none;border-radius:7px;
+    font-family:inherit;font-size:11.5px;font-weight:700;padding:5px 12px;cursor:pointer;margin-left:4px;
+    box-shadow:0 0 12px rgba(59,130,246,.30);transition:filter var(--dur-fast) var(--ease-out)}
+  .cal-today:hover{filter:brightness(1.1)}
+  .cal-cell .cpnl.cal-dim{color:var(--muted-2)}
+  .cal-legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;
+    padding-top:12px;border-top:1px solid var(--border-soft);font-size:11px;color:var(--muted)}
+  .cal-legend .cl-t{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
+  .cal-legend .cl-i{display:inline-flex;align-items:center;gap:7px}
+  .cal-legend .cl-d{width:9px;height:9px;border-radius:3px;display:inline-block;border:1px solid var(--edge)}
+  .cal-legend .cl-d.win{background:rgba(59,130,246,.55);border-color:var(--green-line)}
+  .cal-legend .cl-d.loss{background:rgba(174,184,198,.16);border-color:var(--red-line)}
+  .cal-legend .cl-d.be{background:#18212E}
+  .cal-legend .cl-d.none{background:transparent}
+  @media(max-width:1100px){ .cal-grid{grid-template-columns:repeat(7,1fr)} .cal-week,.cal-dow-wk{display:none} }
+  .cal-dow{text-align:center;color:var(--muted-2);font-size:11px;font-weight:600;padding:4px 0 8px;letter-spacing:.04em;margin-bottom:2px}
   .cal-cell{
     aspect-ratio:1.55/1;border-radius:9px;border:1px solid var(--border-soft);
     background:#080B11;padding:7px 9px;position:relative;min-height:64px;
@@ -937,7 +968,8 @@
 
   /* ---------- Video-style bento dashboard ---------- */
   .bento{display:grid;gap:14px;margin-bottom:14px;align-items:stretch}
-  .bento.b-cal{grid-template-columns:1.55fr 1fr}
+  .bento > *{min-width:0}
+  .bento.b-cal{grid-template-columns:minmax(0,1.9fr) minmax(272px,1fr)}
   .bento.b-bottom{grid-template-columns:1.3fr 1fr}
   .panel-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
   .panel-h .ph-title{font-size:15px;font-weight:800;letter-spacing:-.01em}
@@ -1134,6 +1166,8 @@
 </style>
 </head>
 <body>
+<!-- Welcome splash: paints immediately, then hands over to the app. -->
+<div class="splash" id="splash"><div class="splash-t">Welcome Back, <span>Alexander</span></div></div>
 <div class="mobile-top">
   <button class="hamburger" id="hamburger" aria-label="Menu"><svg viewBox="0 0 24 24" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
   <span class="mt-brand"><span class="dot">◆</span> ODYSSEY <span style="color:var(--muted-2);font-weight:500">/ journal</span></span>
@@ -1295,6 +1329,7 @@
 </div>
 
 <script>
+const TRADER='Alexander';
 // ---------- Icons ----------
 function ic(name){
   const p={
@@ -1355,7 +1390,7 @@ const SEED_GRADED_IDS = new Set(NOTION_TRADES.filter(t=>t.pGrade||t.sGrade||t.eG
 const DATA_VERSION = 5;
 let trades = [];
 let currentView='dashboard';
-let ui={ period:'all', currency:'$', breakOpen:true, anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
+let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
   tradeFilters:{symbol:'',side:'',session:'',setup:'',mistake:'',account:'',riskGrade:'',outcome:'',dateFrom:'',dateTo:''},
   missedFilters:{symbol:'',direction:'',setup:'',reason:'',dateFrom:'',dateTo:''} };
 let editingId=null, modalSide='long', modalForecast=true;
@@ -1715,10 +1750,22 @@ function gaugeSVG(pct,color){
 }
 
 // ---------- Greeting ----------
+/* The splash is markup rather than JS-injected so it is on screen during the
+   first paint. It holds briefly, then fades and is removed from the tree. */
+function dismissSplash(){
+  const el=document.getElementById('splash');
+  if(!el) return;
+  el.querySelector('span').textContent=TRADER;
+  const hold=prefersReduced()?0:900;
+  setTimeout(()=>{
+    el.classList.add('out');
+    setTimeout(()=>el.remove(), prefersReduced()?0:500);
+  },hold);
+}
 function renderGreeting(){
   const h=new Date().getHours();
   const g=h<12?'Good morning':(h<18?'Good afternoon':'Good evening');
-  document.getElementById('greet').innerHTML=g+', <span>Alexander</span>';
+  document.getElementById('greet').innerHTML=g+', <span>'+TRADER+'</span>';
   const now=new Date();
   const dow=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
   document.getElementById('greetMeta').textContent=dow+' '+now.getDate()+' '+MONTHS[now.getMonth()]+' · '+trades.length+' trades on record';
@@ -2439,10 +2486,18 @@ function renderDashboard(){
           <button class="rbtn" onclick="dashCalNudge(-1)">‹</button>
           <span class="cal-title">${MONTHS[ui.calM]} ${ui.calY}</span>
           <button class="rbtn" onclick="dashCalNudge(1)">›</button>
+          <button class="cal-today" onclick="calToday()">Today</button>
         </div>
-        <span class="cal-total ${pnlClass(monthTotal)}">${disp(monthTotal)}</span>
+        <div class="cal-head-right">
+          <div class="seg cal-mode">
+            <button class="${ui.calMode==='pnl'?'on':''}" onclick="setCalMode('pnl')">$ P&amp;L</button>
+            <button class="${ui.calMode==='psych'?'on':''}" onclick="setCalMode('psych')">Psych</button>
+          </div>
+          <span class="cal-total ${pnlClass(monthTotal)}">${disp(monthTotal)}</span>
+        </div>
       </div>
       <div class="cal-grid">${calCells()}</div>
+      ${calLegendHTML()}
     </div>
     ${disciplinePanelHTML(s.list)}
   </div>
@@ -2490,25 +2545,76 @@ function calCells(){
   const startDow=first.getDay(); // 0 Sun
   const daysInMonth=new Date(ui.calY,ui.calM+1,0).getDate();
   const byDay={};
-  VT().forEach(t=>{const d=parseD(t.date); if(d.getFullYear()===ui.calY&&d.getMonth()===ui.calM){ if(!byDay[d.getDate()])byDay[d.getDate()]={pnl:0,w:0,l:0}; byDay[d.getDate()].pnl+=mv(t); if(t.pnl>0)byDay[d.getDate()].w++; else if(t.pnl<0)byDay[d.getDate()].l++; }});
+  VT().forEach(t=>{const d=parseD(t.date); if(d.getFullYear()===ui.calY&&d.getMonth()===ui.calM){ if(!byDay[d.getDate()])byDay[d.getDate()]={pnl:0,w:0,l:0,list:[]}; byDay[d.getDate()].pnl+=mv(t); byDay[d.getDate()].list.push(t); if(t.pnl>0)byDay[d.getDate()].w++; else if(t.pnl<0)byDay[d.getDate()].l++; }});
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  let out=dows.map(d=>'<div class="cal-dow">'+d+'</div>').join('');
+  let out=dows.map(d=>'<div class="cal-dow">'+d+'</div>').join('')+'<div class="cal-dow cal-dow-wk">Week</div>';
   const todayStr=ymd(new Date());
   const totalCells=Math.ceil((startDow+daysInMonth)/7)*7;
   for(let i=0;i<totalCells;i++){
     const dnum=i-startDow+1;
-    if(dnum<1||dnum>daysInMonth){ out+='<div class="cal-cell empty"></div>'; continue; }
-    const info=byDay[dnum];
-    const cls=info?(info.pnl>0?'win':(info.pnl<0?'loss':'')):'';
-    const dateStr=ui.calY+'-'+String(ui.calM+1).padStart(2,'0')+'-'+String(dnum).padStart(2,'0');
-    const isToday = todayStr===dateStr;
-    out+='<div class="cal-cell '+cls+(isToday?' today':'')+(info?' clickable':'')+'"'+(info?' onclick="openDayFromCalendar(\''+dateStr+'\')"':'')+'>'
-      +'<span class="num">'+dnum+'</span>'
-      +(info?('<span class="cpnl '+pnlClass(info.pnl)+'">'+disp(info.pnl)+'</span><span class="cwl">'+info.w+'W · '+info.l+'L</span>'):'')
-      +'</div>';
+    if(dnum<1||dnum>daysInMonth){ out+='<div class="cal-cell empty"></div>'; }
+    else {
+      const info=byDay[dnum];
+      const dateStr=ui.calY+'-'+String(ui.calM+1).padStart(2,'0')+'-'+String(dnum).padStart(2,'0');
+      const isToday = todayStr===dateStr;
+      let cls='', body='';
+      if(info && ui.calMode==='psych'){
+        // Psychology mode grades the process: cells carry the P/S/E average.
+        const d=disciplineStats(info.list);
+        cls = d.entries ? (d.avg>=75?'win':(d.avg>=50?'be':'loss')) : 'be';
+        body = d.entries
+          ? '<span class="cpnl">'+d.avg+'</span><span class="cwl">'+gradeLetter(d.avg)+' · '+d.entries+' graded</span>'
+          : '<span class="cpnl cal-dim">—</span><span class="cwl">not graded</span>';
+      } else if(info){
+        cls = info.pnl>0?'win':(info.pnl<0?'loss':'be');
+        body = '<span class="cpnl '+pnlClass(info.pnl)+'">'+disp(info.pnl)+'</span><span class="cwl">'+info.w+'W · '+info.l+'L</span>';
+      }
+      out+='<div class="cal-cell '+cls+(isToday?' today':'')+(info?' clickable':'')+'"'+(info?' onclick="openDayFromCalendar(\''+dateStr+'\')"':'')+'>'
+        +'<span class="num">'+dnum+'</span>'+body
+        +'</div>';
+    }
+    // Close each calendar row with the reference's week-summary column.
+    if(i%7===6) out+=weekSummaryCell(byDay,i-6-startDow+1,daysInMonth);
   }
   return out;
 }
+/* Summary for one calendar row: the reference shows range, P&L, win rate,
+   trade count and the psychology average, or "No trades" for an empty week. */
+function weekSummaryCell(byDay,firstDay,daysInMonth){
+  let pnl=0,w=0,l=0,n=0,from=null,to=null,list=[];
+  for(let d=firstDay;d<firstDay+7;d++){
+    if(d<1||d>daysInMonth) continue;
+    if(from==null) from=d;
+    to=d;
+    const info=byDay[d];
+    if(!info) continue;
+    pnl+=info.pnl; w+=info.w; l+=info.l; n+=info.list.length; list=list.concat(info.list);
+  }
+  if(from==null) return '<div class="cal-week empty"></div>';
+  const label=MONTHS_SH[ui.calM]+' '+from+'–'+to;
+  if(!n) return `<div class="cal-week"><div class="cw-range">${label}</div><div class="cw-none">No trades</div></div>`;
+  const wr = (w+l) ? Math.round(w/(w+l)*100) : 0;
+  const psych = disciplineStats(list);
+  return `<div class="cal-week">
+    <div class="cw-range">${label}</div>
+    <div class="cw-row"><span>P&amp;L</span><b class="${pnlClass(pnl)}">${disp(pnl)}</b></div>
+    <div class="cw-row"><span>Win rate</span><b>${wr}%</b></div>
+    <div class="cw-row"><span>Trades</span><b>${n}</b></div>
+    ${psych.entries?`<div class="cw-row"><span>Psych</span><b>${psych.avg}</b></div>`:''}
+  </div>`;
+}
+/* Legend under the grid — only the states this data model can actually produce. */
+function calLegendHTML(){
+  const items = ui.calMode==='psych'
+    ? [['win','Graded A / B'],['be','Graded C'],['loss','Below C'],['none','No activity']]
+    : [['win','Profit'],['loss','Loss'],['be','Break-even'],['none','No activity']];
+  return `<div class="cal-legend">
+    <span class="cl-t">Day results</span>
+    ${items.map(([c,l])=>`<span class="cl-i"><i class="cl-d ${c}"></i>${l}</span>`).join('')}
+  </div>`;
+}
+function setCalMode(m){ if(ui.calMode===m)return; ui.calMode=m; renderDashboard(); }
+function calToday(){ const n=new Date(); ui.calY=n.getFullYear(); ui.calM=n.getMonth(); renderDashboard(); }
 function openDayFromCalendar(dateStr){
   const d=parseD(dateStr);
   ui.dvY=d.getFullYear(); ui.dvM=d.getMonth(); ui.dvDay=dateStr;
@@ -4415,6 +4521,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   renderGreeting();
   renderDashboard();
   playViewAnim();
+  dismissSplash();
   // nav wiring + icons
   document.querySelectorAll('.nav-item').forEach(n=>{
     if(n.dataset.icon){ n.insertAdjacentHTML('afterbegin', ic(n.dataset.icon)); }
