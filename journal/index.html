@@ -1182,6 +1182,7 @@
   .axis-card .ac-name{font-size:12.5px;font-weight:700}
   .axis-card .ac-v{margin-left:auto;font-size:13px;font-weight:800;color:var(--cyan)}
   .axis-card .ac-desc{font-size:10.5px;color:var(--muted-2);margin-top:8px}
+  .axis-card .ac-fact{font-size:10.5px;color:var(--accent-bright);margin-top:3px;font-weight:600}
   .mf-track{height:5px;border-radius:3px;background:#101823;overflow:hidden}
   .mf-fill{height:100%;border-radius:3px}
   .perf-panel{background:var(--panel-2);border:1px solid var(--edge);border-radius:11px;padding:15px 17px}
@@ -1190,6 +1191,57 @@
   .perf-cell .pc-v{font-size:15px;font-weight:800;margin-top:3px}
   @media(max-width:900px){ .break-body.open{grid-template-columns:1fr} }
 
+
+  /* ---- Mistake dashboard ------------------------------------ */
+  .q-split{margin-bottom:14px}
+  .q-bar{display:flex;gap:3px;height:9px;border-radius:5px;overflow:hidden;margin-bottom:12px}
+  .qb-seg{display:block;border-radius:3px}
+  .qb-seg.q-clean{background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 10px rgba(56,189,248,.45)}
+  .qb-seg.q-small{background:#46566F}
+  .qb-seg.q-crucial{background:#8A94A5}
+  .qb-seg.q-none{background:#18212E}
+  .q-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .q-tile{background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:11px 12px;min-width:0}
+  .q-tile .qt-top{display:flex;align-items:center;gap:7px}
+  .q-tile .qt-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .q-tile.q-clean .qt-dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .q-tile.q-small .qt-dot{background:#46566F}
+  .q-tile.q-crucial .qt-dot{background:#8A94A5}
+  .q-tile .qt-l{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .q-tile .qt-n{margin-left:auto;font-size:16px;font-weight:800}
+  .q-tile .qt-sub{font-size:10px;color:var(--muted-2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .mk-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .mk-box{background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:12px 13px;min-width:0}
+  .mk-lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted-2);font-weight:600;margin-bottom:7px}
+  .mk-top{font-size:14px;font-weight:800;line-height:1.25}
+  .mk-top.mk-none{color:var(--muted-2);font-weight:600}
+  .mk-topsub{font-size:10.5px;color:var(--muted-2);margin-top:6px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .mk-sev{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:0 0 auto}
+  .mk-sev.crucial{background:rgba(138,148,165,.16);color:#D3DAE4;box-shadow:inset 0 0 0 1px rgba(174,184,198,.3)}
+  .mk-sev.small{background:var(--accent-soft);color:var(--accent-bright);box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .imp-num{font-size:30px;font-weight:800;line-height:1.05}
+  .imp-num.up{color:var(--cyan)}
+  .imp-num.down{color:var(--red)}
+  .imp-num.flat{color:var(--muted-2)}
+  .imp-sub{font-size:10.5px;color:var(--muted-2);margin-top:5px}
+
+  .mk-list{display:flex;flex-direction:column;gap:7px}
+  .mk-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"sev name n" "track track track";
+    gap:4px 9px;align-items:center;background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:9px 11px}
+  .mk-row .mk-sev{grid-area:sev}
+  .mk-row .mk-name{grid-area:name;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mk-row .mk-n{grid-area:n;font-size:12.5px;font-weight:800;color:var(--accent-bright)}
+  .mk-track{grid-area:track;height:4px;border-radius:3px;background:#101823;overflow:hidden}
+  .mk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 8px rgba(56,189,248,.35)}
+  .mk-empty{font-size:12px;color:var(--muted-2);padding:10px 0}
+  .mk-warn{margin-top:10px;font-size:11px;color:var(--muted);background:rgba(174,184,198,.06);
+    border:1px solid var(--red-line);border-radius:9px;padding:9px 11px}
+  .sev-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-soft)}
+  .sev-row:last-of-type{border-bottom:none}
+  .sev-name{flex:1;font-size:13px;font-weight:600;min-width:0}
+  .sev-seg button{padding:5px 11px;font-size:11.5px}
+  @media(max-width:760px){ .q-tiles{grid-template-columns:1fr} .mk-two{grid-template-columns:1fr} }
 
   /* ---- Trade logs: search header and card grid --------------- */
   .logs-h .ph-side{flex-wrap:nowrap;justify-content:flex-end}
@@ -1494,7 +1546,7 @@ const PAIRS = ['GBPAUD','EURAUD','EURCAD','EURNZD','EURUSD','EURJPY','GBPCAD','G
 const NOTION_TRADES = [{"id":"csv_01","entryAt":"2026-06-10T12:00","closeAt":"2026-06-10T12:00","date":"2026-06-10","symbol":"EURNZD","side":"long","r":2.2,"pnl":1100.0,"forecast":false,"notes":"EURNZD- WRONG MANAGEMENT [direction not recorded in export]","slPips":17.0},{"id":"csv_02","entryAt":"2026-06-16T12:00","closeAt":"2026-06-16T12:00","date":"2026-06-16","symbol":"EURNZD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"EURAUD Bad entry short [direction not recorded in export]","slPips":19.0},{"id":"csv_03","entryAt":"2026-06-17T12:00","closeAt":"2026-06-17T12:00","date":"2026-06-17","symbol":"GBPAUD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"GBPAUD missed RE [direction not recorded in export]","slPips":17.0},{"id":"csv_04","entryAt":"2026-06-18T12:00","closeAt":"2026-06-18T12:00","date":"2026-06-18","symbol":"AUDCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"AUDCAD- relying on sentiment [direction not recorded in export]","slPips":17.0},{"id":"csv_05","entryAt":"2026-06-19T12:00","closeAt":"2026-06-19T12:00","date":"2026-06-19","symbol":"XAUUSD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"XAUUSD - Structural flip [direction not recorded in export]","slPips":17.0},{"id":"csv_06","entryAt":"2026-06-23T12:00","closeAt":"2026-06-23T12:00","date":"2026-06-23","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"GBPCAD Correction into correction [direction not recorded in export]","slPips":17.0},{"id":"csv_07","entryAt":"2026-06-26T12:00","closeAt":"2026-06-26T12:00","date":"2026-06-26","symbol":"EURCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"EURCAD wipe out [direction not recorded in export]","slPips":17.0},{"id":"csv_08","entryAt":"2026-06-29T12:00","closeAt":"2026-06-29T12:00","date":"2026-06-29","symbol":"EURUSD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Badly positioned V-shape [direction not recorded in export]","slPips":7.6},{"id":"csv_09","entryAt":"2026-07-06T12:00","closeAt":"2026-07-06T12:00","date":"2026-07-06","symbol":"AUDCAD","side":"long","r":1.7,"pnl":850.0,"forecast":false,"notes":"AUDCAD structural flip in a range [direction not recorded in export]","slPips":12.0},{"id":"csv_10","entryAt":"2026-07-13T12:00","closeAt":"2026-07-13T12:00","date":"2026-07-13","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"USDCAD relying on structural fail [direction not recorded in export]","slPips":13.0},{"id":"csv_11","entryAt":"2026-07-17T12:00","closeAt":"2026-07-17T12:00","date":"2026-07-17","symbol":"EURNZD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"AUDJPY [direction not recorded in export]","slPips":8.0},{"id":"csv_12","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"3 touch Break of structure anticipation [direction not recorded in export]","slPips":15.0},{"id":"csv_13","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"AUDCHF","side":"long","r":3.2,"pnl":1600.0,"forecast":false,"notes":"Perfect long continuation (Ibby) [direction not recorded in export]","slPips":7.0},{"id":"csv_14","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Trade [direction not recorded in export]","slPips":9.0},{"id":"csv_15","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDUSD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really large but nice RRE [direction not recorded in export]","slPips":15.0},{"id":"csv_16","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Re entry after 15M close [direction not recorded in export]","slPips":8.0},{"id":"csv_17","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Accumulation looking entry structure [direction not recorded in export]","slPips":7.0},{"id":"csv_18","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Incorrect HTF entry [direction not recorded in export]","slPips":21.0},{"id":"csv_19","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":0.2,"pnl":100.0,"forecast":false,"notes":"Poor reaction from a hook point [direction not recorded in export]","slPips":23.0},{"id":"csv_20","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Probably underdeveloped structure [direction not recorded in export]","slPips":10.0},{"id":"csv_21","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Poor reaction from a hook point re-entry [direction not recorded in export]","slPips":23.0},{"id":"csv_22","entryAt":"2026-07-27T12:00","closeAt":"2026-07-27T12:00","date":"2026-07-27","symbol":"GBPCAD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really consolidative PA [direction not recorded in export]","slPips":23.0},{"id":"csv_23","entryAt":"2026-07-30T12:00","closeAt":"2026-07-30T12:00","date":"2026-07-30","symbol":"NZDCAD","side":"long","r":5.0,"pnl":2500.0,"forecast":false,"notes":"Very nice long but should have taken NJ [direction not recorded in export]","slPips":17.0},{"id":"csv_24","entryAt":"2026-07-31T12:00","closeAt":"2026-07-31T12:00","date":"2026-07-31","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Corrective entry structure [direction not recorded in export]","slPips":16.0},{"id":"csv_25","entryAt":"2026-08-03T12:00","closeAt":"2026-08-03T12:00","date":"2026-08-03","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Steeper entry structure but enough confluence \u00b7 Leaks: Directional conviction overriding structure","session":"London","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":9.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0}]},{"id":"csv_26","entryAt":"2026-08-04T12:00","closeAt":"2026-08-04T12:00","date":"2026-08-04","symbol":"EURUSD","side":"short","r":-0.8,"pnl":-800.0,"forecast":false,"notes":"Accumulation looking LTF structure in a poor sequence \u00b7 Leaks: Underdeveloped LTF entry structure","session":"London","setup":"Impulse Entry (IE)","pGrade":"A","sGrade":"B","eGrade":"C","risk":1.0,"slPips":10.0,"accounts":[{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_27","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"EURNZD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper LTF entry structure due to nice HTF structure \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure; Post-loss / comparison-triggered activity spike","setup":"Impulse Entry (IE)","pGrade":"B","sGrade":"C","eGrade":"C","slPips":18.0},{"id":"csv_28","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Evolved scale in \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"RRE","pGrade":"B","sGrade":"C","eGrade":"C","slPips":17.0},{"id":"csv_29","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Proper position i didn\u2019t see but noticed from the discord \u00b7 Leaks: Post-loss / comparison-triggered activity spike","setup":"Structural Flip","pGrade":"B","sGrade":"B","eGrade":"B","slPips":17.0},{"id":"csv_30","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDJPY","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper HTF structure and LTF entry \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"Structural Flip","pGrade":"C","sGrade":"C","eGrade":"C","slPips":8.5},{"id":"csv_31","entryAt":"2026-08-12T12:00","closeAt":"2026-08-12T12:00","date":"2026-08-12","symbol":"EURUSD","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"Unproperly positioned RRE \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"C","sGrade":"B","eGrade":"C","risk":1.0,"slPips":7.5,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_32","entryAt":"2026-08-13T12:00","closeAt":"2026-08-13T12:00","date":"2026-08-13","symbol":"EURGBP","side":"short","r":-1.0,"pnl":-125.0,"forecast":false,"notes":"Underdeveloped entry \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"B","sGrade":"B","eGrade":"C","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_33","entryAt":"2026-08-19T12:00","closeAt":"2026-08-19T12:00","date":"2026-08-19","symbol":"EURJPY","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really close trade idea to one of marks trades","session":"New York","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"A","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_34","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"USDJPY  Re-entry 3 touch Premature","session":"New York","pGrade":"B","sGrade":"C","eGrade":"B","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_35","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"USDJPY half loss V-shape","session":"New York","pGrade":"B","sGrade":"C","eGrade":"A","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_36","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"CADCHF","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"CADCHF premature entry","session":"New York","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_37","entryAt":"2026-08-21T12:00","closeAt":"2026-08-21T12:00","date":"2026-08-21","symbol":"EURNZD","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"A bit steep structure","session":"New York","pGrade":"A","sGrade":"A","eGrade":"C","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]}];
 const SEED_IDS = new Set(NOTION_TRADES.map(t=>t.id));
 const SEED_GRADED_IDS = new Set(NOTION_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGrade).map(t=>t.id));
-const DATA_VERSION = 5;
+const DATA_VERSION = 6;   // 6: lift "Leaks:" note text into mistakes[], add confluences[]
 let trades = [];
 let currentView='dashboard';
 let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
@@ -1505,7 +1557,80 @@ let radarChart=null, weekChart=null;
 let dayCharts=[];
 let briefOpen=true;
 let detailId=null, tradeChart=null, customFor=null, activeShotGroup='shots', missedId=null;
-const MISTAKE_TAGS=['Premature entry','No LTF confirmation','Timeframe hunting','FOMO chase','Corrective structure','Counter-trend','Moved stop','Overtrading','Chased spread','Poor management'];
+/* Mistakes carry a severity so the dashboard can tell a clean trade from a
+   small slip and from one that broke the plan. Defaults are a starting point —
+   severity is editable on the Mistake dashboard and persists. */
+const MISTAKE_SEVERITY_DEFAULT={
+  'Premature entry':'crucial',
+  'No LTF confirmation':'crucial',
+  'Timeframe hunting':'crucial',
+  'FOMO chase':'crucial',
+  'Corrective structure':'crucial',
+  'Counter-trend':'crucial',
+  'Moved stop':'crucial',
+  'Overtrading':'small',
+  'Chased spread':'small',
+  'Poor management':'small',
+  // Leak names carried in the imported notes
+  'Underdeveloped LTF entry structure':'crucial',
+  'Directional conviction overriding structure':'crucial',
+  'Post-loss / comparison-triggered activity spike':'small'
+};
+let MISTAKE_SEVERITY={...MISTAKE_SEVERITY_DEFAULT};
+let MISTAKE_TAGS=Object.keys(MISTAKE_SEVERITY_DEFAULT);
+/* Trades can carry mistake names this build never shipped — imported leaks, or
+   ones the trader typed. Keep the tag list in step with the data. */
+function refreshMistakeTags(){
+  const seen=new Set(Object.keys(MISTAKE_SEVERITY_DEFAULT));
+  trades.forEach(t=>(t.mistakes||[]).forEach(m=>seen.add(m)));
+  MISTAKE_TAGS=[...seen];
+}
+function mistakeSeverity(name){ return MISTAKE_SEVERITY[name]==='small' ? 'small' : 'crucial'; }
+function setMistakeSeverity(name,sev){ MISTAKE_SEVERITY[name]=sev; saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY); renderDashboard(); }
+/* Worst severity present on a trade: 'clean' | 'small' | 'crucial'. */
+function tradeSeverity(t){
+  const ms=t.mistakes||[];
+  if(!ms.length) return 'clean';
+  return ms.some(m=>mistakeSeverity(m)==='crucial') ? 'crucial' : 'small';
+}
+function crucialCount(t){ return (t.mistakes||[]).filter(m=>mistakeSeverity(m)==='crucial').length; }
+
+/* Confluences are the entry criteria checked before taking a position. The
+   crucial ones are what "entry consistency" measures against. */
+const DEFAULT_CONFLUENCES=[
+  {id:'cf_zone',  name:'Clear supply or demand zone', desc:'Validated zone, not an imbalance',   crucial:true},
+  {id:'cf_htf',   name:'All major timeframes in line',desc:'Position in favour of the trend',    crucial:true},
+  {id:'cf_tap',   name:'Clear 4H tap of zone',        desc:'Price reached the level cleanly',    crucial:true},
+  {id:'cf_bos',   name:'15m break of structure',      desc:'LTF confirmed before entry',         crucial:true},
+  {id:'cf_sweep', name:'Liquidity sweep',             desc:'Stops taken before the move',        crucial:false},
+  {id:'cf_sess',  name:'In session',                  desc:'London or New York killzone',        crucial:false}
+];
+let CONFLUENCES=[];
+function crucialConfluences(){ return CONFLUENCES.filter(c=>c.crucial); }
+function confluenceName(id){ const c=CONFLUENCES.find(x=>x.id===id); return c?c.name:id; }
+
+/* One summary row per day of preparation, so prep can be compared against
+   results without re-reading a storage key per day. Written whenever prep
+   state changes; days before this existed simply have no row. */
+let PREPLOG={};
+function prepScoreFor(m,mT,e,eT,news,forecast){
+  const parts=[];
+  if(mT) parts.push(m/mT*100);
+  if(eT) parts.push(e/eT*100);
+  parts.push(news?100:0);
+  parts.push(forecast?100:0);
+  return Math.round(parts.reduce((a,b)=>a+b,0)/parts.length);
+}
+function writePrepLog(){
+  const key=ymd(new Date());
+  const mT=(ROUTINE.morning||[]).length, eT=(ROUTINE.evening||[]).length;
+  const m=(ROUTINE.morning||[]).filter(it=>checklist.morning&&checklist.morning[it.id]).length;
+  const e=(ROUTINE.evening||[]).filter(it=>checklist.evening&&checklist.evening[it.id]).length;
+  const news=!!PREPDAY.newsChecked, forecast=!!PREPDAY.forecastChecked;
+  PREPLOG[key]={m,mT,e,eT,news,forecast,score:prepScoreFor(m,mT,e,eT,news,forecast),
+                items:{...(checklist.morning||{}),...(checklist.evening||{})}};
+  saveJSON('falcon:preplog',PREPLOG);
+}
 const FOCUS_TAGS=['Wait for LTF confirmation','Trade the plan','Patience at entry','Respect max trades','Only 15M structure','Let winners run'];
 const FOCUS_PAIRS=['GBPAUD','EURCAD','AUDCAD','AUDJPY','GBPCAD','NZDCAD','NZDJPY','GBPNZD','EURNZD','USDCAD','XAUUSD','AUDUSD','CADJPY','HK50'];
 let checklist={morning:{},pretrade:{}};
@@ -1552,7 +1677,7 @@ async function loadPrepDay(){
   }catch(e){}
   return {newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};
 }
-async function savePrepDay(){ const key='falcon:prepday:'+ymd(new Date()); try{ await window.storage.set(key, JSON.stringify(PREPDAY)); }catch(e){} }
+async function savePrepDay(){ const key='falcon:prepday:'+ymd(new Date()); try{ await window.storage.set(key, JSON.stringify(PREPDAY)); }catch(e){} writePrepLog(); }
 function todayReviewKey(){ return 'W-'+ymd(weekStart(new Date())); }
 let PLAYBOOK=[];   // setups: {id,name,desc}
 // Trading DNA — the trader's evolving profile. Strengths/non-negotiables are user-curated;
@@ -1564,6 +1689,7 @@ let MISSED=[];     // missed trades: {id,date,symbol,why,prevent,steps}
 // one of these: {id, problem, why, solution, reminder, occurrences, active, source, createdAt, lastAt}.
 // source is 'missed' or 'mistake'. Re-hitting the same problem bumps occurrences instead of duplicating.
 let LESSONS=[];
+let WORKSHOP=[];   // saved improvement-workshop analyses: {id,date,kind,value,observation,addedToPlan}
 async function loadJSON(key,def){ try{ const r=await window.storage.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
 async function saveJSON(key,val){ try{ await window.storage.set(key, JSON.stringify(val)); }catch(e){} }
 
@@ -1623,8 +1749,9 @@ function migrate(list){
       accounts: (Array.isArray(t.accounts)&&t.accounts.length) ? t.accounts : [],
       forecast: (t.forecast!==undefined) ? t.forecast : (t.plan!==undefined ? t.plan : true),
       notes: t.notes || '',
-      mistakes: Array.isArray(t.mistakes)? t.mistakes : [],
+      mistakes: Array.isArray(t.mistakes)&&t.mistakes.length ? t.mistakes : leaksFromNotes(t.notes),
       focus: Array.isArray(t.focus)? t.focus : [],
+      confluences: Array.isArray(t.confluences)? t.confluences : [],
       rating: t.rating || 0,
       hadMistake: (t.hadMistake!==undefined) ? t.hadMistake : ((Array.isArray(t.mistakes)&&t.mistakes.length)?true:null),
       mistakeWhy: t.mistakeWhy || '',
@@ -1632,6 +1759,13 @@ function migrate(list){
       shots: Array.isArray(t.shots) ? t.shots : [].concat(Array.isArray(t.beforeShots)?t.beforeShots:[], Array.isArray(t.postShots)?t.postShots:[]),
     };
   });
+}
+
+/* Imported rows record their mistakes as "· Leaks: a; b" inside the note text.
+   Lift them into mistakes[] so the mistake dashboard sees real data. */
+function leaksFromNotes(notes){
+  if(!notes || notes.indexOf('Leaks:')<0) return [];
+  return notes.split('Leaks:')[1].split(';').map(x=>x.trim()).filter(Boolean);
 }
 
 // ---------- Date helpers ----------
@@ -1780,38 +1914,21 @@ function edgeAxes(s){
   const wlScore=s.avgLoss>0?clamp((s.avgWin/s.avgLoss)/3*100,0,100):(s.avgWin>0?80:0);
   const ddScore=s.maxDD===0?(s.net>0?100:0):clamp(100-(s.maxDD/ACCOUNT_SIZE*100)*20,0,100);
 
-  // Profitability — win rate together with how much each winner returns.
-  const pfScore = s.pf>0 ? clamp(s.pf/2*100,0,100) : 0;
-  const profitability = Math.round((winScore+pfScore)/2);
+  const [ps,pe]=periodBounds();
+  const cons=consistencyIndex(s.list);
+  const entry=entryConsistency(s.list);
+  const cmi=crucialMistakeIndex(s.list);
+  const prep=preparationIndex(ps,pe);
 
-  // Consistency — share of green days, damped by how spread out daily results are.
-  const byDay={}; s.list.forEach(t=>{ byDay[t.date]=(byDay[t.date]||0)+(t.pnl||0); });
-  const dayVals=Object.values(byDay);
-  let consistency=0;
-  if(dayVals.length){
-    const green=dayVals.filter(v=>v>0).length/dayVals.length*100;
-    const mean=dayVals.reduce((a,b)=>a+b,0)/dayVals.length;
-    const sd=Math.sqrt(dayVals.reduce((a,v)=>a+(v-mean)*(v-mean),0)/dayVals.length);
-    const spread=Math.abs(mean)>0 ? clamp(100-(sd/Math.abs(mean))*25,0,100) : 50;
-    consistency=Math.round((green+spread)/2);
-  }
-
-  // Risk management — reward per unit risked, plus drawdown control.
-  const risk = Math.round((wlScore+ddScore)/2);
-
-  // Discipline and execution come from the trader's own P/S/E grading.
-  const d = disciplineStats(s.list);
-  const discipline = d.entries ? d.abRate : 0;
-  const execution  = d.entries ? d.avg : 0;
-
-  return {win:winScore,wl:wlScore,dd:ddScore,profitability,consistency,risk,discipline,execution};
+  return {win:winScore, wl:wlScore, dd:ddScore,
+          consistency:cons.score, entry:entry.score, crucialIdx:cmi.score, preparation:prep.score,
+          detail:{cons,entry,cmi,prep}};
 }
 const EDGE_AXES_META=[
-  {k:'profitability',l:'Profitability',   d:'Win rate, profit factor, and win/loss ratio', i:'dollar'},
-  {k:'consistency',  l:'Consistency',     d:'Performance stability across trading periods', i:'bars'},
-  {k:'risk',         l:'Risk management', d:'Risk/reward ratios and drawdown control',      i:'shield'},
-  {k:'discipline',   l:'Discipline',      d:'Confluence usage and trading plan adherence',  i:'target'},
-  {k:'execution',    l:'Execution',       d:'Trade timing and grade quality',               i:'pulse'}
+  {k:'consistency',   l:'Consistency',        d:'How even P&L is from month to month',        i:'bars'},
+  {k:'entry',         l:'Entry consistency',  d:'Crucial confluences present at entry',       i:'target'},
+  {k:'crucialIdx',    l:'Crucial mistake index', d:'Positions free of a plan-breaking mistake', i:'shield'},
+  {k:'preparation',   l:'Preparation index',  d:'Evening and morning routine before trading', i:'sunrise'}
 ];
 function edgeScore(a){
   return Math.round(EDGE_AXES_META.reduce((sum,m)=>sum+clamp(a[m.k]||0,0,100),0)/EDGE_AXES_META.length);
@@ -1838,6 +1955,195 @@ function avgHoldLabel(list){
   return avg<60 ? Math.round(avg)+'m' : (avg/60).toFixed(1)+'h';
 }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+
+// ============================================================
+// METRICS ENGINE
+// Every new dashboard reads from these; nothing computes inline.
+// ============================================================
+
+/* Mistake dashboard: quality split, most recurring mistake, and the
+   week-over-week move in a 0-100 mistake score. */
+function mistakeStats(list){
+  const clean=[], small=[], crucial=[];
+  list.forEach(t=>{ const s=tradeSeverity(t); (s==='clean'?clean:(s==='small'?small:crucial)).push(t); });
+  const counts={};
+  list.forEach(t=>(t.mistakes||[]).forEach(m=>{ counts[m]=(counts[m]||0)+1; }));
+  const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1])
+    .map(([name,n])=>({name,n,severity:mistakeSeverity(name),share:Math.round(n/(list.length||1)*100)}));
+  const multi=list.filter(t=>crucialCount(t)>1).length;
+  return {
+    total:list.length,
+    clean:clean.length, small:small.length, crucial:crucial.length,
+    cleanPnl:clean.reduce((a,t)=>a+mv(t),0),
+    smallPnl:small.reduce((a,t)=>a+mv(t),0),
+    crucialPnl:crucial.reduce((a,t)=>a+mv(t),0),
+    ranked, top:ranked[0]||null, multiCrucial:multi,
+    score:mistakeScore(list)
+  };
+}
+/* 100 = every trade clean. A small mistake costs half of what a crucial one does. */
+function mistakeScore(list){
+  if(!list.length) return 0;
+  const penalty=list.reduce((a,t)=>{
+    const s=tradeSeverity(t);
+    return a + (s==='crucial'?1:(s==='small'?0.5:0));
+  },0);
+  return Math.round(clamp(100-(penalty/list.length)*100,0,100));
+}
+/* Movement against the previous week of the same length. */
+function mistakeImprovement(){
+  const thisStart=weekStart(new Date()), lastStart=addDays(thisStart,-7);
+  const inWk=(t,s)=>{ const d=parseD(t.date); return d>=s && d<addDays(s,7); };
+  const cur=VT().filter(t=>inWk(t,thisStart)), prev=VT().filter(t=>inWk(t,lastStart));
+  const a=mistakeScore(cur), b=mistakeScore(prev);
+  return {cur:a, prev:b, delta:a-b, curN:cur.length, prevN:prev.length,
+          hasBoth:cur.length>0 && prev.length>0};
+}
+
+/* --- The four axes under the Edge score ------------------------------- */
+
+/* Consistency: how even monthly P&L is. A flat, positive curve scores high. */
+function consistencyIndex(list){
+  const byMonth={};
+  list.forEach(t=>{ const k=t.date.slice(0,7); byMonth[k]=(byMonth[k]||0)+mv(t); });
+  const vals=Object.values(byMonth);
+  if(vals.length<2) return {score:vals.length?(vals[0]>0?70:20):0, months:byMonth, n:vals.length};
+  const green=vals.filter(v=>v>0).length/vals.length*100;
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const sd=Math.sqrt(vals.reduce((a,v)=>a+(v-mean)*(v-mean),0)/vals.length);
+  const even=Math.abs(mean)>0 ? clamp(100-(sd/Math.abs(mean))*25,0,100) : 40;
+  return {score:Math.round((green+even)/2), months:byMonth, n:vals.length};
+}
+/* Entry consistency: share of crucial confluences ticked, averaged per trade. */
+function entryConsistency(list){
+  const crucial=crucialConfluences();
+  const tagged=list.filter(t=>(t.confluences||[]).length);
+  if(!crucial.length || !tagged.length) return {score:0, tagged:tagged.length, total:list.length, full:0};
+  let sum=0, full=0;
+  tagged.forEach(t=>{
+    const hit=crucial.filter(c=>(t.confluences||[]).includes(c.id)).length;
+    sum+=hit/crucial.length*100;
+    if(hit===crucial.length) full++;
+  });
+  return {score:Math.round(sum/tagged.length), tagged:tagged.length, total:list.length, full};
+}
+/* Crucial mistake index: 100 when no position carries a crucial mistake. */
+function crucialMistakeIndex(list){
+  if(!list.length) return {score:0, withOne:0, withMulti:0, total:0};
+  const withAny=list.filter(t=>crucialCount(t)>0).length;
+  const withMulti=list.filter(t=>crucialCount(t)>1).length;
+  const rate=(withAny+withMulti)/ (list.length*2) * 100;   // a repeat offence counts twice
+  return {score:Math.round(clamp(100-rate*2,0,100)), withOne:withAny-withMulti, withMulti, total:list.length};
+}
+/* Preparation index: average of the logged daily prep scores in range. */
+function preparationIndex(from,to){
+  const rows=Object.entries(PREPLOG)
+    .filter(([k])=>{ const d=parseD(k); return (!from||d>=from) && (!to||d<=to); })
+    .map(([k,v])=>({date:k,...v}));
+  if(!rows.length) return {score:0, days:0, rows:[]};
+  return {score:Math.round(rows.reduce((a,r)=>a+(r.score||0),0)/rows.length), days:rows.length, rows};
+}
+
+/* --- Setups, confluences, symbols, preparation ------------------------- */
+
+function setupMetrics(name,list){
+  const ts=list.filter(t=>t.setup===name);
+  const s=computeStats(ts);
+  const ms=mistakeStats(ts);
+  const cf={}; ts.forEach(t=>(t.confluences||[]).forEach(id=>{ cf[id]=(cf[id]||0)+1; }));
+  const bySym={}; ts.forEach(t=>{ bySym[t.symbol]=(bySym[t.symbol]||0)+mv(t); });
+  const bySess={}; ts.forEach(t=>{ const k=t.session||'—'; bySess[k]=bySess[k]||{n:0,net:0}; bySess[k].n++; bySess[k].net+=mv(t); });
+  return {name, list:ts, stats:s, mistakes:ms, confluences:cf, bySymbol:bySym, bySession:bySess,
+          expectancy: ts.length ? ts.reduce((a,t)=>a+(t.r||0),0)/ts.length : 0};
+}
+function allSetupNames(){
+  const names=new Set();
+  VT().forEach(t=>{ if(t.setup) names.add(t.setup); });
+  (PLAYBOOK||[]).forEach(p=>names.add(p.name));
+  return [...names];
+}
+/* Win rate and frequency for each confluence. */
+function confluenceStats(list){
+  const tagged=list.filter(t=>(t.confluences||[]).length);
+  return CONFLUENCES.map(c=>{
+    const withIt=tagged.filter(t=>(t.confluences||[]).includes(c.id));
+    const wins=withIt.filter(t=>(t.pnl||0)>0).length, losses=withIt.filter(t=>(t.pnl||0)<0).length;
+    return {...c, n:withIt.length,
+            freq: tagged.length? Math.round(withIt.length/tagged.length*100) : 0,
+            wr: (wins+losses)? Math.round(wins/(wins+losses)*100) : null,
+            net: withIt.reduce((a,t)=>a+mv(t),0)};
+  }).sort((a,b)=>b.n-a.n);
+}
+function symbolStats(list){
+  const by={};
+  list.forEach(t=>{
+    const k=t.symbol||'—';
+    by[k]=by[k]||{symbol:k,n:0,net:0,w:0,l:0};
+    by[k].n++; by[k].net+=mv(t);
+    if((t.pnl||0)>0)by[k].w++; else if((t.pnl||0)<0)by[k].l++;
+  });
+  return Object.values(by).sort((a,b)=>b.n-a.n);
+}
+/* Result of each trading day bucketed by how well that day was prepared. */
+function prepVsPerformance(list){
+  const byDay={};
+  list.forEach(t=>{ byDay[t.date]=byDay[t.date]||{net:0,n:0,w:0,l:0}; const d=byDay[t.date];
+    d.net+=mv(t); d.n++; if((t.pnl||0)>0)d.w++; else if((t.pnl||0)<0)d.l++; });
+  const buckets=[
+    {label:'Well prepared', min:75, net:0, n:0, w:0, l:0, days:0},
+    {label:'Partly',        min:40, net:0, n:0, w:0, l:0, days:0},
+    {label:'Barely',        min:0,  net:0, n:0, w:0, l:0, days:0}
+  ];
+  let matched=0;
+  Object.entries(byDay).forEach(([date,d])=>{
+    const log=PREPLOG[date];
+    if(!log) return;
+    matched++;
+    const b=buckets.find(x=>log.score>=x.min);
+    b.net+=d.net; b.n+=d.n; b.w+=d.w; b.l+=d.l; b.days++;
+  });
+  buckets.forEach(b=>{ b.wr=(b.w+b.l)? Math.round(b.w/(b.w+b.l)*100) : null;
+                       b.avg=b.days? b.net/b.days : 0; });
+  return {buckets, matched, totalDays:Object.keys(byDay).length};
+}
+/* Which individual prep habits sit behind the better trading days. Lift is the
+   gap in average day P&L between days the habit was done and days it was not. */
+function prepHabitImpact(list){
+  const byDay={};
+  list.forEach(t=>{ byDay[t.date]=(byDay[t.date]||0)+mv(t); });
+  const items=[...(ROUTINE.morning||[]),...(ROUTINE.evening||[])];
+  const rows=items.map(it=>{
+    const on=[], off=[];
+    Object.entries(byDay).forEach(([date,net])=>{
+      const log=PREPLOG[date];
+      if(!log||!log.items) return;
+      (log.items[it.id] ? on : off).push(net);
+    });
+    const avg=a=>a.length? a.reduce((x,y)=>x+y,0)/a.length : null;
+    const a=avg(on), b=avg(off);
+    return {id:it.id, text:it.text, onDays:on.length, offDays:off.length,
+            lift:(a!=null&&b!=null)? a-b : null};
+  }).filter(r=>r.onDays+r.offDays>0);
+  return rows.sort((a,b)=>(b.lift??-Infinity)-(a.lift??-Infinity));
+}
+
+/* --- Missed trades ---------------------------------------------------- */
+function missedStats(){
+  const taken=VT();
+  const takenNet=taken.reduce((a,t)=>a+mv(t),0);
+  const missedNet=MISSED.reduce((a,m)=>a+(m.pnl||0),0);
+  const should=taken.length+MISSED.length;
+  const reasons={};
+  MISSED.forEach(m=>(m.reasons||[]).forEach(r=>{ reasons[r]=(reasons[r]||0)+1; }));
+  const ranked=Object.entries(reasons).sort((a,b)=>b[1]-a[1]).map(([name,n])=>({name,n}));
+  return {
+    taken:taken.length, missed:MISSED.length, should,
+    takenNet, missedNet, combined:takenNet+missedNet,
+    missRate: should? Math.round(MISSED.length/should*100) : 0,
+    topFactor: ranked[0]||null, ranked
+  };
+}
 
 // ---------- Small SVG gauge ----------
 function gaugeSVG(pct,color){
@@ -2021,6 +2327,7 @@ async function loadChecklist(){
 async function saveChecklist(){
   const key='falcon:checklist:'+ymd(new Date());
   try{ await window.storage.set(key, JSON.stringify(checklist)); }catch(e){}
+  writePrepLog();
 }
 function toggleCheck(section,id,el){
   if(!checklist[section])checklist[section]={};
@@ -2505,8 +2812,105 @@ function disciplinePanelHTML(list){
     <button class="disc-btn" onclick="switchView('journal')">View journal entries</button>
   </div>`;
 }
+
+/* ---------- Mistake dashboard (replaces the psychology panel) ---------- */
+function mistakePanelHTML(list){
+  const m=mistakeStats(list);
+  const imp=mistakeImprovement();
+  const total=m.total||1;
+  const seg=[
+    {k:'clean',   l:'Excellent',        n:m.clean,   pnl:m.cleanPnl,   cls:'q-clean'},
+    {k:'small',   l:'Small mistake',    n:m.small,   pnl:m.smallPnl,   cls:'q-small'},
+    {k:'crucial', l:'Crucial mistake',  n:m.crucial, pnl:m.crucialPnl, cls:'q-crucial'}
+  ];
+  const bar=seg.map(x=>x.n?`<span class="qb-seg ${x.cls}" style="flex:${x.n}" title="${x.l}: ${x.n}"></span>`:'').join('');
+  const tiles=seg.map(x=>`
+    <div class="q-tile ${x.cls}">
+      <div class="qt-top"><span class="qt-dot"></span><span class="qt-l">${x.l}</span><span class="qt-n">${x.n}</span></div>
+      <div class="qt-sub">${Math.round(x.n/total*100)}% of trades · <span class="${pnlClass(x.pnl)}">${disp(x.pnl)}</span></div>
+    </div>`).join('');
+
+  const dir = imp.delta>0?'up':(imp.delta<0?'down':'flat');
+  const impBody = imp.hasBoth
+    ? `<div class="imp-num ${dir}">${imp.delta>0?'+':''}${imp.delta}</div>
+       <div class="imp-sub">${imp.prev} → ${imp.cur} this week · ${imp.curN} vs ${imp.prevN} trades</div>`
+    : `<div class="imp-num flat">—</div>
+       <div class="imp-sub">Needs a trade in each of the last two weeks</div>`;
+
+  const ranked = m.ranked.length
+    ? m.ranked.slice(0,4).map(r=>`
+        <div class="mk-row">
+          <span class="mk-sev ${r.severity}">${r.severity==='crucial'?'Crucial':'Small'}</span>
+          <span class="mk-name">${esc(r.name)}</span>
+          <span class="mk-n">${r.n}</span>
+          <div class="mk-track"><div class="mk-fill" style="width:${r.share}%"></div></div>
+        </div>`).join('')
+    : `<div class="mk-empty">No mistakes tagged in this range.</div>`;
+
+  return `<div class="card">
+    <div class="panel-h">
+      <div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('shield')}</div>
+        <div><div class="ph-title">Mistake dashboard</div><div class="ph-sub">Where the plan broke, and by how much</div></div>
+      </div>
+      <div class="plan-adh"><span class="pa-l">Mistake score</span><span class="pa-v">${m.score}</span></div>
+    </div>
+
+    <div class="q-split">
+      <div class="q-bar">${bar||'<span class="qb-seg q-none" style="flex:1"></span>'}</div>
+      <div class="q-tiles">${tiles}</div>
+    </div>
+
+    <div class="mk-two">
+      <div class="mk-box">
+        <div class="mk-lbl">Most recurring mistake</div>
+        ${m.top
+          ? `<div class="mk-top">${esc(m.top.name)}</div>
+             <div class="mk-topsub"><span class="mk-sev ${m.top.severity}">${m.top.severity==='crucial'?'Crucial':'Small'}</span>
+               ${m.top.n} time${m.top.n===1?'':'s'} · ${m.top.share}% of trades</div>`
+          : `<div class="mk-top mk-none">None tagged</div>`}
+      </div>
+      <div class="mk-box">
+        <div class="mk-lbl">Improvement vs last week</div>
+        ${impBody}
+      </div>
+    </div>
+
+    <div class="mk-lbl" style="margin-top:14px">Frequency</div>
+    <div class="mk-list">${ranked}</div>
+    ${m.multiCrucial?`<div class="mk-warn">${m.multiCrucial} position${m.multiCrucial===1?'':'s'} carried more than one crucial mistake</div>`:''}
+    <button class="disc-btn" onclick="openMistakeSeverity()">Edit mistake severities</button>
+  </div>`;
+}
+/* Severity is a judgement call, so it stays editable rather than hardcoded. */
+function openMistakeSeverity(){
+  const rows=MISTAKE_TAGS.map(name=>`
+    <div class="sev-row">
+      <span class="sev-name">${esc(name)}</span>
+      <div class="seg sev-seg">
+        <button class="${mistakeSeverity(name)==='small'?'on':''}" onclick="setMistakeSeverity('${esc(name)}','small');openMistakeSeverity()">Small</button>
+        <button class="${mistakeSeverity(name)==='crucial'?'on':''}" onclick="setMistakeSeverity('${esc(name)}','crucial');openMistakeSeverity()">Crucial</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('mistakeListBody').innerHTML=`
+    <h2 style="font-size:17px;margin-bottom:4px">Mistake severity</h2>
+    <div class="msub">A crucial mistake breaks the plan. A small one costs quality but not the idea.</div>
+    ${rows}
+    <div class="modal-actions"><button class="btn primary" onclick="closeMistakeList()">Done</button></div>`;
+  document.getElementById('mistakeListOverlay').classList.add('show');
+}
+
 function fmtShort(dstr){ const d=parseD(dstr); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
 function scoreRingPanelHTML(es, axes, s, rangeLbl){
+  const D=axes.detail||{};
+  const facts={
+    consistency: D.cons ? `${D.cons.n} month${D.cons.n===1?'':'s'} of data` : '',
+    entry:       D.entry? (D.entry.tagged? `${D.entry.full}/${D.entry.tagged} entries had every crucial confluence`
+                                         : 'No entries tagged with confluences yet') : '',
+    crucialIdx:  D.cmi  ? `${D.cmi.withOne} with one · ${D.cmi.withMulti} with more than one` : '',
+    preparation: D.prep ? (D.prep.days? `${D.prep.days} logged prep day${D.prep.days===1?'':'s'}`
+                                      : 'Prep history starts from your next routine') : ''
+  };
   const axCards = EDGE_AXES_META.map(m=>{
     const v = Math.round(clamp(axes[m.k]||0,0,100));
     return `<div class="axis-card">
@@ -2517,6 +2921,7 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
       </div>
       <div class="mf-track"><div class="mf-fill" style="width:${v}%"></div></div>
       <div class="ac-desc">${m.d}</div>
+      ${facts[m.k]?`<div class="ac-fact">${facts[m.k]}</div>`:''}
     </div>`;
   }).join('');
 
@@ -2648,7 +3053,7 @@ function renderDashboard(){
       <div class="cal-grid">${calCells()}</div>
       ${calLegendHTML()}
     </div>
-    ${disciplinePanelHTML(s.list)}
+    ${mistakePanelHTML(s.list)}
   </div>
 
   ${scoreRingPanelHTML(es, axes, s, rangeLabel(ps,pe))}
@@ -4651,8 +5056,8 @@ async function saveTrade(){
     forecast:modalForecast,
     notes:document.getElementById('fNotes').value.trim()
   };
-  if(editingId){ const prev=trades.find(x=>x.id===editingId)||{}; t.mistakes=prev.mistakes||[]; t.focus=prev.focus||[]; t.rating=prev.rating||0; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
-  else { t.mistakes=[]; t.focus=[]; t.rating=0; t.shots=[]; t.hadMistake=null; t.mistakeWhy=''; t.lessonId=null; trades.push(t); }
+  if(editingId){ const prev=trades.find(x=>x.id===editingId)||{}; t.mistakes=prev.mistakes||[]; t.focus=prev.focus||[]; t.confluences=prev.confluences||[]; t.rating=prev.rating||0; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
+  else { t.mistakes=[]; t.focus=[]; t.confluences=[]; t.rating=0; t.shots=[]; t.hadMistake=null; t.mistakeWhy=''; t.lessonId=null; trades.push(t); }
   const wasEditing=!!editingId;
   const btn=document.getElementById('saveBtn'); if(btn) btn.classList.add('is-loading');
   await persist();
@@ -4717,6 +5122,10 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   LESSONS=await loadJSON('falcon:lessons',[]);
   LESSONS.forEach(l=>{ if(l.active===undefined)l.active=true; if(l.occurrences==null)l.occurrences=1; if(l.why===undefined)l.why=''; if(l.solution===undefined)l.solution=''; if(l.reminder===undefined)l.reminder=''; if(!l.createdAt)l.createdAt=Date.now(); if(!l.lastAt)l.lastAt=l.createdAt; });
   const rd=await loadJSON('falcon:routineDef',null); if(rd&&rd.morning&&rd.pretrade) ROUTINE=rd;
+  MISTAKE_SEVERITY=Object.assign({...MISTAKE_SEVERITY_DEFAULT}, await loadJSON('falcon:mistakeSeverity',{}));
+  CONFLUENCES=await loadJSON('falcon:confluences',null) || DEFAULT_CONFLUENCES.map(c=>({...c}));
+  PREPLOG=await loadJSON('falcon:preplog',{}) || {};
+  WORKSHOP=await loadJSON('falcon:workshop',[]) || [];
   ['goals','morning','evening','pretrade'].forEach(k=>{ if(!Array.isArray(ROUTINE[k]))ROUTINE[k]=[]; });
   PREPDAY=await loadPrepDay();
   REVIEWS=await loadJSON('falcon:reviews',{});
@@ -4752,6 +5161,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
     if(m.lessonId===undefined)m.lessonId=null;
     delete m.steps; delete m.prevent; delete m.why; delete m.entryInfo; delete m.exitInfo;
   });
+  refreshMistakeTags();
   const anchorDate = trades.length? parseD(latestDate()) : new Date();
   ui.anchor=anchorDate; ui.calY=anchorDate.getFullYear(); ui.calM=anchorDate.getMonth();
   renderGreeting();
