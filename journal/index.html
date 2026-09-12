@@ -1298,6 +1298,24 @@
   .cfp-sum{grid-column:1/-1;font-size:11px;color:var(--accent-bright);font-weight:600;margin-top:2px}
   @media(max-width:760px){ .cfp-grid{grid-template-columns:1fr} }
 
+  /* ---- First-run setup -------------------------------------- */
+  .onb-dots{display:flex;gap:6px;margin-bottom:14px}
+  .onb-dot{width:26px;height:3px;border-radius:2px;background:#18212E}
+  .onb-dot.done{background:var(--accent-line)}
+  .onb-dot.on{background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+  .onb-note{font-size:11.5px;color:var(--muted-2);margin-top:10px}
+  .onb-empty{font-size:12px;color:var(--muted-2)}
+  .onb-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;min-height:30px}
+  .onb-list{display:flex;flex-direction:column;gap:7px;margin-top:12px;max-height:230px;overflow-y:auto}
+  .onb-row{display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--edge);
+    border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:600}
+  .onb-row > span:first-child{flex:1;min-width:0}
+  .onb-cru{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted-2);
+    font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 8px;cursor:pointer}
+  .onb-cru.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-bright)}
+  .onb-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:20px}
+
   /* ---- Account / sync bar ----------------------------------- */
   .acct-bar{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
     background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:5px 10px}
@@ -1704,6 +1722,9 @@
 <div class="overlay" id="comparisonOverlay">
   <div class="modal" style="max-width:520px"><div id="comparisonBody"></div></div>
 </div>
+<div class="overlay" id="onbOverlay">
+  <div class="modal" style="max-width:520px"><div id="onbBody"></div></div>
+</div>
 <div class="overlay" id="mistakeListOverlay">
   <div class="modal" style="max-width:560px"><div id="mistakeListBody"></div></div>
 </div>
@@ -1748,7 +1769,9 @@
 
       <div class="field">
         <label>Symbol</label>
-        <select id="fSymbol"></select>
+        <input id="fSymbol" list="symbolList" placeholder="e.g. EURUSD" autocomplete="off"
+               oninput="this.value=this.value.toUpperCase()">
+        <datalist id="symbolList"></datalist>
       </div>
       <div class="field">
         <label>Side</label>
@@ -1819,7 +1842,11 @@
 </div>
 
 <script>
-const TRADER='Alexander';
+/* Everything below is per-trader. A fresh journal starts empty: no trades, no
+   accounts, no setups, no confluences, no symbols. The trader builds their own
+   from first run, and Settings can load a demo record to look around first. */
+let TRADER='Trader';
+let PROFILE={name:'', onboarded:false};
 
 // ============================================================
 // STORAGE
@@ -1988,11 +2015,6 @@ let ACCOUNTS=[];              // user-defined accounts: {id, name, size}
 // Seeded once on first load from the "Trading Journal V2" Notion export — the three accounts
 // referenced there (ACG 25K in two separate evaluations, Maven OMO 50K). No target/drawdown/rules
 // data was present in that export, so those fields are left blank for editing later.
-const DEFAULT_ACCOUNTS=[
-  {id:'acc_acg25k_p1', name:'ACG 25K', phase:'Phase 1', size:25000, basePnl:0, objective:'', rules:'', profitTarget:null, maxDD:null, minDays:null},
-  {id:'acc_acg25k_funded', name:'ACG 25K', phase:'Funded', size:25000, basePnl:0, objective:'', rules:'', profitTarget:null, maxDD:null, minDays:null},
-  {id:'acc_maven50k_p1', name:'Maven OMO 50K', phase:'Phase 1', size:50000, basePnl:0, objective:'', rules:'', profitTarget:null, maxDD:null, minDays:null},
-];
 async function loadAccounts(){ try{ const r=await Store.get('falcon:accounts'); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return []; }
 async function saveAccountsStore(){ try{ await Store.set('falcon:accounts', JSON.stringify(ACCOUNTS)); }catch(e){} }
 function accountName(id){ const a=ACCOUNTS.find(x=>x.id===id); return a?a.name:'Account'; }
@@ -2003,14 +2025,28 @@ function tradeDollar(t){
   }
   return t.pnl||0;
 }
-const PAIRS = ['GBPAUD','EURAUD','EURCAD','EURNZD','EURUSD','EURJPY','GBPCAD','GBPNZD','GBPJPY','GBPUSD','AUDCAD','AUDCHF','AUDJPY','AUDUSD','AUDNZD','NZDCAD','NZDJPY','NZDUSD','NZDCHF','NZDGBP','USDCAD','USDJPY','USDCHF','CADJPY','CHFJPY','XAUUSD','XAGUSD','USOIL','SOYBNUSD','JP225USD','US30USD','NAS100USD','SPX500USD','GER40USD','UK100USD','AUS200USD','HK50','BTCUSD','ETHUSD'];
+/* The watchlist is the trader's own. It starts empty and grows from whatever
+   they log, so nobody inherits somebody else's instruments. */
+let PAIRS = [];
+/* The datalist suggests what this trader has used before; typing anything new
+   is allowed and joins the list on save. */
+function fillSymbolList(){
+  const dl=document.getElementById('symbolList');
+  if(dl) dl.innerHTML=PAIRS.map(p=>'<option value="'+esc(p)+'"></option>').join('');
+}
+function rememberSymbol(sym){
+  sym=(sym||'').trim().toUpperCase();
+  if(!sym || PAIRS.includes(sym)) return;
+  PAIRS.push(sym); PAIRS.sort();
+  saveJSON('falcon:symbols',PAIRS);
+}
 // Seed trades, replaced from a fresh "Trading Journal V2" Notion export (2026-09-10).
 // 37 real trades (rows with a symbol) out of 42 exported rows; the rest were forecast/
 // review/planning entries with no Pair, so they are not trades and were skipped.
 // The 63-trade seed this replaced is gone — see conversation history if it is ever needed again.
-const NOTION_TRADES = [{"id":"csv_01","entryAt":"2026-06-10T12:00","closeAt":"2026-06-10T12:00","date":"2026-06-10","symbol":"EURNZD","side":"long","r":2.2,"pnl":1100.0,"forecast":false,"notes":"EURNZD- WRONG MANAGEMENT [direction not recorded in export]","slPips":17.0},{"id":"csv_02","entryAt":"2026-06-16T12:00","closeAt":"2026-06-16T12:00","date":"2026-06-16","symbol":"EURNZD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"EURAUD Bad entry short [direction not recorded in export]","slPips":19.0},{"id":"csv_03","entryAt":"2026-06-17T12:00","closeAt":"2026-06-17T12:00","date":"2026-06-17","symbol":"GBPAUD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"GBPAUD missed RE [direction not recorded in export]","slPips":17.0},{"id":"csv_04","entryAt":"2026-06-18T12:00","closeAt":"2026-06-18T12:00","date":"2026-06-18","symbol":"AUDCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"AUDCAD- relying on sentiment [direction not recorded in export]","slPips":17.0},{"id":"csv_05","entryAt":"2026-06-19T12:00","closeAt":"2026-06-19T12:00","date":"2026-06-19","symbol":"XAUUSD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"XAUUSD - Structural flip [direction not recorded in export]","slPips":17.0},{"id":"csv_06","entryAt":"2026-06-23T12:00","closeAt":"2026-06-23T12:00","date":"2026-06-23","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"GBPCAD Correction into correction [direction not recorded in export]","slPips":17.0},{"id":"csv_07","entryAt":"2026-06-26T12:00","closeAt":"2026-06-26T12:00","date":"2026-06-26","symbol":"EURCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"EURCAD wipe out [direction not recorded in export]","slPips":17.0},{"id":"csv_08","entryAt":"2026-06-29T12:00","closeAt":"2026-06-29T12:00","date":"2026-06-29","symbol":"EURUSD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Badly positioned V-shape [direction not recorded in export]","slPips":7.6},{"id":"csv_09","entryAt":"2026-07-06T12:00","closeAt":"2026-07-06T12:00","date":"2026-07-06","symbol":"AUDCAD","side":"long","r":1.7,"pnl":850.0,"forecast":false,"notes":"AUDCAD structural flip in a range [direction not recorded in export]","slPips":12.0},{"id":"csv_10","entryAt":"2026-07-13T12:00","closeAt":"2026-07-13T12:00","date":"2026-07-13","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"USDCAD relying on structural fail [direction not recorded in export]","slPips":13.0},{"id":"csv_11","entryAt":"2026-07-17T12:00","closeAt":"2026-07-17T12:00","date":"2026-07-17","symbol":"EURNZD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"AUDJPY [direction not recorded in export]","slPips":8.0},{"id":"csv_12","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"3 touch Break of structure anticipation [direction not recorded in export]","slPips":15.0},{"id":"csv_13","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"AUDCHF","side":"long","r":3.2,"pnl":1600.0,"forecast":false,"notes":"Perfect long continuation (Ibby) [direction not recorded in export]","slPips":7.0},{"id":"csv_14","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Trade [direction not recorded in export]","slPips":9.0},{"id":"csv_15","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDUSD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really large but nice RRE [direction not recorded in export]","slPips":15.0},{"id":"csv_16","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Re entry after 15M close [direction not recorded in export]","slPips":8.0},{"id":"csv_17","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Accumulation looking entry structure [direction not recorded in export]","slPips":7.0},{"id":"csv_18","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Incorrect HTF entry [direction not recorded in export]","slPips":21.0},{"id":"csv_19","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":0.2,"pnl":100.0,"forecast":false,"notes":"Poor reaction from a hook point [direction not recorded in export]","slPips":23.0},{"id":"csv_20","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Probably underdeveloped structure [direction not recorded in export]","slPips":10.0},{"id":"csv_21","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Poor reaction from a hook point re-entry [direction not recorded in export]","slPips":23.0},{"id":"csv_22","entryAt":"2026-07-27T12:00","closeAt":"2026-07-27T12:00","date":"2026-07-27","symbol":"GBPCAD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really consolidative PA [direction not recorded in export]","slPips":23.0},{"id":"csv_23","entryAt":"2026-07-30T12:00","closeAt":"2026-07-30T12:00","date":"2026-07-30","symbol":"NZDCAD","side":"long","r":5.0,"pnl":2500.0,"forecast":false,"notes":"Very nice long but should have taken NJ [direction not recorded in export]","slPips":17.0},{"id":"csv_24","entryAt":"2026-07-31T12:00","closeAt":"2026-07-31T12:00","date":"2026-07-31","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Corrective entry structure [direction not recorded in export]","slPips":16.0},{"id":"csv_25","entryAt":"2026-08-03T12:00","closeAt":"2026-08-03T12:00","date":"2026-08-03","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Steeper entry structure but enough confluence \u00b7 Leaks: Directional conviction overriding structure","session":"London","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":9.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0}]},{"id":"csv_26","entryAt":"2026-08-04T12:00","closeAt":"2026-08-04T12:00","date":"2026-08-04","symbol":"EURUSD","side":"short","r":-0.8,"pnl":-800.0,"forecast":false,"notes":"Accumulation looking LTF structure in a poor sequence \u00b7 Leaks: Underdeveloped LTF entry structure","session":"London","setup":"Impulse Entry (IE)","pGrade":"A","sGrade":"B","eGrade":"C","risk":1.0,"slPips":10.0,"accounts":[{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_27","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"EURNZD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper LTF entry structure due to nice HTF structure \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure; Post-loss / comparison-triggered activity spike","setup":"Impulse Entry (IE)","pGrade":"B","sGrade":"C","eGrade":"C","slPips":18.0},{"id":"csv_28","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Evolved scale in \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"RRE","pGrade":"B","sGrade":"C","eGrade":"C","slPips":17.0},{"id":"csv_29","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Proper position i didn\u2019t see but noticed from the discord \u00b7 Leaks: Post-loss / comparison-triggered activity spike","setup":"Structural Flip","pGrade":"B","sGrade":"B","eGrade":"B","slPips":17.0},{"id":"csv_30","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDJPY","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper HTF structure and LTF entry \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"Structural Flip","pGrade":"C","sGrade":"C","eGrade":"C","slPips":8.5},{"id":"csv_31","entryAt":"2026-08-12T12:00","closeAt":"2026-08-12T12:00","date":"2026-08-12","symbol":"EURUSD","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"Unproperly positioned RRE \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"C","sGrade":"B","eGrade":"C","risk":1.0,"slPips":7.5,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_32","entryAt":"2026-08-13T12:00","closeAt":"2026-08-13T12:00","date":"2026-08-13","symbol":"EURGBP","side":"short","r":-1.0,"pnl":-125.0,"forecast":false,"notes":"Underdeveloped entry \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"B","sGrade":"B","eGrade":"C","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_33","entryAt":"2026-08-19T12:00","closeAt":"2026-08-19T12:00","date":"2026-08-19","symbol":"EURJPY","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really close trade idea to one of marks trades","session":"New York","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"A","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_34","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"USDJPY  Re-entry 3 touch Premature","session":"New York","pGrade":"B","sGrade":"C","eGrade":"B","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_35","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"USDJPY half loss V-shape","session":"New York","pGrade":"B","sGrade":"C","eGrade":"A","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_36","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"CADCHF","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"CADCHF premature entry","session":"New York","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_37","entryAt":"2026-08-21T12:00","closeAt":"2026-08-21T12:00","date":"2026-08-21","symbol":"EURNZD","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"A bit steep structure","session":"New York","pGrade":"A","sGrade":"A","eGrade":"C","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]}];
-const SEED_IDS = new Set(NOTION_TRADES.map(t=>t.id));
-const SEED_GRADED_IDS = new Set(NOTION_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGrade).map(t=>t.id));
+const DEMO_TRADES = [{"id":"csv_01","entryAt":"2026-06-10T12:00","closeAt":"2026-06-10T12:00","date":"2026-06-10","symbol":"EURNZD","side":"long","r":2.2,"pnl":1100.0,"forecast":false,"notes":"EURNZD- WRONG MANAGEMENT [direction not recorded in export]","slPips":17.0},{"id":"csv_02","entryAt":"2026-06-16T12:00","closeAt":"2026-06-16T12:00","date":"2026-06-16","symbol":"EURNZD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"EURAUD Bad entry short [direction not recorded in export]","slPips":19.0},{"id":"csv_03","entryAt":"2026-06-17T12:00","closeAt":"2026-06-17T12:00","date":"2026-06-17","symbol":"GBPAUD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"GBPAUD missed RE [direction not recorded in export]","slPips":17.0},{"id":"csv_04","entryAt":"2026-06-18T12:00","closeAt":"2026-06-18T12:00","date":"2026-06-18","symbol":"AUDCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"AUDCAD- relying on sentiment [direction not recorded in export]","slPips":17.0},{"id":"csv_05","entryAt":"2026-06-19T12:00","closeAt":"2026-06-19T12:00","date":"2026-06-19","symbol":"XAUUSD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"XAUUSD - Structural flip [direction not recorded in export]","slPips":17.0},{"id":"csv_06","entryAt":"2026-06-23T12:00","closeAt":"2026-06-23T12:00","date":"2026-06-23","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"GBPCAD Correction into correction [direction not recorded in export]","slPips":17.0},{"id":"csv_07","entryAt":"2026-06-26T12:00","closeAt":"2026-06-26T12:00","date":"2026-06-26","symbol":"EURCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"EURCAD wipe out [direction not recorded in export]","slPips":17.0},{"id":"csv_08","entryAt":"2026-06-29T12:00","closeAt":"2026-06-29T12:00","date":"2026-06-29","symbol":"EURUSD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Badly positioned V-shape [direction not recorded in export]","slPips":7.6},{"id":"csv_09","entryAt":"2026-07-06T12:00","closeAt":"2026-07-06T12:00","date":"2026-07-06","symbol":"AUDCAD","side":"long","r":1.7,"pnl":850.0,"forecast":false,"notes":"AUDCAD structural flip in a range [direction not recorded in export]","slPips":12.0},{"id":"csv_10","entryAt":"2026-07-13T12:00","closeAt":"2026-07-13T12:00","date":"2026-07-13","symbol":"EURNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"USDCAD relying on structural fail [direction not recorded in export]","slPips":13.0},{"id":"csv_11","entryAt":"2026-07-17T12:00","closeAt":"2026-07-17T12:00","date":"2026-07-17","symbol":"EURNZD","side":"long","r":3.0,"pnl":1500.0,"forecast":false,"notes":"AUDJPY [direction not recorded in export]","slPips":8.0},{"id":"csv_12","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"3 touch Break of structure anticipation [direction not recorded in export]","slPips":15.0},{"id":"csv_13","entryAt":"2026-07-20T12:00","closeAt":"2026-07-20T12:00","date":"2026-07-20","symbol":"AUDCHF","side":"long","r":3.2,"pnl":1600.0,"forecast":false,"notes":"Perfect long continuation (Ibby) [direction not recorded in export]","slPips":7.0},{"id":"csv_14","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Trade [direction not recorded in export]","slPips":9.0},{"id":"csv_15","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDUSD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really large but nice RRE [direction not recorded in export]","slPips":15.0},{"id":"csv_16","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Re entry after 15M close [direction not recorded in export]","slPips":8.0},{"id":"csv_17","entryAt":"2026-07-22T12:00","closeAt":"2026-07-22T12:00","date":"2026-07-22","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Accumulation looking entry structure [direction not recorded in export]","slPips":7.0},{"id":"csv_18","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"EURNZD","side":"long","r":-0.5,"pnl":-250.0,"forecast":false,"notes":"Incorrect HTF entry [direction not recorded in export]","slPips":21.0},{"id":"csv_19","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":0.2,"pnl":100.0,"forecast":false,"notes":"Poor reaction from a hook point [direction not recorded in export]","slPips":23.0},{"id":"csv_20","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"NZDJPY","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Probably underdeveloped structure [direction not recorded in export]","slPips":10.0},{"id":"csv_21","entryAt":"2026-07-24T12:00","closeAt":"2026-07-24T12:00","date":"2026-07-24","symbol":"GBPNZD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Poor reaction from a hook point re-entry [direction not recorded in export]","slPips":23.0},{"id":"csv_22","entryAt":"2026-07-27T12:00","closeAt":"2026-07-27T12:00","date":"2026-07-27","symbol":"GBPCAD","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really consolidative PA [direction not recorded in export]","slPips":23.0},{"id":"csv_23","entryAt":"2026-07-30T12:00","closeAt":"2026-07-30T12:00","date":"2026-07-30","symbol":"NZDCAD","side":"long","r":5.0,"pnl":2500.0,"forecast":false,"notes":"Very nice long but should have taken NJ [direction not recorded in export]","slPips":17.0},{"id":"csv_24","entryAt":"2026-07-31T12:00","closeAt":"2026-07-31T12:00","date":"2026-07-31","symbol":"GBPCAD","side":"long","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Corrective entry structure [direction not recorded in export]","slPips":16.0},{"id":"csv_25","entryAt":"2026-08-03T12:00","closeAt":"2026-08-03T12:00","date":"2026-08-03","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Steeper entry structure but enough confluence \u00b7 Leaks: Directional conviction overriding structure","session":"London","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":9.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0}]},{"id":"csv_26","entryAt":"2026-08-04T12:00","closeAt":"2026-08-04T12:00","date":"2026-08-04","symbol":"EURUSD","side":"short","r":-0.8,"pnl":-800.0,"forecast":false,"notes":"Accumulation looking LTF structure in a poor sequence \u00b7 Leaks: Underdeveloped LTF entry structure","session":"London","setup":"Impulse Entry (IE)","pGrade":"A","sGrade":"B","eGrade":"C","risk":1.0,"slPips":10.0,"accounts":[{"id":"acc_acg25k_p1","name":"ACG 25K","size":25000,"phase":"Phase 1","risk":1.0},{"id":"acc_maven50k_p1","name":"Maven OMO 50K","size":50000,"phase":"Phase 1","risk":1.0},{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_27","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"EURNZD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper LTF entry structure due to nice HTF structure \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure; Post-loss / comparison-triggered activity spike","setup":"Impulse Entry (IE)","pGrade":"B","sGrade":"C","eGrade":"C","slPips":18.0},{"id":"csv_28","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Evolved scale in \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"RRE","pGrade":"B","sGrade":"C","eGrade":"C","slPips":17.0},{"id":"csv_29","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDCAD","side":"short","r":0.0,"pnl":0.0,"forecast":false,"notes":"Proper position i didn\u2019t see but noticed from the discord \u00b7 Leaks: Post-loss / comparison-triggered activity spike","setup":"Structural Flip","pGrade":"B","sGrade":"B","eGrade":"B","slPips":17.0},{"id":"csv_30","entryAt":"2026-08-05T12:00","closeAt":"2026-08-05T12:00","date":"2026-08-05","symbol":"NZDJPY","side":"short","r":-1.0,"pnl":-500.0,"forecast":false,"notes":"Unproper HTF structure and LTF entry \u00b7 Leaks: Underdeveloped LTF entry structure; Directional conviction overriding structure","setup":"Structural Flip","pGrade":"C","sGrade":"C","eGrade":"C","slPips":8.5},{"id":"csv_31","entryAt":"2026-08-12T12:00","closeAt":"2026-08-12T12:00","date":"2026-08-12","symbol":"EURUSD","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"Unproperly positioned RRE \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"C","sGrade":"B","eGrade":"C","risk":1.0,"slPips":7.5,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_32","entryAt":"2026-08-13T12:00","closeAt":"2026-08-13T12:00","date":"2026-08-13","symbol":"EURGBP","side":"short","r":-1.0,"pnl":-125.0,"forecast":false,"notes":"Underdeveloped entry \u00b7 Leaks: Underdeveloped LTF entry structure","session":"New York","setup":"RRE","pGrade":"B","sGrade":"B","eGrade":"C","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_33","entryAt":"2026-08-19T12:00","closeAt":"2026-08-19T12:00","date":"2026-08-19","symbol":"EURJPY","side":"long","r":0.0,"pnl":0.0,"forecast":false,"notes":"Really close trade idea to one of marks trades","session":"New York","setup":"RRE","pGrade":"A","sGrade":"A","eGrade":"A","risk":0.5,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":0.5}]},{"id":"csv_34","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"USDJPY  Re-entry 3 touch Premature","session":"New York","pGrade":"B","sGrade":"C","eGrade":"B","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_35","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"USDJPY","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"USDJPY half loss V-shape","session":"New York","pGrade":"B","sGrade":"C","eGrade":"A","risk":1.0,"slPips":27.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_36","entryAt":"2026-08-20T12:00","closeAt":"2026-08-20T12:00","date":"2026-08-20","symbol":"CADCHF","side":"short","r":-1.0,"pnl":-250.0,"forecast":false,"notes":"CADCHF premature entry","session":"New York","pGrade":"A","sGrade":"A","eGrade":"B","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]},{"id":"csv_37","entryAt":"2026-08-21T12:00","closeAt":"2026-08-21T12:00","date":"2026-08-21","symbol":"EURNZD","side":"short","r":-0.5,"pnl":-125.0,"forecast":false,"notes":"A bit steep structure","session":"New York","pGrade":"A","sGrade":"A","eGrade":"C","risk":1.0,"slPips":17.0,"accounts":[{"id":"acc_acg25k_funded","name":"ACG 25K","size":25000,"phase":"Funded","risk":1.0}]}];
+const SEED_IDS = new Set(DEMO_TRADES.map(t=>t.id));
+const SEED_GRADED_IDS = new Set(DEMO_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGrade).map(t=>t.id));
 const DATA_VERSION = 6;   // 6: lift "Leaks:" note text into mistakes[], add confluences[]
 let trades = [];
 let currentView='dashboard';
@@ -2062,14 +2098,7 @@ function crucialCount(t){ return (t.mistakes||[]).filter(m=>mistakeSeverity(m)==
 
 /* Confluences are the entry criteria checked before taking a position. The
    crucial ones are what "entry consistency" measures against. */
-const DEFAULT_CONFLUENCES=[
-  {id:'cf_zone',  name:'Clear supply or demand zone', desc:'Validated zone, not an imbalance',   crucial:true},
-  {id:'cf_htf',   name:'All major timeframes in line',desc:'Position in favour of the trend',    crucial:true},
-  {id:'cf_tap',   name:'Clear 4H tap of zone',        desc:'Price reached the level cleanly',    crucial:true},
-  {id:'cf_bos',   name:'15m break of structure',      desc:'LTF confirmed before entry',         crucial:true},
-  {id:'cf_sweep', name:'Liquidity sweep',             desc:'Stops taken before the move',        crucial:false},
-  {id:'cf_sess',  name:'In session',                  desc:'London or New York killzone',        crucial:false}
-];
+const DEFAULT_CONFLUENCES=[];   // a trader defines their own in Technicals → Confluences
 let CONFLUENCES=[];
 function crucialConfluences(){ return CONFLUENCES.filter(c=>c.crucial); }
 function confluenceName(id){ const c=CONFLUENCES.find(x=>x.id===id); return c?c.name:id; }
@@ -2097,7 +2126,6 @@ function writePrepLog(){
   saveJSON('falcon:preplog',PREPLOG);
 }
 const FOCUS_TAGS=['Wait for LTF confirmation','Trade the plan','Patience at entry','Respect max trades','Only 15M structure','Let winners run'];
-const FOCUS_PAIRS=['GBPAUD','EURCAD','AUDCAD','AUDJPY','GBPCAD','NZDCAD','NZDJPY','GBPNZD','EURNZD','USDCAD','XAUUSD','AUDUSD','CADJPY','HK50'];
 let checklist={morning:{},pretrade:{}};
 // Editable routine/checklist item definitions (authored by the user in Market preparation).
 let ROUTINE={
@@ -2724,6 +2752,141 @@ async function pushLocal(){
   }catch(e){ toast('Upload failed: '+e.message,'err'); }
 }
 
+/* ---------- First run ----------
+   An empty journal is correct but unhelpful on its own. This asks for the few
+   things every other screen reads from — name, instruments, setups,
+   confluences — and can be skipped or redone from Settings. */
+function openOnboarding(){
+  ui.onbStep=0;
+  renderOnboarding();
+  document.getElementById('onbOverlay').classList.add('show');
+}
+function closeOnboarding(){ document.getElementById('onbOverlay').classList.remove('show'); }
+async function finishOnboarding(){
+  PROFILE.onboarded=true;
+  await saveJSON('falcon:profile',PROFILE);
+  closeOnboarding();
+  renderGreeting();
+  switchView('dashboard');
+}
+function onbStep(n){ ui.onbStep=n; renderOnboarding(); }
+
+async function onbSetName(v){
+  PROFILE.name=(v||'').trim();
+  TRADER=PROFILE.name||'Trader';
+  await saveJSON('falcon:profile',PROFILE);
+  renderGreeting();
+}
+async function onbAddSymbol(e){
+  if(e.key!=='Enter') return;
+  const raw=e.target.value;
+  // One field, many instruments: "EURUSD, GBPJPY XAUUSD" all land.
+  raw.split(/[,\s]+/).forEach(x=>rememberSymbol(x));
+  await saveJSON('falcon:symbols',PAIRS);
+  e.target.value='';
+  renderOnboarding();
+}
+async function onbRemoveSymbol(sym){
+  PAIRS=PAIRS.filter(p=>p!==sym);
+  await saveJSON('falcon:symbols',PAIRS);
+  renderOnboarding();
+}
+async function onbAddSetup(e){
+  if(e.key!=='Enter') return;
+  const v=e.target.value.trim(); if(!v) return;
+  PLAYBOOK.push({id:'pb'+Date.now(),name:v,about:'',plan:'',shots:[]});
+  await saveJSON('falcon:playbook',PLAYBOOK);
+  e.target.value=''; renderOnboarding();
+}
+async function onbRemoveSetup(id){
+  PLAYBOOK=PLAYBOOK.filter(p=>p.id!==id);
+  await saveJSON('falcon:playbook',PLAYBOOK);
+  renderOnboarding();
+}
+async function onbAddConfluence(e){
+  if(e.key!=='Enter') return;
+  const v=e.target.value.trim(); if(!v) return;
+  CONFLUENCES.push({id:'cf'+Date.now(),name:v,desc:'',crucial:true});
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  e.target.value=''; renderOnboarding();
+}
+async function onbToggleCrucial(id){
+  const c=CONFLUENCES.find(x=>x.id===id); if(!c) return;
+  c.crucial=!c.crucial;
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  renderOnboarding();
+}
+async function onbRemoveConfluence(id){
+  CONFLUENCES=CONFLUENCES.filter(c=>c.id!==id);
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  renderOnboarding();
+}
+async function onbLoadDemo(){
+  await loadDemoData();
+  PROFILE.onboarded=true;
+  await saveJSON('falcon:profile',PROFILE);
+  closeOnboarding();
+}
+
+const ONB_STEPS=[
+  {t:'Welcome',      s:'Set up the few things the rest of the journal reads from.'},
+  {t:'Instruments',  s:'What you trade. Add as you go — this is just a head start.'},
+  {t:'Setups',       s:'The patterns you take. Each one gets its own performance breakdown.'},
+  {t:'Confluences',  s:'What has to be true before you enter. Crucial ones drive your entry-consistency score.'}
+];
+function renderOnboarding(){
+  const step=ui.onbStep||0;
+  const meta=ONB_STEPS[step];
+  let body='';
+
+  if(step===0){
+    body=`
+      <div class="field full"><label>What should the journal call you?</label>
+        <input id="onbName" value="${esc(PROFILE.name||'')}" placeholder="Your name"
+               onchange="onbSetName(this.value)"></div>
+      <div class="onb-note">Nothing here is shared. Your journal is yours alone.</div>`;
+  } else if(step===1){
+    body=`
+      <div class="field full"><label>Add instruments</label>
+        <input placeholder="EURUSD, XAUUSD, NAS100 — press Enter" onkeydown="onbAddSymbol(event)"></div>
+      <div class="onb-chips">${
+        PAIRS.length? PAIRS.map(p=>`<span class="tag-chip on-focus" onclick="onbRemoveSymbol('${esc(p)}')">${esc(p)} <span class="x">×</span></span>`).join('')
+                    : '<span class="onb-empty">Nothing yet. You can also just type a symbol when logging a trade.</span>'}</div>`;
+  } else if(step===2){
+    body=`
+      <div class="field full"><label>Add a setup</label>
+        <input placeholder="e.g. Structural flip — press Enter" onkeydown="onbAddSetup(event)"></div>
+      <div class="onb-list">${
+        PLAYBOOK.length? PLAYBOOK.map(p=>`<div class="onb-row"><span>${esc(p.name)}</span>
+            <span class="row-del" onclick="onbRemoveSetup('${p.id}')">✕</span></div>`).join('')
+                       : '<span class="onb-empty">No setups yet.</span>'}</div>`;
+  } else {
+    body=`
+      <div class="field full"><label>Add a confluence</label>
+        <input placeholder="e.g. 15m break of structure — press Enter" onkeydown="onbAddConfluence(event)"></div>
+      <div class="onb-list">${
+        CONFLUENCES.length? CONFLUENCES.map(c=>`<div class="onb-row">
+            <span>${esc(c.name)}</span>
+            <button class="onb-cru ${c.crucial?'on':''}" onclick="onbToggleCrucial('${c.id}')">${c.crucial?'Crucial':'Supporting'}</button>
+            <span class="row-del" onclick="onbRemoveConfluence('${c.id}')">✕</span></div>`).join('')
+                          : '<span class="onb-empty">No confluences yet.</span>'}</div>`;
+  }
+
+  const last = step===ONB_STEPS.length-1;
+  document.getElementById('onbBody').innerHTML=`
+    <div class="onb-dots">${ONB_STEPS.map((_,i)=>`<span class="onb-dot ${i===step?'on':''} ${i<step?'done':''}"></span>`).join('')}</div>
+    <h2 style="font-size:19px;margin-bottom:3px">${meta.t}</h2>
+    <div class="msub">${meta.s}</div>
+    ${body}
+    <div class="onb-actions">
+      <button class="btn ghost" onclick="${step? `onbStep(${step-1})` : 'finishOnboarding()'}">${step?'Back':'Skip setup'}</button>
+      <div style="display:flex;gap:8px">
+        ${step===0? `<button class="btn ghost" onclick="onbLoadDemo()">Load demo data</button>`:''}
+        <button class="btn primary" onclick="${last?'finishOnboarding()':`onbStep(${step+1})`}">${last?'Start journaling':'Continue'}</button>
+      </div>
+    </div>`;
+}
+
 function renderGreeting(){
   const h=new Date().getHours();
   const g=h<12?'Good morning':(h<18?'Good afternoon':'Good evening');
@@ -3163,7 +3326,7 @@ async function removeForecastPairShot(kind,i){ const arr=forecastArr(kind); cons
 // Shared markup for the Morning / Evening forecast block: a tick to mark it done, pairs, one photo per pair.
 function forecastBlockHTML(kind,label){
   const ticked=forecastTicked(kind); const arr=forecastArr(kind);
-  const pairOpts='<option value="">Add a pair…</option>'+PAIRS.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const pairOpts='<option value="">Add a pair…</option>'+PAIRS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
   const pairRows=arr.map((p,i)=>{
     const shotBlock = p.shot
       ? `<div class="prep-shot"><img id="img-${p.shot}" alt="${esc(p.symbol)} setup" onclick="lightbox('${p.shot}')"><button class="shot-del" onclick="removeForecastPairShot('${kind}',${i})">×</button></div>`
@@ -5099,7 +5262,8 @@ function openMissedDetail(id){
         <div class="td-sec-title">Opportunity</div>
         <div class="form-grid">
           <div class="field"><label>Date</label><input type="date" value="${m.date||''}" onchange="saveMissed('${id}','date',this.value)"></div>
-          <div class="field"><label>Symbol</label><select onchange="saveMissed('${id}','symbol',this.value)">${PAIRS.map(p=>`<option ${p===m.symbol?'selected':''}>${p}</option>`).join('')}</select></div>
+          <div class="field"><label>Symbol</label><input list="symbolList" value="${esc(m.symbol||'')}" placeholder="e.g. EURUSD"
+             oninput="this.value=this.value.toUpperCase()" onchange="saveMissed('${id}','symbol',this.value);rememberSymbol(this.value)"></div>
           <div class="field"><label>Direction</label>
             <div class="side-toggle">
               <button class="${m.direction==='long'?'long-on':''}" onclick="setMissedDirection('${id}','long')">Long</button>
@@ -5168,7 +5332,7 @@ async function saveMissedLesson(id){
 }
 function closeMissedDetail(){ document.getElementById('missedOverlay').classList.remove('show'); missedId=null; renderJournal(); }
 async function addMissed(){
-  const m={id:'m'+Date.now(),date:ymd(new Date()),symbol:PAIRS[0]||'',direction:'',entryType:'',timeframe:'',setup:'',riskGrade:'',r:null,slPips:null,pGrade:'',sGrade:'',eGrade:'',accounts:[],pnl:null,reasons:[],whatHappened:'',shots:[],lessonId:null};
+  const m={id:'m'+Date.now(),date:ymd(new Date()),symbol:'',direction:'',entryType:'',timeframe:'',setup:'',riskGrade:'',r:null,slPips:null,pGrade:'',sGrade:'',eGrade:'',accounts:[],pnl:null,reasons:[],whatHappened:'',shots:[],lessonId:null};
   MISSED.push(m); await saveJSON('falcon:missed',MISSED); openMissedDetail(m.id);
 }
 async function removeMissed(id){ MISSED=MISSED.filter(m=>m.id!==id); await saveJSON('falcon:missed',MISSED); renderJournal(); }
@@ -5964,7 +6128,7 @@ function renderSettings(){
     <div style="margin-top:18px;display:flex;gap:10px">
       <button class="btn ghost" onclick="exportAll()">Export all data (backup)</button>
       <button class="btn ghost" onclick="exportTrades()">Export trades (JSON)</button>
-      <button class="btn ghost" onclick="reimportNotion()">Re-import Notion snapshot</button>
+      <button class="btn ghost" onclick="loadDemoData()">Re-import Notion snapshot</button>
       <button class="btn ghost" style="color:var(--red)" onclick="resetAll()">Clear all trades</button>
     </div>
   </div>`;
@@ -6073,8 +6237,8 @@ function openModal(){
   document.getElementById('modalTitle').textContent='Log trade';
   const nowLocal=toLocalInput(new Date());
   dtSetValue('entry',nowLocal); dtSetValue('close',nowLocal);
-  document.getElementById('fSymbol').innerHTML=PAIRS.map(p=>'<option>'+p+'</option>').join('');
-  document.getElementById('fSymbol').value='NZDUSD';
+  fillSymbolList();
+  document.getElementById('fSymbol').value='';
   document.getElementById('fEntryType').value='RRE';
   document.getElementById('fTimeframe').value='15m';
   document.getElementById('fSetup').innerHTML=setupOptions(PLAYBOOK[0]?PLAYBOOK[0].name:'');
@@ -6114,9 +6278,8 @@ function editTrade(id){
   editingId=id;
   document.getElementById('modalTitle').textContent='Edit trade';
   dtSetValue('entry',t.entryAt||''); dtSetValue('close',t.closeAt||'');
-  document.getElementById('fSymbol').innerHTML=PAIRS.map(p=>'<option>'+p+'</option>').join('');
-  if(!PAIRS.includes(t.symbol))document.getElementById('fSymbol').innerHTML+='<option>'+esc(t.symbol)+'</option>';
-  document.getElementById('fSymbol').value=t.symbol;
+  fillSymbolList();
+  document.getElementById('fSymbol').value=t.symbol||'';
   document.getElementById('fEntryType').value=t.entryType||'RE';
   document.getElementById('fTimeframe').value=t.timeframe||'15m';
   document.getElementById('fSetup').innerHTML=setupOptions(t.setup||'');
@@ -6161,7 +6324,7 @@ async function saveTrade(){
   const t={
     id: editingId||('t'+Date.now()),
     entryAt, closeAt, date,
-    symbol:document.getElementById('fSymbol').value,
+    symbol:(document.getElementById('fSymbol').value||'').trim().toUpperCase(),
     side:modalSide,
     session:sessionFromEntry(entryAt),
     entryType:document.getElementById('fEntryType').value,
@@ -6190,7 +6353,7 @@ async function saveTrade(){
 }
 async function delTrade(id){ trades=trades.filter(t=>t.id!==id); await persist(); renderGreeting(); renderJournal(); }
 async function resetAll(){ trades=[]; await persist(); try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} renderGreeting(); switchView('dashboard'); }
-async function reimportNotion(){ trades=migrate(NOTION_TRADES); await persist(); try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){} ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth(); renderGreeting(); switchView('dashboard'); toast('Import completed'); }
+async function loadDemoData(){ trades=migrate(DEMO_TRADES); await persist(); try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){} ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth(); renderGreeting(); switchView('dashboard'); toast('Import completed'); }
 function exportTrades(){ const blob=new Blob([JSON.stringify(trades,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='odyssey-trades.json'; a.click(); }
 async function exportAll(){
   const dump={};
@@ -6231,21 +6394,20 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   // Storage has to be up before anything reads from it.
   try{ await Store.init(); }catch(e){ console.warn('storage init failed',e); }
   renderAccountBar();
+  // A new journal starts empty. Only an existing record gets migrated.
   const saved=await loadTrades();
-  let ver=0; try{ const v=await Store.get('falcon:dataVersion'); if(v&&v.value) ver=parseInt(v.value)||0; }catch(e){}
-  if(!saved || ver < DATA_VERSION){ trades = migrate(NOTION_TRADES); await persist(); try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} }
-  else { trades = migrate(saved); await persist(); }
+  trades = saved ? migrate(saved) : [];
+  if(saved) await persist();
+  try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){}
+
+  PROFILE=await loadJSON('falcon:profile',{name:'',onboarded:false}) || {name:'',onboarded:false};
+  if(!PROFILE.name && Store.user && Store.user.email) PROFILE.name=Store.user.email.split('@')[0];
+  TRADER=PROFILE.name||'Trader';
+  PAIRS=await loadJSON('falcon:symbols',[]) || [];
+
   checklist=await loadChecklist();
   ACCOUNTS=await loadAccounts();
   ACCOUNTS.forEach(a=>{ if(a.basePnl===undefined){ a.basePnl = (a.status!=null && a.size)? Math.round((a.size*a.status/100)*100)/100 : 0; delete a.status; } if(a.objective===undefined)a.objective=''; if(a.rules===undefined)a.rules=''; if(a.profitTarget===undefined)a.profitTarget=null; if(a.maxDD===undefined)a.maxDD=null; if(a.minDays===undefined)a.minDays=null; });
-  // One-time seed of the accounts from the Notion export, guarded so a later manual delete sticks.
-  let acctSeeded=null; try{ const v=await Store.get('falcon:accountsSeeded'); if(v&&v.value) acctSeeded=v.value; }catch(e){}
-  if(!acctSeeded){
-    let added=false;
-    DEFAULT_ACCOUNTS.forEach(d=>{ if(!ACCOUNTS.some(a=>a.id===d.id)){ ACCOUNTS.push(Object.assign({},d)); added=true; } });
-    if(added) await saveAccountsStore();
-    try{ await Store.set('falcon:accountsSeeded','1'); }catch(e){}
-  }
   PLAYBOOK=await loadJSON('falcon:playbook',[]);
   DNA=await loadJSON('falcon:dna',{strengths:[],nonNegotiables:[]});
   if(!Array.isArray(DNA.strengths))DNA.strengths=[]; if(!Array.isArray(DNA.nonNegotiables))DNA.nonNegotiables=[];
@@ -6298,6 +6460,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   renderDashboard();
   playViewAnim();
   dismissSplash();
+  if(!PROFILE.onboarded && !trades.length) setTimeout(openOnboarding, prefersReduced()?0:1500);
   // nav wiring + icons
   document.querySelectorAll('.nav-item').forEach(n=>{
     if(n.dataset.icon){ n.insertAdjacentHTML('afterbegin', ic(n.dataset.icon)); }
