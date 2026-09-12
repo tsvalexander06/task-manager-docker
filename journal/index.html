@@ -1282,6 +1282,20 @@
     body[data-print="analytics"] #viewRoot > .today-hero{display:none!important}
   }
 
+  .cfp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cfp{display:flex;align-items:flex-start;gap:10px;cursor:pointer;user-select:none;min-width:0;
+    background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:9px 11px;
+    transition:border-color var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out)}
+  .cfp:hover{border-color:var(--edge-strong);background:var(--panel-hover)}
+  .cfp .check-box{flex:0 0 16px;width:16px;height:16px;margin-top:1px}
+  .cfp.on .check-box{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(59,130,246,.5)}
+  .cfp.on .check-box::after{content:'✓';color:#04121F;font-size:11px;font-weight:800;line-height:1}
+  .cfp-b{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .cfp-n{font-size:12px;font-weight:700}
+  .cfp-d{font-size:10.5px;color:var(--muted-2)}
+  .cfp-sum{grid-column:1/-1;font-size:11px;color:var(--accent-bright);font-weight:600;margin-top:2px}
+  @media(max-width:760px){ .cfp-grid{grid-template-columns:1fr} }
+
   /* ---- Improvement workshop --------------------------------- */
   .ws-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:16px;align-items:start}
   .ws-left{min-width:0}
@@ -1590,7 +1604,11 @@
     .rtabs::-webkit-scrollbar{display:none}
     .rtabs-acts{margin-left:0;width:100%;padding-bottom:10px;order:2}
     .rtab{white-space:nowrap}
-    .page-h{align-items:flex-start}
+    /* The analytics header carries a range chip and an export button; let the
+       whole side group wrap rather than pushing the page wide. */
+    .page-h{align-items:flex-start;flex-direction:column}
+    .page-h .ph-side{width:100%;flex-wrap:wrap}
+    .an-range{max-width:100%;overflow:hidden;text-overflow:ellipsis}
     /* Greeting and badges share a row at desktop width; on a phone the badges
        drop underneath rather than crowding into the wrapped heading. */
     .topbar{flex-direction:column;align-items:flex-start;gap:12px}
@@ -2367,6 +2385,30 @@ function allSetupNames(){
   return [...names];
 }
 /* Win rate and frequency for each confluence. */
+/* Confluence picker on a trade. Crucial ones are marked, because those are
+   what the entry-consistency score measures against. */
+function confluencePickerHTML(t){
+  const sel=t.confluences||[];
+  if(!CONFLUENCES.length) return '<div class="sp-none">No confluences defined yet.</div>';
+  const crucial=crucialConfluences().length;
+  const hit=crucialConfluences().filter(c=>sel.includes(c.id)).length;
+  return CONFLUENCES.map(c=>`
+    <label class="cfp ${sel.includes(c.id)?'on':''}" onclick="toggleConfluence('${t.id}','${c.id}')">
+      <span class="check-box"></span>
+      <span class="cfp-b"><span class="cfp-n">${esc(c.name)}${c.crucial?'<i class="cw-star">◆</i>':''}</span>
+      <span class="cfp-d">${esc(c.desc||'')}</span></span>
+    </label>`).join('')
+    + (crucial? `<div class="cfp-sum">${hit} of ${crucial} crucial confluences present</div>` : '');
+}
+async function toggleConfluence(id,cid){
+  const t=trades.find(x=>x.id===id); if(!t) return;
+  t.confluences=t.confluences||[];
+  const i=t.confluences.indexOf(cid);
+  if(i<0) t.confluences.push(cid); else t.confluences.splice(i,1);
+  await persist();
+  openTradeDetail(id);
+}
+
 function confluenceStats(list){
   const tagged=list.filter(t=>(t.confluences||[]).length);
   return CONFLUENCES.map(c=>{
@@ -2870,10 +2912,12 @@ function renderPrep(){
 
   document.getElementById('viewRoot').innerHTML=`
   <div class="controls">
-    <div class="toggle-set"><div class="prep-head"><span class="brief-sun">${ic('sunrise')}</span> Market preparation</div></div>
+    <div class="dv-head">
+      <div class="dv-title">Market preparation</div>
+      <div class="dv-sub">Your routine, your rules, and the questions you ask before entering · ${dateStr}</div>
+    </div>
     <div class="daterange"><span class="ready-badge ${ready?'ready':''}" id="brief-ready">${badgeText}</span></div>
   </div>
-  <div class="prep-date">${dateStr}</div>
 
   ${beforeYouTradeHTML()}
 
@@ -4339,6 +4383,8 @@ function openTradeDetail(id){
         <div class="td-sec-title">How will I prevent it?</div>
         ${mistakeLessonBlock(t)}
         ` : ''}
+        <div class="td-sec-title">Confluences present at entry</div>
+        <div class="cfp-grid">${confluencePickerHTML(t)}</div>
         <div class="td-sec-title">Things to focus on</div>
         <div class="td-chips">${chipRow('focus',FOCUS_TAGS)}</div>
         <div class="td-sec-title">Why did I take this trade? / Notes</div>
