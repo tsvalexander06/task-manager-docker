@@ -19,6 +19,10 @@ const SITE_FILES = ['index.html'];
 
 const url = process.env.SUPABASE_URL || '';
 const key = process.env.SUPABASE_ANON_KEY || '';
+// What the paywall shows. The charge itself is whatever the Stripe price says;
+// this is only the label, so the two are set together and cannot drift apart
+// unnoticed.
+const price = process.env.STRIPE_PRICE_DISPLAY || '';
 
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
@@ -36,7 +40,8 @@ fs.writeFileSync(
   path.join(dist, 'config.js'),
   `window.ODYSSEY_CONFIG = {\n` +
   `  supabaseUrl: ${JSON.stringify(url)},\n` +
-  `  supabaseAnonKey: ${JSON.stringify(key)}\n};\n`
+  `  supabaseAnonKey: ${JSON.stringify(key)},\n` +
+  `  priceLabel: ${JSON.stringify(price)}\n};\n`
 );
 
 const size = (fs.statSync(path.join(dist, 'index.html')).size / 1024).toFixed(0);

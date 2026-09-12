@@ -1359,6 +1359,7 @@
   .pay-mark svg{width:22px;height:22px}
   .pay-card h2{font-size:21px;font-weight:800;letter-spacing:-.01em}
   .pay-sub{font-size:13px;color:var(--muted);margin-top:7px;line-height:1.5}
+  .pay-price{font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--accent-bright);margin-top:16px}
   .pay-list{list-style:none;text-align:left;margin:20px 0 22px;display:flex;flex-direction:column;gap:9px}
   .pay-list li{font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:flex-start;line-height:1.45}
   .pay-list li::before{content:'✓';color:var(--accent-bright);font-weight:800;flex:0 0 auto}
@@ -3080,6 +3081,7 @@ async function removeMistakeTag(name){
 // ============================================================
 let PLAN = {status:'unknown', periodEnd:null, cancelAtPeriodEnd:false};
 
+function priceLabel(){ return (window.ODYSSEY_CONFIG&&window.ODYSSEY_CONFIG.priceLabel)||''; }
 function planActive(){ return PLAN.status==='active' || PLAN.status==='trialing'; }
 /* Billing only applies when there are accounts at all. Running on this device
    with no Supabase configured is the local mode, not an unpaid one. */
@@ -3152,6 +3154,7 @@ function showPaywall(){
       <p class="pay-sub">${lapsed
         ? 'Your journal is still here and you can still read and export all of it. Renew to start writing again.'
         : 'One subscription. Everything in it.'}</p>
+      ${priceLabel()? `<div class="pay-price">${esc(priceLabel())}</div>`:''}
       <ul class="pay-list">
         <li>Every dashboard — analytics, mistakes, edge score, technicals</li>
         <li>Unlimited trades, screenshots and missed trades</li>

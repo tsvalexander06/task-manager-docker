@@ -1,8 +1,10 @@
 # Odyssey Journal
 
-> **Putting it online for the first time?** Follow
-> **[DEPLOY.md](DEPLOY.md)** — click by click, ending with you journalling real
-> trades on a private site.
+> **Just want it running for yourself?** **[LAUNCH.md](LAUNCH.md)** is the
+> shortest path — no Stripe, no customers, about 20 minutes.
+>
+> **Putting it online for the first time?** **[DEPLOY.md](DEPLOY.md)** covers the
+> same ground in more detail.
 >
 > **Charging for it?** **[BILLING.md](BILLING.md)** sets up the subscription —
 > one plan, everything in it, gated in the database rather than the browser.

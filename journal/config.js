@@ -13,5 +13,8 @@
  */
 window.ODYSSEY_CONFIG = {
   supabaseUrl: '',
-  supabaseAnonKey: ''
+  supabaseAnonKey: '',
+  // Shown on the paywall, e.g. '$20 / month'. Label only — the amount actually
+  // charged is whatever the Stripe price says.
+  priceLabel: ''
 };
