@@ -1600,9 +1600,13 @@
   .mk-empty{font-size:12px;color:var(--muted-2);padding:10px 0}
   .mk-warn{margin-top:10px;font-size:11px;color:var(--muted);background:rgba(178,173,163,.06);
     border:1px solid var(--red-line);border-radius:9px;padding:9px 11px}
-  .sev-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-soft)}
+
+  .sev-list{display:flex;flex-direction:column;max-height:52vh;overflow-y:auto;margin-top:4px}
+  .sev-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .sev-used{font-size:10px;color:var(--muted-2)}
+  .sev-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft)}
   .sev-row:last-of-type{border-bottom:none}
-  .sev-name{flex:1;font-size:13px;font-weight:600;min-width:0}
+  .sev-name{font-size:13px;font-weight:600;overflow-wrap:anywhere;line-height:1.3}
   .sev-seg button{padding:5px 11px;font-size:11.5px}
   @media(max-width:760px){ .q-tiles{grid-template-columns:1fr} .mk-two{grid-template-columns:1fr} }
 
@@ -2111,16 +2115,29 @@ const MISTAKE_SEVERITY_DEFAULT={
   'Post-loss / comparison-triggered activity spike':'small'
 };
 let MISTAKE_SEVERITY={...MISTAKE_SEVERITY_DEFAULT};
+let MISTAKE_CUSTOM=[];   // names the trader added
+let MISTAKE_HIDDEN=[];   // starter names the trader removed
 let MISTAKE_TAGS=Object.keys(MISTAKE_SEVERITY_DEFAULT);
 /* Trades can carry mistake names this build never shipped — imported leaks, or
    ones the trader typed. Keep the tag list in step with the data. */
 function refreshMistakeTags(){
   const seen=new Set(Object.keys(MISTAKE_SEVERITY_DEFAULT));
+  MISTAKE_CUSTOM.forEach(m=>seen.add(m));
+  // A tag already on a trade stays offerable even if removed from the list,
+  // so existing history keeps reading correctly.
   trades.forEach(t=>(t.mistakes||[]).forEach(m=>seen.add(m)));
+  MISTAKE_HIDDEN.forEach(m=>{
+    if(!trades.some(t=>(t.mistakes||[]).includes(m))) seen.delete(m);
+  });
   MISTAKE_TAGS=[...seen];
 }
 function mistakeSeverity(name){ return MISTAKE_SEVERITY[name]==='small' ? 'small' : 'crucial'; }
-function setMistakeSeverity(name,sev){ MISTAKE_SEVERITY[name]=sev; saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY); renderDashboard(); }
+function setMistakeSeverity(name,sev){
+  name=decodeURIComponent(name);
+  MISTAKE_SEVERITY[name]=sev;
+  saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY);
+  if(currentView==='dashboard') renderDashboard();
+}
 /* Worst severity present on a trade: 'clean' | 'small' | 'crucial'. */
 function tradeSeverity(t){
   const ms=t.mistakes||[];
@@ -2175,12 +2192,9 @@ let ROUTINE={
     {id:'ev_shots',text:'Saved before/after screenshots'},
     {id:'ev_missed',text:'Logged any trades I missed'},
   ],
-  pretrade:[
-    {id:'risk',text:'Risk set (0.5% until +2%, then 1%)'},
-    {id:'struct',text:'Only 15M-confirmed structure — no timeframe hunting'},
-    {id:'stop',text:'Stop goes at entry and stays'},
-    {id:'target',text:'Targets written as price levels'},
-  ]
+  // Empty by design: these are the trader's own rules, collected during setup.
+  // Seeding them here would put one trader's plan in every customer's journal.
+  pretrade:[]
 };
 let PREPDAY={newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};   // resets daily; pairs:[{symbol,shot}]
 async function loadPrepDay(){
@@ -2936,6 +2950,79 @@ async function sweepOrphanShots(){
   if(currentView==='settings') renderSettings();
 }
 
+/* ---------- Editable vocabularies ----------
+   Mistake names and missed-trade reasons are the trader's own words. Both ship
+   with a starter list and both can be added to or pruned, the same way
+   confluences and setups already work. */
+async function addMissedReasonPrompt(id){
+  const v=(prompt('Add a reason for missing a trade')||'').trim();
+  if(!v) return;
+  if(!MISSED_REASONS.includes(v)){
+    MISSED_REASONS.push(v);
+    await saveJSON('falcon:missedReasons',MISSED_REASONS);
+  }
+  const m=MISSED.find(x=>x.id===id);
+  if(m){
+    if(!Array.isArray(m.reasons))m.reasons=[];
+    if(!m.reasons.includes(v)) m.reasons.push(v);
+    await saveJSON('falcon:missed',MISSED);
+  }
+  openMissedDetail(id);
+}
+/* The mistake list: add, rename and remove, alongside the severity each one
+   carries. Renaming rewrites the tag on every trade that used it, so history
+   is not orphaned. */
+async function addMistakeTag(){
+  const v=(prompt('Add a mistake you want to track')||'').trim();
+  if(!v) return;
+  if(MISTAKE_TAGS.includes(v)){ toast('Already on the list','info'); return; }
+  MISTAKE_SEVERITY[v]=MISTAKE_SEVERITY[v]||'crucial';
+  await saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY);
+  MISTAKE_CUSTOM.push(v);
+  await saveJSON('falcon:mistakeTags',MISTAKE_CUSTOM);
+  refreshMistakeTags();
+  openMistakeSeverity();
+}
+async function renameMistakeTag(old){
+  old=decodeURIComponent(old);
+  const v=(prompt('Rename this mistake', old)||'').trim();
+  if(!v || v===old) return;
+  let touched=0;
+  trades.forEach(t=>{
+    const i=(t.mistakes||[]).indexOf(old);
+    if(i>=0){ t.mistakes[i]=v; touched++; }
+  });
+  MISSED.forEach(m=>{ const i=(m.mistakes||[]).indexOf(old); if(i>=0) m.mistakes[i]=v; });
+  MISTAKE_SEVERITY[v]=mistakeSeverity(old);
+  delete MISTAKE_SEVERITY[old];
+  MISTAKE_CUSTOM=MISTAKE_CUSTOM.filter(x=>x!==old);
+  if(!MISTAKE_SEVERITY_DEFAULT[v]) MISTAKE_CUSTOM.push(v);
+  await Promise.all([
+    persist(),
+    saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY),
+    saveJSON('falcon:mistakeTags',MISTAKE_CUSTOM)
+  ]);
+  refreshMistakeTags();
+  toast(touched? 'Renamed on '+touched+' trade'+(touched===1?'':'s') : 'Renamed','ok');
+  openMistakeSeverity();
+}
+async function removeMistakeTag(name){
+  name=decodeURIComponent(name);
+  const used=trades.filter(t=>(t.mistakes||[]).includes(name)).length;
+  if(!confirm('Remove "'+name+'" from your mistake list?'+
+      (used? '\n\nIt stays tagged on '+used+' existing trade'+(used===1?'':'s')+'; only the list entry goes.':''))) return;
+  delete MISTAKE_SEVERITY[name];
+  MISTAKE_CUSTOM=MISTAKE_CUSTOM.filter(x=>x!==name);
+  MISTAKE_HIDDEN = MISTAKE_SEVERITY_DEFAULT[name] ? [...new Set([...MISTAKE_HIDDEN,name])] : MISTAKE_HIDDEN;
+  await Promise.all([
+    saveJSON('falcon:mistakeSeverity',MISTAKE_SEVERITY),
+    saveJSON('falcon:mistakeTags',MISTAKE_CUSTOM),
+    saveJSON('falcon:mistakeHidden',MISTAKE_HIDDEN)
+  ]);
+  refreshMistakeTags();
+  openMistakeSeverity();
+}
+
 /* ---------- Account bar ----------
    Shows which backend is actually holding the data, so "is this saved, and
    where" is never a guess. Sign-in only appears when Supabase is configured. */
@@ -3065,6 +3152,19 @@ async function onbRemoveConfluence(id){
   await saveJSON('falcon:confluences',CONFLUENCES);
   renderOnboarding();
 }
+async function onbAddRule(e){
+  if(e.key!=='Enter') return;
+  const v=e.target.value.trim(); if(!v) return;
+  ROUTINE.pretrade=ROUTINE.pretrade||[];
+  ROUTINE.pretrade.push({id:'rule'+Date.now(),text:v,note:''});
+  await saveJSON('falcon:routineDef',ROUTINE);
+  e.target.value=''; renderOnboarding();
+}
+async function onbRemoveRule(id){
+  ROUTINE.pretrade=(ROUTINE.pretrade||[]).filter(r=>r.id!==id);
+  await saveJSON('falcon:routineDef',ROUTINE);
+  renderOnboarding();
+}
 async function onbLoadDemo(){
   await loadDemoData();
   PROFILE.onboarded=true;
@@ -3076,7 +3176,8 @@ const ONB_STEPS=[
   {t:'Welcome',      s:'Set up the few things the rest of the journal reads from.'},
   {t:'Instruments',  s:'What you trade. Add as you go — this is just a head start.'},
   {t:'Setups',       s:'The patterns you take. Each one gets its own performance breakdown.'},
-  {t:'Confluences',  s:'What has to be true before you enter. Crucial ones drive your entry-consistency score.'}
+  {t:'Confluences',  s:'What has to be true before you enter. Crucial ones drive your entry-consistency score.'},
+  {t:'Trading plan', s:'The rules you hold yourself to. These show up before every entry.'}
 ];
 function renderOnboarding(){
   const step=ui.onbStep||0;
@@ -3104,7 +3205,7 @@ function renderOnboarding(){
         PLAYBOOK.length? PLAYBOOK.map(p=>`<div class="onb-row"><span>${esc(p.name)}</span>
             <span class="row-del" onclick="onbRemoveSetup('${p.id}')">✕</span></div>`).join('')
                        : '<span class="onb-empty">No setups yet.</span>'}</div>`;
-  } else {
+  } else if(step===3){
     body=`
       <div class="field full"><label>Add a confluence</label>
         <input placeholder="e.g. 15m break of structure — press Enter" onkeydown="onbAddConfluence(event)"></div>
@@ -3114,6 +3215,15 @@ function renderOnboarding(){
             <button class="onb-cru ${c.crucial?'on':''}" onclick="onbToggleCrucial('${c.id}')">${c.crucial?'Crucial':'Supporting'}</button>
             <span class="row-del" onclick="onbRemoveConfluence('${c.id}')">✕</span></div>`).join('')
                           : '<span class="onb-empty">No confluences yet.</span>'}</div>`;
+  } else {
+    body=`
+      <div class="field full"><label>Add a rule</label>
+        <input placeholder="e.g. Stop goes at entry and stays — press Enter" onkeydown="onbAddRule(event)"></div>
+      <div class="onb-list">${
+        (ROUTINE.pretrade||[]).length
+          ? ROUTINE.pretrade.map(r=>`<div class="onb-row"><span>${esc(r.text)}</span>
+              <span class="row-del" onclick="onbRemoveRule('${r.id}')">✕</span></div>`).join('')
+          : '<span class="onb-empty">No rules yet. You can add them later in Market preparation.</span>'}</div>`;
   }
 
   const last = step===ONB_STEPS.length-1;
@@ -3841,19 +3951,30 @@ function mistakePanelHTML(list){
 }
 /* Severity is a judgement call, so it stays editable rather than hardcoded. */
 function openMistakeSeverity(){
-  const rows=MISTAKE_TAGS.map(name=>`
-    <div class="sev-row">
-      <span class="sev-name">${esc(name)}</span>
-      <div class="seg sev-seg">
-        <button class="${mistakeSeverity(name)==='small'?'on':''}" onclick="setMistakeSeverity('${esc(name)}','small');openMistakeSeverity()">Small</button>
-        <button class="${mistakeSeverity(name)==='crucial'?'on':''}" onclick="setMistakeSeverity('${esc(name)}','crucial');openMistakeSeverity()">Crucial</button>
+  const rows=MISTAKE_TAGS.map(name=>{
+    const used=trades.filter(t=>(t.mistakes||[]).includes(name)).length;
+    return `<div class="sev-row">
+      <div class="sev-body">
+        <span class="sev-name">${esc(name)}</span>
+        <span class="sev-used">${used? used+' trade'+(used===1?'':'s') : 'unused'}</span>
       </div>
-    </div>`).join('');
+      <div class="seg sev-seg">
+        <button class="${mistakeSeverity(name)==='small'?'on':''}" onclick="setMistakeSeverity('${encQ(name)}','small');openMistakeSeverity()">Small</button>
+        <button class="${mistakeSeverity(name)==='crucial'?'on':''}" onclick="setMistakeSeverity('${encQ(name)}','crucial');openMistakeSeverity()">Crucial</button>
+      </div>
+      <button class="cr-ico" title="Rename" onclick="renameMistakeTag('${encQ(name)}')">${ic('pencil')}</button>
+      <button class="cr-ico del" title="Remove" onclick="removeMistakeTag('${encQ(name)}')">${ic('trash')}</button>
+    </div>`;
+  }).join('');
   document.getElementById('mistakeListBody').innerHTML=`
-    <h2 style="font-size:17px;margin-bottom:4px">Mistake severity</h2>
-    <div class="msub">A crucial mistake breaks the plan. A small one costs quality but not the idea.</div>
-    ${rows}
-    <div class="modal-actions"><button class="btn primary" onclick="closeMistakeList()">Done</button></div>`;
+    <h2 style="font-size:17px;margin-bottom:4px">Your mistakes</h2>
+    <div class="msub">A crucial mistake breaks the plan. A small one costs quality but not the idea.
+      Renaming one rewrites it on every trade that used it.</div>
+    <div class="sev-list">${rows}</div>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn ghost" onclick="addMistakeTag()">+ Add a mistake</button>
+      <button class="btn primary" onclick="closeMistakeList()">Done</button>
+    </div>`;
   document.getElementById('mistakeListOverlay').classList.add('show');
 }
 
@@ -5489,7 +5610,9 @@ function openMissedDetail(id){
   if(!Array.isArray(m.reasons))m.reasons=[];
   if(!Array.isArray(m.shots))m.shots=[];
   if(!Array.isArray(m.accounts))m.accounts=[];
-  const reasonChips=MISSED_REASONS.map(r=>`<span class="tag-chip ${m.reasons.includes(r)?'on-mistake':''}" onclick="toggleMissedReason('${id}','${encQ(r)}')">${esc(r)}</span>`).join('');
+  const reasonChips=MISSED_REASONS.map(r=>`<span class="tag-chip ${m.reasons.includes(r)?'on-mistake':''}" onclick="toggleMissedReason('${id}','${encQ(r)}')">${esc(r)}</span>`).join('')
+    + (m.reasons||[]).filter(r=>!MISSED_REASONS.includes(r)).map(r=>`<span class="tag-chip on-mistake" onclick="toggleMissedReason('${id}','${encQ(r)}')">${esc(r)} <span class="x">×</span></span>`).join('')
+    + `<button class="tag-add" onclick="addMissedReasonPrompt('${id}')">+ add reason</button>`;
   const existingLesson = m.lessonId ? LESSONS.find(l=>l.id===m.lessonId) : null;
   document.getElementById('missedModalBody').innerHTML=`
     <div class="td-head"><div><span class="td-symbol mono">${esc(m.symbol||'—')}</span> <span class="td-date">missed trade</span></div>
@@ -5650,7 +5773,12 @@ async function saveLessonEdit(id){
 // ---------- Lessons — the core improvement loop ----------
 // Every missed trade or trade mistake, once understood, becomes one of these. Re-hitting the
 // same problem bumps its occurrence count instead of creating a duplicate lesson.
-const MISSED_REASONS=["Didn't see the setup","Hesitated","Fear","FOMO","Didn't trust my analysis","Was distracted","Wasn't prepared","Entry criteria weren't clear","Setup moved too quickly","Other"];
+/* A starter vocabulary, not a fixed one. A trader whose reasons are different
+   edits the list rather than working around it. */
+const MISSED_REASONS_DEFAULT=["Didn't see the setup","Hesitated","Fear","FOMO",
+  "Didn't trust my analysis","Was distracted","Wasn't prepared",
+  "Entry criteria weren't clear","Setup moved too quickly"];
+let MISSED_REASONS=[];
 function lessonMatch(problem){
   const p=(problem||'').trim().toLowerCase(); if(!p)return null;
   return LESSONS.find(l=>l.active && l.problem.trim().toLowerCase()===p);
@@ -6896,6 +7024,9 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   LESSONS.forEach(l=>{ if(l.active===undefined)l.active=true; if(l.occurrences==null)l.occurrences=1; if(l.why===undefined)l.why=''; if(l.solution===undefined)l.solution=''; if(l.reminder===undefined)l.reminder=''; if(!l.createdAt)l.createdAt=Date.now(); if(!l.lastAt)l.lastAt=l.createdAt; });
   const rd=await loadJSON('falcon:routineDef',null); if(rd&&rd.morning&&rd.pretrade) ROUTINE=rd;
   MISTAKE_SEVERITY=Object.assign({...MISTAKE_SEVERITY_DEFAULT}, await loadJSON('falcon:mistakeSeverity',{}));
+  MISTAKE_CUSTOM=await loadJSON('falcon:mistakeTags',[]) || [];
+  MISTAKE_HIDDEN=await loadJSON('falcon:mistakeHidden',[]) || [];
+  MISSED_REASONS=await loadJSON('falcon:missedReasons',null) || MISSED_REASONS_DEFAULT.slice();
   CONFLUENCES=await loadJSON('falcon:confluences',null) || DEFAULT_CONFLUENCES.map(c=>({...c}));
   PREPLOG=await loadJSON('falcon:preplog',{}) || {};
   WORKSHOP=await loadJSON('falcon:workshop',[]) || [];

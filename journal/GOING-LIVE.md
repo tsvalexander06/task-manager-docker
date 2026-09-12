@@ -57,21 +57,20 @@ same hour will not get their link.
 
 ## 2. Known wrong — small, real, worth fixing
 
-- [ ] **Your personal trading rules ship to every customer.** The morning and
-      evening routines are generic enough, but `ROUTINE.pretrade` still carries
-      "Risk set (0.5% until +2%, then 1%)" and "Only 15M-confirmed structure",
-      which appear in Technicals → Trading plan as though the customer wrote
-      them. Either empty that list or move it into the first-run setup.
-- [ ] **Missed-trade reasons are a fixed list.** `MISSED_REASONS` cannot be
-      edited, unlike mistakes and confluences. A trader with a different
-      vocabulary is stuck with yours.
-- [ ] **Mistake names are a fixed list.** Severity is editable, the names are
-      not, except as free-text chips on an individual trade.
-- [ ] **Orphaned screenshots need a manual sweep.** Deletion now cascades, but
+- [ ] **Orphaned screenshots need a manual sweep.** Deletion cascades now, but
       images orphaned by earlier versions only go when you run
       Settings → Find orphaned screenshots.
 
----
+Cleared since this was written:
+
+- ~~Your personal trading rules ship to every customer.~~ The pre-trade list is
+  empty by default and collected during first-run setup, so nobody inherits
+  somebody else's plan. The morning and evening routines stay seeded, being
+  universal hygiene, and both are editable.
+- ~~Missed-trade reasons are a fixed list.~~ Editable, with a starter set.
+- ~~Mistake names are a fixed list.~~ Add, rename and remove, alongside each
+  one's severity. Renaming rewrites the tag on every trade that used it, so
+  history is not orphaned.
 
 ## 3. Not built — decide before launch
 
