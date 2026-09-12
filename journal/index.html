@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Optional. Absent or blank means the journal saves to this device only. -->
+<script src="config.js"></script>
 <style>
   :root{
     /* Ground — near-black, so the blue edges and glows are the only light in the UI. */
@@ -1296,6 +1298,19 @@
   .cfp-sum{grid-column:1/-1;font-size:11px;color:var(--accent-bright);font-weight:600;margin-top:2px}
   @media(max-width:760px){ .cfp-grid{grid-template-columns:1fr} }
 
+  /* ---- Account / sync bar ----------------------------------- */
+  .acct-bar{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
+    background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:5px 10px}
+  .acct-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+  .acct-bar .ab-dot.ok{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .acct-bar .ab-dot.warn{background:#6B7687}
+  .acct-bar .ab-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+  .acct-bar .ab-btn{background:none;border:none;font-family:inherit;font-size:11px;font-weight:600;
+    color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:6px}
+  .acct-bar .ab-btn:hover{background:var(--panel-hover);color:var(--text)}
+  .acct-bar .ab-btn.primary{color:var(--accent-bright)}
+  @media(max-width:760px){ .acct-bar .ab-t{max-width:130px} }
+
   /* ---- Improvement workshop --------------------------------- */
   .ws-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:16px;align-items:start}
   .ws-left{min-width:0}
@@ -1668,6 +1683,7 @@
         <div class="meta" id="greetMeta">—</div>
       </div>
       <div class="badges">
+        <span class="acct-bar" id="acctBar"></span>
         <span class="badge-pro">PRO</span>
         <span class="badge-sync"><span class="d"></span> SYNCED</span>
         <button class="rbtn" title="Settings" onclick="switchView('settings')" style="margin-left:2px">⚙</button>
@@ -1804,6 +1820,134 @@
 
 <script>
 const TRADER='Alexander';
+
+// ============================================================
+// STORAGE
+// One interface, three backends, chosen at boot:
+//   1. Claude artifact runtime (window.storage) — when running as an artifact
+//   2. Supabase — when configured and signed in; syncs across devices
+//   3. IndexedDB — plain browser fallback; per-device
+// localStorage is deliberately not used: screenshots are held as data URIs
+// and would blow through its ~5MB quota after a handful of trades.
+// ============================================================
+const Store = (function(){
+  const DB='odyssey', STORE='kv';
+  let backend='idb', idb=null, sb=null, user=null;
+
+  function openIDB(){
+    return new Promise((res,rej)=>{
+      const r=indexedDB.open(DB,1);
+      r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE); };
+      r.onsuccess=()=>res(r.result);
+      r.onerror=()=>rej(r.error);
+    });
+  }
+  function idbOp(mode,fn){
+    return new Promise((res,rej)=>{
+      const tx=idb.transaction(STORE,mode), st=tx.objectStore(STORE);
+      const rq=fn(st);
+      rq.onsuccess=()=>res(rq.result);
+      rq.onerror=()=>rej(rq.error);
+    });
+  }
+
+  async function init(){
+    if(typeof window.storage==='object' && window.storage && typeof window.storage.get==='function'){
+      backend='artifact';
+      return {backend};
+    }
+    const cfg=window.ODYSSEY_CONFIG||{};
+    if(cfg.supabaseUrl && cfg.supabaseAnonKey){
+      try{
+        await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js');
+        sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+        const {data}=await sb.auth.getSession();
+        user=data && data.session ? data.session.user : null;
+        sb.auth.onAuthStateChange((_e,session)=>{
+          const was=user && user.id;
+          user=session? session.user : null;
+          if((user&&user.id)!==was) location.reload();   // reload so every view reads the new account
+        });
+        if(user){ backend='supabase'; return {backend,user}; }
+      }catch(e){ console.warn('Supabase unavailable, falling back to this device only:',e.message); }
+    }
+    idb=await openIDB();
+    backend='idb';
+    return {backend,user};
+  }
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      const el=document.createElement('script');
+      el.src=src; el.onload=res; el.onerror=()=>rej(new Error('could not load '+src));
+      document.head.appendChild(el);
+    });
+  }
+
+  // The app expects get() to resolve to {value} or null, matching the
+  // artifact runtime's own shape.
+  async function get(key){
+    if(backend==='artifact') return Store.get(key);
+    if(backend==='supabase'){
+      const {data,error}=await sb.from('journal_kv').select('v').eq('user_id',user.id).eq('k',key).maybeSingle();
+      if(error) throw error;
+      return data? {value:data.v} : null;
+    }
+    const v=await idbOp('readonly',st=>st.get(key));
+    return v==null? null : {value:v};
+  }
+  async function set(key,value){
+    if(backend==='artifact') return Store.set(key,value);
+    if(backend==='supabase'){
+      const {error}=await sb.from('journal_kv')
+        .upsert({user_id:user.id,k:key,v:value,updated_at:new Date().toISOString()},{onConflict:'user_id,k'});
+      if(error) throw error;
+      return;
+    }
+    return idbOp('readwrite',st=>st.put(value,key));
+  }
+  async function del(key){
+    if(backend==='artifact') return Store.delete(key);
+    if(backend==='supabase'){
+      const {error}=await sb.from('journal_kv').delete().eq('user_id',user.id).eq('k',key);
+      if(error) throw error;
+      return;
+    }
+    return idbOp('readwrite',st=>st.delete(key));
+  }
+  async function keys(){
+    if(backend==='supabase'){
+      const {data}=await sb.from('journal_kv').select('k').eq('user_id',user.id);
+      return (data||[]).map(r=>r.k);
+    }
+    if(backend==='idb') return idbOp('readonly',st=>st.getAllKeys());
+    return [];
+  }
+
+  /* Copy everything held on this device into the signed-in account. Explicit
+     rather than automatic, so signing in can never silently overwrite either side. */
+  async function pushLocalToCloud(){
+    if(backend!=='supabase') throw new Error('Not signed in');
+    const local=await openIDB();
+    const read=req=>new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });
+    const tx=local.transaction(STORE,'readonly'), st=tx.objectStore(STORE);
+    const [ks,vs]=await Promise.all([read(st.getAllKeys()), read(st.getAll())]);
+    const rows=ks.map((key,i)=>({user_id:user.id,k:key,v:vs[i],updated_at:new Date().toISOString()}));
+    if(!rows.length) return 0;
+    for(let i=0;i<rows.length;i+=200){
+      const {error}=await sb.from('journal_kv').upsert(rows.slice(i,i+200),{onConflict:'user_id,k'});
+      if(error) throw error;
+    }
+    return rows.length;
+  }
+
+  return {
+    init, get, set, delete:del, keys, pushLocalToCloud,
+    get backend(){ return backend; },
+    get user(){ return user; },
+    get client(){ return sb; }
+  };
+})();
+
 // ---------- Icons ----------
 function ic(name){
   const p={
@@ -1849,8 +1993,8 @@ const DEFAULT_ACCOUNTS=[
   {id:'acc_acg25k_funded', name:'ACG 25K', phase:'Funded', size:25000, basePnl:0, objective:'', rules:'', profitTarget:null, maxDD:null, minDays:null},
   {id:'acc_maven50k_p1', name:'Maven OMO 50K', phase:'Phase 1', size:50000, basePnl:0, objective:'', rules:'', profitTarget:null, maxDD:null, minDays:null},
 ];
-async function loadAccounts(){ try{ const r=await window.storage.get('falcon:accounts'); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return []; }
-async function saveAccountsStore(){ try{ await window.storage.set('falcon:accounts', JSON.stringify(ACCOUNTS)); }catch(e){} }
+async function loadAccounts(){ try{ const r=await Store.get('falcon:accounts'); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return []; }
+async function saveAccountsStore(){ try{ await Store.set('falcon:accounts', JSON.stringify(ACCOUNTS)); }catch(e){} }
 function accountName(id){ const a=ACCOUNTS.find(x=>x.id===id); return a?a.name:'Account'; }
 // Combined dollar P&L across every account the trade was taken on (R × risk% × size).
 function tradeDollar(t){
@@ -1981,7 +2125,7 @@ let PREPDAY={newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChe
 async function loadPrepDay(){
   const key='falcon:prepday:'+ymd(new Date());
   try{
-    const r=await window.storage.get(key);
+    const r=await Store.get(key);
     if(r&&r.value){
       const d=JSON.parse(r.value);
       d.forecastChecked = !!d.forecastChecked || !!(typeof d.forecast==='string' && d.forecast.trim());  // migrate old text -> ticked
@@ -1998,7 +2142,7 @@ async function loadPrepDay(){
   }catch(e){}
   return {newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};
 }
-async function savePrepDay(){ const key='falcon:prepday:'+ymd(new Date()); try{ await window.storage.set(key, JSON.stringify(PREPDAY)); }catch(e){} writePrepLog(); }
+async function savePrepDay(){ const key='falcon:prepday:'+ymd(new Date()); try{ await Store.set(key, JSON.stringify(PREPDAY)); }catch(e){} writePrepLog(); }
 function todayReviewKey(){ return 'W-'+ymd(weekStart(new Date())); }
 let PLAYBOOK=[];   // setups: {id,name,desc}
 // Trading DNA — the trader's evolving profile. Strengths/non-negotiables are user-curated;
@@ -2011,15 +2155,15 @@ let MISSED=[];     // missed trades: {id,date,symbol,why,prevent,steps}
 // source is 'missed' or 'mistake'. Re-hitting the same problem bumps occurrences instead of duplicating.
 let LESSONS=[];
 let WORKSHOP=[];   // saved improvement-workshop analyses: {id,date,kind,value,observation,addedToPlan}
-async function loadJSON(key,def){ try{ const r=await window.storage.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
-async function saveJSON(key,val){ try{ await window.storage.set(key, JSON.stringify(val)); }catch(e){} }
+async function loadJSON(key,def){ try{ const r=await Store.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
+async function saveJSON(key,val){ try{ await Store.set(key, JSON.stringify(val)); }catch(e){} }
 
 // ---------- Persistence ----------
 async function loadTrades(){
-  try{ const r=await window.storage.get('falcon:trades'); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
+  try{ const r=await Store.get('falcon:trades'); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
   return null;
 }
-async function persist(){ try{ await window.storage.set('falcon:trades', JSON.stringify(trades)); }catch(e){} }
+async function persist(){ try{ await Store.set('falcon:trades', JSON.stringify(trades)); }catch(e){} }
 
 function seed(){
   return [{
@@ -2520,6 +2664,66 @@ function dismissSplash(){
     setTimeout(()=>el.remove(), prefersReduced()?0:500);
   },hold);
 }
+/* ---------- Account bar ----------
+   Shows which backend is actually holding the data, so "is this saved, and
+   where" is never a guess. Sign-in only appears when Supabase is configured. */
+function renderAccountBar(){
+  const el=document.getElementById('acctBar');
+  if(!el) return;
+  const b=Store.backend;
+  const cfgd=!!(window.ODYSSEY_CONFIG&&window.ODYSSEY_CONFIG.supabaseUrl);
+
+  if(b==='supabase'){
+    el.innerHTML=`<span class="ab-dot ok"></span>
+      <span class="ab-t">Synced · ${esc(Store.user.email||'signed in')}</span>
+      <button class="ab-btn" onclick="pushLocal()">Upload this device's data</button>
+      <button class="ab-btn" onclick="signOut()">Sign out</button>`;
+  } else if(cfgd){
+    el.innerHTML=`<span class="ab-dot warn"></span>
+      <span class="ab-t">Saved on this device only</span>
+      <button class="ab-btn primary" onclick="openSignIn()">Sign in to sync</button>`;
+  } else if(b==='artifact'){
+    el.innerHTML=`<span class="ab-dot ok"></span><span class="ab-t">Saved to your Claude account</span>`;
+  } else {
+    el.innerHTML=`<span class="ab-dot warn"></span><span class="ab-t">Saved on this device only</span>`;
+  }
+}
+function openSignIn(){
+  document.getElementById('mistakeListBody').innerHTML=`
+    <h2 style="font-size:17px;margin-bottom:4px">Sign in</h2>
+    <div class="msub">We email you a link. No password to remember.</div>
+    <div class="field full"><label>Email</label>
+      <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>
+    <div id="authMsg" class="hl-muted" style="font-size:12px;margin-top:10px"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeMistakeList()">Cancel</button>
+      <button class="btn primary" onclick="sendMagicLink()">Email me a link</button>
+    </div>`;
+  document.getElementById('mistakeListOverlay').classList.add('show');
+  setTimeout(()=>{ const i=document.getElementById('authEmail'); if(i)i.focus(); },60);
+}
+async function sendMagicLink(){
+  const email=(document.getElementById('authEmail')||{}).value||'';
+  const msg=document.getElementById('authMsg');
+  if(!email.includes('@')){ msg.textContent='That does not look like an email address.'; return; }
+  const sb=Store.client;
+  if(!sb){ msg.textContent='Sign-in is not configured for this deployment.'; return; }
+  msg.textContent='Sending…';
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  msg.textContent = error ? ('Could not send: '+error.message)
+                          : 'Check your inbox and open the link on this device.';
+}
+async function signOut(){
+  if(Store.client) await Store.client.auth.signOut();
+  location.reload();
+}
+async function pushLocal(){
+  try{
+    const n=await Store.pushLocalToCloud();
+    toast(n? ('Uploaded '+n+' record'+(n===1?'':'s')) : 'Nothing stored on this device','ok');
+  }catch(e){ toast('Upload failed: '+e.message,'err'); }
+}
+
 function renderGreeting(){
   const h=new Date().getHours();
   const g=h<12?'Good morning':(h<18?'Good afternoon':'Good evening');
@@ -2656,6 +2860,7 @@ function renderWeekday(){
   drawWeekdayChart(show);
 }
 function drawWeekdayChart(days){
+  if(typeof Chart==='undefined') return;   // CDN unavailable: skip the chart, keep the view
   const ctx=document.getElementById('weekdayCanvas'); if(!ctx)return;
   if(weekChart)weekChart.destroy();
   const labels=days.map(d=>d.short), data=days.map(d=>d.net);
@@ -2666,12 +2871,12 @@ function drawWeekdayChart(days){
 // ---------- Daily process checklists (persist per calendar day) ----------
 async function loadChecklist(){
   const key='falcon:checklist:'+ymd(new Date());
-  try{ const r=await window.storage.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
+  try{ const r=await Store.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
   return {morning:{},pretrade:{}};
 }
 async function saveChecklist(){
   const key='falcon:checklist:'+ymd(new Date());
-  try{ await window.storage.set(key, JSON.stringify(checklist)); }catch(e){}
+  try{ await Store.set(key, JSON.stringify(checklist)); }catch(e){}
   writePrepLog();
 }
 function toggleCheck(section,id,el){
@@ -2940,7 +3145,7 @@ async function toggleForecastTick(kind){
 }
 async function addForecastPair(kind,sel){ const v=sel.value; if(!v)return; const arr=forecastArr(kind); if(!arr.some(p=>p.symbol===v))arr.push({symbol:v,shot:null}); await savePrepDay(); renderPrep(); }
 async function removeForecastPair(kind,i){
-  const arr=forecastArr(kind); const p=arr[i]; if(p&&p.shot){ try{ await window.storage.delete('falcon:shot:'+p.shot); }catch(e){} }
+  const arr=forecastArr(kind); const p=arr[i]; if(p&&p.shot){ try{ await Store.delete('falcon:shot:'+p.shot); }catch(e){} }
   arr.splice(i,1); await savePrepDay(); renderPrep();
 }
 async function setForecastPairShot(kind,i,files){
@@ -2949,12 +3154,12 @@ async function setForecastPairShot(kind,i,files){
   try{
     const data=await downscaleImage(f,1400,0.82);
     const id='sh_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    await window.storage.set('falcon:shot:'+id,data);
-    if(p.shot){ try{ await window.storage.delete('falcon:shot:'+p.shot); }catch(e){} }
+    await Store.set('falcon:shot:'+id,data);
+    if(p.shot){ try{ await Store.delete('falcon:shot:'+p.shot); }catch(e){} }
     p.shot=id; await savePrepDay(); renderPrep();
   }catch(e){}
 }
-async function removeForecastPairShot(kind,i){ const arr=forecastArr(kind); const p=arr[i]; if(!p||!p.shot)return; try{ await window.storage.delete('falcon:shot:'+p.shot); }catch(e){} p.shot=null; await savePrepDay(); renderPrep(); }
+async function removeForecastPairShot(kind,i){ const arr=forecastArr(kind); const p=arr[i]; if(!p||!p.shot)return; try{ await Store.delete('falcon:shot:'+p.shot); }catch(e){} p.shot=null; await savePrepDay(); renderPrep(); }
 // Shared markup for the Morning / Evening forecast block: a tick to mark it done, pairs, one photo per pair.
 function forecastBlockHTML(kind,label){
   const ticked=forecastTicked(kind); const arr=forecastArr(kind);
@@ -3863,6 +4068,7 @@ function tradesTable(list, withDelete){
 
 // ---------- Charts ----------
 function drawRadar(a){
+  if(typeof Chart==='undefined') return;   // CDN unavailable: skip the chart, keep the view
   const ctx=document.getElementById('radarCanvas'); if(!ctx)return;
   if(radarChart)radarChart.destroy();
   radarChart=new Chart(ctx,{type:'radar',
@@ -3876,6 +4082,7 @@ function drawRadar(a){
 }
 // P&L chart for the currently selected period (daily buckets across the period span).
 function drawTimeline(){
+  if(typeof Chart==='undefined') return;   // CDN unavailable: skip the chart, keep the view
   const ctx=document.getElementById('weekCanvas'); if(!ctx)return;
   if(weekChart)weekChart.destroy();
   const [ps,pe]=periodBounds();
@@ -4296,6 +4503,7 @@ function dayViewCalendarHTML(byDate, monthNet, tradingDays){
   </div>`;
 }
 function drawDayChart(id, list){
+  if(typeof Chart==='undefined') return;   // CDN unavailable: skip the chart, keep the view
   const ctx=document.getElementById(id); if(!ctx)return;
   const sorted=list.slice().sort((a,b)=>(a.entryAt||'')<(b.entryAt||'')?-1:1);
   let run=0; const pts=[0], labels=[''];
@@ -4444,7 +4652,7 @@ async function handleShotFiles(files, group){
     if(!f.type||!f.type.startsWith('image/'))continue;
     try{ const data=await downscaleImage(f,1400,0.82);
       const id='sh_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-      await window.storage.set('falcon:shot:'+id, data);
+      await Store.set('falcon:shot:'+id, data);
       arr.push(id);
     }catch(e){ console.error('shot failed',e); }
   }
@@ -4452,19 +4660,20 @@ async function handleShotFiles(files, group){
   openTradeDetail(detailId);
 }
 async function loadShotInto(id){
-  try{ const r=await window.storage.get('falcon:shot:'+id); if(r&&r.value){ const el=document.getElementById('img-'+id); if(el)el.src=r.value; } }catch(e){}
+  try{ const r=await Store.get('falcon:shot:'+id); if(r&&r.value){ const el=document.getElementById('img-'+id); if(el)el.src=r.value; } }catch(e){}
 }
 async function deleteShot(id, group){
   const t=trades.find(x=>x.id===detailId); if(!t)return;
   t.shots=(t.shots||[]).filter(s=>s!==id);
   await persist();
-  try{ await window.storage.delete('falcon:shot:'+id); }catch(e){}
+  try{ await Store.delete('falcon:shot:'+id); }catch(e){}
   openTradeDetail(detailId);
 }
 function lightbox(id){ const el=document.getElementById('img-'+id); if(!el||!el.src)return; document.getElementById('lightboxImg').src=el.src; document.getElementById('lightbox').classList.add('show'); }
 function dropShots(e,group){ e.preventDefault(); const dt=e.dataTransfer; if(!dt)return; const files=[...(dt.files||[])].filter(f=>f.type&&f.type.startsWith('image/')); if(files.length)handleShotFiles(files,group); }
 function closeLightbox(){ document.getElementById('lightbox').classList.remove('show'); }
 function drawTradeChart(t){
+  if(typeof Chart==='undefined') return;   // CDN unavailable: skip the chart, keep the view
   const ctx=document.getElementById('tradeChart'); if(!ctx)return;
   if(tradeChart)tradeChart.destroy();
   const et=t.entryAt&&t.entryAt.includes('T')?t.entryAt.split('T')[1]:'Entry';
@@ -4970,7 +5179,7 @@ async function handleMissedShotFiles(id,files){
     if(!f.type||!f.type.startsWith('image/'))continue;
     try{ const data=await downscaleImage(f,1400,0.82);
       const sid='sh_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-      await window.storage.set('falcon:shot:'+sid, data);
+      await Store.set('falcon:shot:'+sid, data);
       m.shots.push(sid);
     }catch(e){ console.error('shot failed',e); }
   }
@@ -4981,7 +5190,7 @@ async function deleteMissedShot(id,sid){
   const m=MISSED.find(x=>x.id===id); if(!m)return;
   m.shots=(m.shots||[]).filter(s=>s!==sid);
   await saveJSON('falcon:missed',MISSED);
-  try{ await window.storage.delete('falcon:shot:'+sid); }catch(e){}
+  try{ await Store.delete('falcon:shot:'+sid); }catch(e){}
   openMissedDetail(id);
 }
 // ---------- Active Lessons (Journal tab) ----------
@@ -5131,9 +5340,9 @@ async function addSetup(){ const n=document.getElementById('pbName'); if(!n)retu
 async function removeSetup(id){ PLAYBOOK=PLAYBOOK.filter(s=>s.id!==id); if(pbOpen===id)pbOpen=null; await saveJSON('falcon:playbook',PLAYBOOK); renderPlaybook(); }
 async function savePb(id,field,val){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; s[field]=val; await saveJSON('falcon:playbook',PLAYBOOK); if(field==='name')renderPlaybook(); }
 async function addPbShots(id,files){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; if(!Array.isArray(s.shots))s.shots=[];
-  for(const f of files){ if(!f.type||!f.type.startsWith('image/'))continue; try{ const data=await downscaleImage(f,1400,0.82); const sid='sh_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); await window.storage.set('falcon:shot:'+sid,data); s.shots.push(sid); }catch(e){} }
+  for(const f of files){ if(!f.type||!f.type.startsWith('image/'))continue; try{ const data=await downscaleImage(f,1400,0.82); const sid='sh_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); await Store.set('falcon:shot:'+sid,data); s.shots.push(sid); }catch(e){} }
   await saveJSON('falcon:playbook',PLAYBOOK); renderPlaybook(); }
-async function deletePbShot(id,sid){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; s.shots=(s.shots||[]).filter(x=>x!==sid); await saveJSON('falcon:playbook',PLAYBOOK); try{await window.storage.delete('falcon:shot:'+sid);}catch(e){} renderPlaybook(); }
+async function deletePbShot(id,sid){ const s=PLAYBOOK.find(x=>x.id===id); if(!s)return; s.shots=(s.shots||[]).filter(x=>x!==sid); await saveJSON('falcon:playbook',PLAYBOOK); try{await Store.delete('falcon:shot:'+sid);}catch(e){} renderPlaybook(); }
 
 // ---------- Review (weekly) ----------
 function rvNudge(dir){ const a=ui.rvAnchor||new Date(); ui.rvAnchor=addDays(a,dir*7); renderReviewDetail(); }
@@ -5980,14 +6189,21 @@ async function saveTrade(){
   toast(wasEditing?'Trade updated':'Trade saved');
 }
 async function delTrade(id){ trades=trades.filter(t=>t.id!==id); await persist(); renderGreeting(); renderJournal(); }
-async function resetAll(){ trades=[]; await persist(); try{ await window.storage.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} renderGreeting(); switchView('dashboard'); }
-async function reimportNotion(){ trades=migrate(NOTION_TRADES); await persist(); try{await window.storage.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){} ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth(); renderGreeting(); switchView('dashboard'); toast('Import completed'); }
+async function resetAll(){ trades=[]; await persist(); try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} renderGreeting(); switchView('dashboard'); }
+async function reimportNotion(){ trades=migrate(NOTION_TRADES); await persist(); try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){} ui.anchor=parseD(latestDate()); ui.calY=parseD(latestDate()).getFullYear(); ui.calM=parseD(latestDate()).getMonth(); renderGreeting(); switchView('dashboard'); toast('Import completed'); }
 function exportTrades(){ const blob=new Blob([JSON.stringify(trades,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='odyssey-trades.json'; a.click(); }
 async function exportAll(){
-  const dump={}; let keys=[];
-  try{ const r=await window.storage.list('falcon:'); keys=(r&&r.keys)||[]; }catch(e){}
-  if(!keys.length) keys=['falcon:trades','falcon:accounts','falcon:playbook','falcon:reviews','falcon:missed','falcon:routineDef'];
-  for(const k of keys){ try{ const v=await window.storage.get(k); if(v&&v.value!=null) dump[k]=v.value; }catch(e){} }
+  const dump={};
+  let keys=[];
+  try{ keys=await Store.keys(); }catch(e){}
+  // The artifact runtime can enumerate its own keys; fall back to the known set.
+  if(!keys.length && typeof window.storage==='object' && window.storage && window.storage.list){
+    try{ const r=await window.storage.list('falcon:'); keys=(r&&r.keys)||[]; }catch(e){}
+  }
+  if(!keys.length) keys=['falcon:trades','falcon:accounts','falcon:playbook','falcon:reviews',
+                         'falcon:missed','falcon:routineDef','falcon:confluences','falcon:workshop',
+                         'falcon:preplog','falcon:mistakeSeverity','falcon:lessons','falcon:dna'];
+  for(const k of keys){ try{ const v=await Store.get(k); if(v&&v.value!=null) dump[k]=v.value; }catch(e){} }
   const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='odyssey-journal-backup-'+ymd(new Date())+'.json'; a.click();
 }
@@ -6012,20 +6228,23 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
 
 // ---------- Boot ----------
 (async function(){
+  // Storage has to be up before anything reads from it.
+  try{ await Store.init(); }catch(e){ console.warn('storage init failed',e); }
+  renderAccountBar();
   const saved=await loadTrades();
-  let ver=0; try{ const v=await window.storage.get('falcon:dataVersion'); if(v&&v.value) ver=parseInt(v.value)||0; }catch(e){}
-  if(!saved || ver < DATA_VERSION){ trades = migrate(NOTION_TRADES); await persist(); try{ await window.storage.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} }
+  let ver=0; try{ const v=await Store.get('falcon:dataVersion'); if(v&&v.value) ver=parseInt(v.value)||0; }catch(e){}
+  if(!saved || ver < DATA_VERSION){ trades = migrate(NOTION_TRADES); await persist(); try{ await Store.set('falcon:dataVersion', String(DATA_VERSION)); }catch(e){} }
   else { trades = migrate(saved); await persist(); }
   checklist=await loadChecklist();
   ACCOUNTS=await loadAccounts();
   ACCOUNTS.forEach(a=>{ if(a.basePnl===undefined){ a.basePnl = (a.status!=null && a.size)? Math.round((a.size*a.status/100)*100)/100 : 0; delete a.status; } if(a.objective===undefined)a.objective=''; if(a.rules===undefined)a.rules=''; if(a.profitTarget===undefined)a.profitTarget=null; if(a.maxDD===undefined)a.maxDD=null; if(a.minDays===undefined)a.minDays=null; });
   // One-time seed of the accounts from the Notion export, guarded so a later manual delete sticks.
-  let acctSeeded=null; try{ const v=await window.storage.get('falcon:accountsSeeded'); if(v&&v.value) acctSeeded=v.value; }catch(e){}
+  let acctSeeded=null; try{ const v=await Store.get('falcon:accountsSeeded'); if(v&&v.value) acctSeeded=v.value; }catch(e){}
   if(!acctSeeded){
     let added=false;
     DEFAULT_ACCOUNTS.forEach(d=>{ if(!ACCOUNTS.some(a=>a.id===d.id)){ ACCOUNTS.push(Object.assign({},d)); added=true; } });
     if(added) await saveAccountsStore();
-    try{ await window.storage.set('falcon:accountsSeeded','1'); }catch(e){}
+    try{ await Store.set('falcon:accountsSeeded','1'); }catch(e){}
   }
   PLAYBOOK=await loadJSON('falcon:playbook',[]);
   DNA=await loadJSON('falcon:dna',{strengths:[],nonNegotiables:[]});
