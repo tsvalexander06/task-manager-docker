@@ -1192,6 +1192,54 @@
   @media(max-width:900px){ .break-body.open{grid-template-columns:1fr} }
 
 
+  /* ---- Weekly trading report -------------------------------- */
+  .wr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}
+  .wr-tile{background:linear-gradient(180deg,var(--panel) 0%,#070A0F 100%);
+    border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--bloom);padding:14px 16px;min-width:0}
+  .wrt-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .wrt-l{font-size:11px;color:var(--muted);font-weight:600}
+  .wrt-i{color:var(--accent-bright);display:inline-flex}
+  .wrt-i svg{width:14px;height:14px}
+  .wrt-v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wrt-s{font-size:10.5px;color:var(--muted-2);margin-top:3px}
+  .wr-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+  .ki-list{display:flex;flex-direction:column;gap:8px}
+  .ki-row{display:flex;align-items:center;gap:10px;background:var(--panel-2);
+    border:1px solid var(--edge);border-radius:9px;padding:10px 12px;min-width:0}
+  .ki-row.crucial{border-color:var(--red-line)}
+  .ki-ico{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:0 0 auto;
+    background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--accent-bright)}
+  .ki-row.crucial .ki-ico{background:rgba(174,184,198,.10);box-shadow:inset 0 0 0 1px var(--red-line);color:#D3DAE4}
+  .ki-ico svg{width:12px;height:12px}
+  .ki-t{font-size:12px;font-weight:600;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ki-n{font-size:12px;font-weight:800;color:var(--accent-bright)}
+  .ki-extra{margin-top:11px;display:flex;flex-direction:column;gap:5px;font-size:10.5px;color:var(--muted-2)}
+
+  .fx-list{display:flex;flex-direction:column;gap:7px}
+  .fx-row{display:flex;align-items:center;gap:10px;background:var(--panel-2);
+    border:1px solid var(--edge);border-radius:9px;padding:10px 12px}
+  .fx-n{width:20px;height:20px;border-radius:6px;background:var(--accent-soft);color:var(--accent-bright);
+    box-shadow:inset 0 0 0 1px var(--accent-line);font-size:10.5px;font-weight:800;display:grid;place-items:center;flex:0 0 auto}
+  .fx-t{flex:1;font-size:12.5px;font-weight:600;min-width:0}
+  .perf-rows{display:flex;flex-direction:column}
+
+  .wt-list{display:flex;flex-direction:column;gap:9px;max-height:420px;overflow-y:auto}
+  .wt-card{background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;cursor:pointer;
+    transition:border-color var(--dur-fast) var(--ease-out)}
+  .wt-card:hover{border-color:var(--edge-strong)}
+  .wt-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .wt-sym{font-size:12.5px;font-weight:700}
+  .wt-d{font-size:10.5px;color:var(--muted-2)}
+  .wt-p{margin-left:auto;font-size:13px;font-weight:800}
+  .wt-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .wt-tag{font-size:9.5px;font-weight:600;padding:3px 8px;border-radius:5px;line-height:1.3}
+  .wt-tag.good{background:var(--accent-soft);color:var(--accent-bright);box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .wt-tag.bad{background:rgba(174,184,198,.08);color:#C6CEDA;box-shadow:inset 0 0 0 1px var(--red-line)}
+  .wt-none{font-size:10px;color:var(--muted-2)}
+  @media(max-width:1100px){ .wr-tiles{grid-template-columns:1fr 1fr} .wr-two{grid-template-columns:1fr} }
+  @media(max-width:760px){ .wr-tiles{grid-template-columns:1fr 1fr} .wrt-v{font-size:20px} }
+
   /* ---- Analytics block -------------------------------------- */
   .an-head{margin-bottom:16px}
   .an-range{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);
@@ -4939,93 +4987,155 @@ function openMistakeTrades(enc){
   document.getElementById('mistakeListOverlay').classList.add('show');
 }
 function closeMistakeList(){ document.getElementById('mistakeListOverlay').classList.remove('show'); }
+/* Weekly report — the reference card, with key mistakes in place of key
+   insights, focuses for next week beside it, and this week's trades carrying
+   their mistakes and strong points. */
 function renderReviewDetail(){
   const key=reviewKey(); const rv=REVIEWS[key]||{}; const list=reviewTrades();
   const [ps,pe]=reviewBounds();
-  const wins=list.filter(t=>t.pnl>0), losses=list.filter(t=>t.pnl<0), be=list.filter(t=>t.pnl===0);
-  const profitR=wins.reduce((a,t)=>a+(t.r||0),0), lossR=Math.abs(losses.reduce((a,t)=>a+(t.r||0),0));
-  const invalid=list.filter(t=>t.riskGrade==='Invalid').length;
+  const st=computeStats(list);
+  const ms=mistakeStats(list);
   const weekMissed=MISSED.filter(m=>{const d=parseD(m.date);return d>=ps&&d<=pe;});
-  const missedN=weekMissed.length;
-  const missedPct=(list.length+missedN)? Math.round(missedN/(list.length+missedN)*100):0;
-  const mc={};
-  list.forEach(t=>(t.mistakes||[]).forEach(m=>{ if(!mc[m])mc[m]={n:0,ids:[]}; mc[m].n++; mc[m].ids.push(t.id); }));
-  const mChips=Object.entries(mc).sort((a,b)=>b[1].n-a[1].n).map(([m,v])=>`<span class="mistake-chip" onclick="openMistakeTrades('${encQ(m)}')" title="Click to see the trade${v.n!==1?'s':''}">${esc(m)} <b>×${v.n}</b></span>`).join('') || '<span class="hl-muted">No mistakes tagged this week.</span>';
+  const days=new Set(list.map(t=>t.date)).size;
+  const rr = st.avgLoss>0 ? (st.avgWin/st.avgLoss).toFixed(2)+':1' : (st.avgWin>0?'∞':'0.00:1');
 
-  // Missed trades this week, grouped by reason.
-  const missedReasonCount={};
-  weekMissed.forEach(m=>(m.reasons||[]).forEach(r=>{ missedReasonCount[r]=(missedReasonCount[r]||0)+1; }));
-  const missedChips=Object.entries(missedReasonCount).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<span class="mistake-chip">${esc(r)} <b>×${n}</b></span>`).join('') || '<span class="hl-muted">No missed trades this week.</span>';
+  const tile=(l,v,sub,ico)=>`<div class="wr-tile">
+    <div class="wrt-top"><span class="wrt-l">${l}</span><span class="wrt-i">${ic(ico)}</span></div>
+    <div class="wrt-v">${v}</div><div class="wrt-s">${sub}</div></div>`;
 
-  // Lessons touched this week (created or re-occurred).
-  const weekLessons=LESSONS.filter(l=>l.lastAt && l.lastAt>=ps.getTime() && l.lastAt<=pe.getTime()+86399999);
-  const lessonsHTML=weekLessons.length? weekLessons.map(l=>`<div class="lesson-card"><div class="lesson-head"><b>${esc(l.problem)}</b><span class="hl-muted">${l.occurrences}× total</span></div>${l.reminder?`<div class="lesson-reminder">${esc(l.reminder)}</div>`:''}</div>`).join('') : '<div class="hl-muted" style="font-size:12.5px">No lessons touched this week.</div>';
+  // --- Key mistakes (was key insights) -----------------------------------
+  const mistakeItems = ms.ranked.length
+    ? ms.ranked.slice(0,5).map(r=>`<div class="ki-row ${r.severity}">
+        <span class="ki-ico">${ic(r.severity==='crucial'?'shield':'pulse')}</span>
+        <span class="ki-t">${esc(r.name)}</span>
+        <span class="ki-n">×${r.n}</span></div>`).join('')
+    : `<div class="ki-row clean"><span class="ki-ico">${ic('award')}</span>
+        <span class="ki-t">No mistakes tagged this week</span></div>`;
+  const extra=[];
+  if(ms.crucial) extra.push(`${ms.crucial} of ${ms.total} trades carried a crucial mistake`);
+  if(ms.multiCrucial) extra.push(`${ms.multiCrucial} carried more than one`);
+  if(weekMissed.length) extra.push(`${weekMissed.length} setup${weekMissed.length===1?'':'s'} missed`);
 
-  // Am I improving? — this week's mistake counts vs the prior week's, same tags.
-  const prevPs=addDays(ps,-7), prevPe=addDays(pe,-7);
-  const prevList=trades.filter(t=>{const d=parseD(t.date);return d>=prevPs&&d<=prevPe;});
-  const pmc={}; prevList.forEach(t=>(t.mistakes||[]).forEach(m=>{ pmc[m]=(pmc[m]||0)+1; }));
-  const allTags=new Set([...Object.keys(mc),...Object.keys(pmc)]);
-  const trendRows=[...allTags].map(tag=>{
-    const now=mc[tag]?mc[tag].n:0, prev=pmc[tag]||0;
-    if(now===0 && prev===0) return '';
-    const pct = prev? Math.round((now-prev)/prev*100) : (now?100:0);
-    const improving = now<prev, worse = now>prev;
-    const arrow = improving?'↓':(worse?'↑':'→');
-    const cls = improving?'pos':(worse?'neg':'');
-    return `<div class="rv-cell"><div class="rv-cl">${esc(tag)}</div><div class="rv-cv ${cls}">${prev} → ${now} <span style="font-size:11px">${arrow}${Math.abs(pct)}%</span></div></div>`;
-  }).filter(Boolean).join('');
-  const trendHTML = trendRows? `<div class="rv-table">${trendRows}</div>` : '<div class="hl-muted" style="font-size:12.5px">Not enough data yet to compare weeks.</div>';
+  // --- Focuses for next week ---------------------------------------------
+  const planHTML=(rv.plan&&rv.plan.length)
+    ? rv.plan.map((f,i)=>`<div class="fx-row" draggable="true" ondragstart="dragStart(event,'reviewplan',${i})" ondragend="dragEndRow(event)" ondragover="dragOverRow(event,'reviewplan')" ondragleave="dragLeaveRow(event)" ondrop="dropRow(event,'reviewplan',${i},'review')">
+        <span class="fx-n">${i+1}</span><span class="fx-t">${esc(f)}</span>
+        <span class="row-del" onclick="removeReviewItem('plan',${i})">✕</span></div>`).join('')
+    : `<div class="sp-none">Nothing yet — these carry into Market preparation each day.</div>`;
+
+  // --- Performance metrics (unchanged from the reference) -----------------
+  const best=list.reduce((a,t)=> mv(t)>(a?mv(a):-Infinity)?t:a,null);
+  const worst=list.reduce((a,t)=> mv(t)<(a?mv(a): Infinity)?t:a,null);
+  const byDay={}; list.forEach(t=>{ byDay[t.date]=(byDay[t.date]||0)+mv(t); });
+  const dayEntries=Object.entries(byDay);
+  const bestDayE=dayEntries.sort((a,b)=>b[1]-a[1])[0], worstDayE=dayEntries[dayEntries.length-1];
+  const perf=[
+    ['Average win',  st.avgWin>0?disp(st.avgWin):'—'],
+    ['Average loss', st.avgLoss>0?disp(-st.avgLoss):'—'],
+    ['Best trade',   best?disp(mv(best)):'—'],
+    ['Worst trade',  worst?disp(mv(worst)):'—'],
+    ['Best day',     bestDayE?fmtShort(bestDayE[0]):'—'],
+    ['Worst day',    worstDayE?fmtShort(worstDayE[0]):'—']
+  ].map(([l,v])=>`<div class="sp-row"><span>${l}</span><b>${v}</b></div>`).join('');
+
+  // --- Trades this week, each with its mistakes and strong points ---------
+  const tradeCards = list.length
+    ? list.slice().sort((a,b)=>a.date<b.date?1:-1).map(t=>{
+        const mk=(t.mistakes||[]);
+        const strong=[
+          ...(t.confluences||[]).map(confluenceName),
+          ...[['pGrade','Positioning'],['sGrade','Sequence'],['eGrade','Entry']]
+             .filter(([g])=>t[g]==='A').map(([,l])=>l+' A')
+        ];
+        return `<div class="wt-card" onclick="openTradeDetail('${t.id}')">
+          <div class="wt-top">
+            <span class="mono wt-sym">${esc(t.symbol||'—')}</span>
+            <span class="pill ${t.side==='short'?'short':'long'}">${esc(t.side||'—')}</span>
+            <span class="wt-d">${fmtShort(t.date)}</span>
+            <span class="wt-p ${pnlClass(mv(t))}">${disp(mv(t))}</span>
+          </div>
+          <div class="wt-tags">
+            ${strong.length? strong.map(x=>`<span class="wt-tag good">${esc(x)}</span>`).join('') : ''}
+            ${mk.length? mk.map(x=>`<span class="wt-tag bad">${esc(x)}</span>`).join('') : ''}
+            ${(!strong.length && !mk.length)? '<span class="wt-none">Nothing tagged</span>' : ''}
+          </div>
+        </div>`;
+      }).join('')
+    : `<div class="sp-none">No trades this week.</div>`;
 
   const qHTML=RV_Q.map(([id,label])=>`<div class="field full"><label>${label}</label><textarea onchange="saveReviewField('${id}',this.value)">${esc(rv[id]||'')}</textarea></div>`).join('');
-  const planHTML=(rv.plan&&rv.plan.length)? rv.plan.map((f,i)=>`<div class="fix-row" draggable="true" ondragstart="dragStart(event,'reviewplan',${i})" ondragend="dragEndRow(event)" ondragover="dragOverRow(event,'reviewplan')" ondragleave="dragLeaveRow(event)" ondrop="dropRow(event,'reviewplan',${i},'review')"><span class="drag-handle">⠿</span><span>${esc(f)}</span><span class="row-del" onclick="removeReviewItem('plan',${i})">✕</span></div>`).join('') : '<div class="hl-muted" style="font-size:12.5px;padding:6px 0">Nothing yet — these key items flow into Market preparation for this week.</div>';
-  const cell=(label,val,cls)=>`<div class="rv-cell"><div class="rv-cl">${label}</div><div class="rv-cv ${cls||''}">${val}</div></div>`;
-  const tradeRows=list.slice().sort((a,b)=>a.date<b.date?1:-1);
+
   document.getElementById('viewRoot').innerHTML=`
   <div class="controls">
-    <div class="toggle-set"><button class="rbtn" onclick="renderReviewList()" title="All reports">←</button><div class="dv-title">Weekly report</div></div>
-    <div class="daterange"><button class="rbtn" onclick="rvNudge(-1)">‹</button><span>${reviewLabel()}</span><button class="rbtn" onclick="rvNudge(1)">›</button></div>
-  </div>
-
-  <div class="section-label">Performance breakdown</div>
-  <div class="card" style="margin-bottom:14px">
-    <div class="rv-table">
-      ${cell('Trades taken',list.length)}
-      ${cell('Profits',(profitR>0?'+':'')+profitR.toFixed(1)+'R','pos')}
-      ${cell('Losses','-'+lossR.toFixed(1)+'R','neg')}
-      ${cell('Breakevens',be.length)}
-      ${cell('Invalid trades',invalid,invalid?'neg':'')}
-      ${cell('Missed',missedN+' · '+missedPct+'%')}
+    <div class="toggle-set">
+      <button class="rbtn" onclick="renderReviewList()" title="All reports">←</button>
+      <div class="dv-head"><div class="dv-title">Weekly trading report</div><div class="dv-sub">${reviewLabel()}</div></div>
+    </div>
+    <div class="daterange">
+      <button class="ghost-btn" onclick="exportPDF('weekly')">${ic('printer')} Export PDF</button>
+      <button class="rbtn" onclick="rvNudge(-1)">‹</button><span>${reviewLabel()}</span><button class="rbtn" onclick="rvNudge(1)">›</button>
     </div>
   </div>
-  <div class="rt-wrap" style="margin-bottom:16px">
-    <div class="rt-head"><div class="panel-title" style="margin:0">Trades taken this week · ${list.length}</div></div>
-    ${tradesTable(tradeRows,false)}
+
+  <div id="wrReport">
+  <div class="wr-tiles">
+    ${tile('Total P&L', `<span class="${pnlClass(st.net)}">${disp(st.net)}</span>`, `${days} trading day${days===1?'':'s'}`, 'dollar')}
+    ${tile('Win rate', st.count?st.tradeWin.toFixed(1)+'%':'—', `${st.wins.length}W / ${st.losses.length}L`, 'target')}
+    ${tile('Risk:reward', rr, 'Average win against average loss', 'pulse')}
+    ${tile('Total trades', String(st.count), `${weekMissed.length} missed`, 'bars')}
   </div>
 
-  <div class="section-label">What went right / wrong</div>
-  <div class="grid-2" style="margin-bottom:16px">
-    <div class="card"><div class="panel-title">Trade mistakes this week</div><div class="td-chips">${mChips}</div></div>
-    <div class="card"><div class="panel-title">Missed trades this week · why</div><div class="td-chips">${missedChips}</div></div>
+  <div class="bento wr-two">
+    <div class="card">
+      <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('shield')}</div>
+        <div><div class="ph-title">Key mistakes</div><div class="ph-sub">What cost the most this week</div></div>
+      </div></div>
+      <div class="ki-list">${mistakeItems}</div>
+      ${extra.length?`<div class="ki-extra">${extra.map(x=>`<span>${x}</span>`).join('')}</div>`:''}
+    </div>
+    <div class="card">
+      <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('flag')}</div>
+        <div><div class="ph-title">Focuses for next week</div><div class="ph-sub">These carry into daily preparation</div></div>
+      </div>
+      <button class="tag-add" onclick="suggestPlanFromLessons()">Suggest from lessons</button></div>
+      <div class="fx-list">${planHTML}</div>
+      <div class="ci-add" style="margin-top:9px"><input placeholder="Add a focus for next week, press Enter" onkeydown="reviewItemKey(event,'plan')"></div>
+    </div>
   </div>
 
-  <div class="section-label">My lessons this week</div>
-  <div class="card" style="margin-bottom:16px"><div class="lesson-list">${lessonsHTML}</div></div>
-
-  <div class="section-label">Am I improving?</div>
-  <div class="card" style="margin-bottom:16px">
-    ${trendHTML}
-    <div class="hl-muted" style="font-size:11.5px;margin-top:8px">Same mistake tags, this week vs. last week.</div>
+  <div class="bento wr-two">
+    <div class="card">
+      <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('bars')}</div>
+        <div><div class="ph-title">Performance metrics</div><div class="ph-sub">${reviewLabel()}</div></div>
+      </div></div>
+      <div class="perf-rows">${perf}</div>
+      <div class="disc-hero" style="margin-top:14px">
+        <div class="disc-avg">
+          <div class="da-lbl">Mistake score</div>
+          <div class="da-num">${ms.score}</div>
+          <div class="da-note">${ms.clean} clean · ${ms.small} small · ${ms.crucial} crucial</div>
+        </div>
+        ${ringSVG(ms.score,{size:78,stroke:7,numSize:22,num:ms.score})}
+      </div>
+    </div>
+    <div class="card">
+      <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('book')}</div>
+        <div><div class="ph-title">Trades taken this week</div><div class="ph-sub">Strong points and mistakes on each</div></div>
+      </div></div>
+      <div class="wt-list">${tradeCards}</div>
+    </div>
   </div>
 
-  <div class="section-label">Reflection</div>
-  <div class="card" style="margin-bottom:16px"><div class="form-grid">${qHTML}</div></div>
-
-  <div class="card" style="margin-bottom:16px">
-    <div class="panel-title">Plan for next week — key things to work on <button class="tag-add" onclick="suggestPlanFromLessons()">Suggest from lessons</button></div>
-    <div class="fix-list">${planHTML}</div>
-    <div class="ci-add" style="margin-top:8px"><input placeholder="Add a key focus for next week, press Enter" onkeydown="reviewItemKey(event,'plan')"></div>
-    <div class="hl-muted" style="font-size:12px;margin-top:8px">These appear on the Market preparation page so you know what to focus on each day.</div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+      <div class="panel-ico">${ic('eye')}</div>
+      <div><div class="ph-title">Reflection</div><div class="ph-sub">The questions you answer every week</div></div>
+    </div></div>
+    <div class="form-grid">${qHTML}</div>
   </div>
 
   <div class="card">
@@ -5036,6 +5146,7 @@ function renderReviewDetail(){
         <span class="hl-muted">${(new Date()).getDate()+' '+MONTHS_SH[(new Date()).getMonth()]+' '+(new Date()).getFullYear()}</span>
       </div>
     </div>
+  </div>
   </div>`;
 }
 // Non-AI suggestion: pull the most frequently-occurring active lessons' reminders straight
