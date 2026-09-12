@@ -2016,7 +2016,17 @@ function ic(name){
 }
 
 // ---------- State ----------
-const ACCOUNT_SIZE = 50000;   // legacy default for imported trades
+const ACCOUNT_SIZE = 50000;   // fallback only, for rows imported without an account
+/* Drawdown has to be judged against the capital actually at risk. Scoring every
+   trader against a fixed $50,000 gave a small account an unfairly good risk
+   score and a large one an unfairly bad one. Use the trader's own accounts when
+   they have them. */
+function scoringCapital(){
+  const sizes=(ACCOUNTS||[]).filter(a=>acctMatch(a)).map(a=>a.size).filter(n=>n>0);
+  if(sizes.length) return Math.max(...sizes);
+  const all=(ACCOUNTS||[]).map(a=>a.size).filter(n=>n>0);
+  return all.length? Math.max(...all) : ACCOUNT_SIZE;
+}
 let ACCOUNTS=[];              // user-defined accounts: {id, name, size}
 // Seeded once on first load from the "Trading Journal V2" Notion export — the three accounts
 // referenced there (ACG 25K in two separate evaluations, Maven OMO 50K). No target/drawdown/rules
@@ -2411,7 +2421,7 @@ function computeStats(list, forceUSD){
 function edgeAxes(s){
   const winScore=clamp(s.tradeWin,0,100);
   const wlScore=s.avgLoss>0?clamp((s.avgWin/s.avgLoss)/3*100,0,100):(s.avgWin>0?80:0);
-  const ddScore=s.maxDD===0?(s.net>0?100:0):clamp(100-(s.maxDD/ACCOUNT_SIZE*100)*20,0,100);
+  const ddScore=s.maxDD===0?(s.net>0?100:0):clamp(100-(s.maxDD/scoringCapital()*100)*20,0,100);
 
   const [ps,pe]=periodBounds();
   const cons=consistencyIndex(s.list);

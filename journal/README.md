@@ -1,5 +1,8 @@
 # Odyssey Journal
 
+> Setting this up for real? Work through **[GOING-LIVE.md](GOING-LIVE.md)** —
+> it lists what still needs doing, in the order that matters.
+
 A trading journal that runs as one static page. No build step, no framework,
 no server of its own.
 
