@@ -1282,6 +1282,41 @@
     body[data-print="analytics"] #viewRoot > .today-hero{display:none!important}
   }
 
+  /* ---- Improvement workshop --------------------------------- */
+  .ws-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:16px;align-items:start}
+  .ws-left{min-width:0}
+  .ws-left-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .ws-side{position:sticky;top:18px;background:linear-gradient(180deg,var(--panel) 0%,#070A0F 100%);
+    border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--bloom);padding:16px 18px 20px;min-width:0}
+  .ws-sec{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:600;
+    margin:18px 0 9px;padding-top:14px;border-top:1px solid var(--border-soft)}
+  .ws-sec:first-child{margin-top:0;padding-top:0;border-top:none}
+  .ws-kinds{width:100%}
+  .ws-kinds button{flex:1;padding:6px 8px;font-size:11.5px}
+  .ws-hint{font-size:11px;color:var(--muted-2);margin-top:7px}
+  .ws-cmp{background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:10px 12px;margin-bottom:8px}
+  .wc-l{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
+  .wc-row{display:flex;align-items:baseline;gap:9px;margin-top:3px}
+  .wc-a{font-size:18px;font-weight:800}
+  .wc-d{font-size:11.5px;font-weight:700;color:var(--muted-2)}
+  .wc-d.up{color:var(--cyan)}
+  .wc-d.down{color:var(--red)}
+  .wc-b{font-size:10.5px;color:var(--muted-2);margin-top:3px}
+  .ws-read{font-size:11.5px;color:var(--muted);line-height:1.5;background:var(--accent-soft);
+    border:1px solid var(--accent-line);border-radius:9px;padding:10px 12px;margin-top:4px}
+  .ws-actions{display:flex;gap:8px;margin-top:12px}
+  .ws-actions .btn{flex:1;padding:10px 12px;font-size:12px}
+  .ws-saved{background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:10px 12px;margin-bottom:8px}
+  .wsv-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .wsv-k{font-size:9px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;
+    background:rgba(90,100,115,.16);color:var(--muted);padding:2px 7px;border-radius:5px}
+  .wsv-v{font-size:11.5px;font-weight:700;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wsv-plan{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    background:var(--accent-soft);color:var(--accent-bright);box-shadow:inset 0 0 0 1px var(--accent-line);padding:2px 7px;border-radius:5px}
+  .wsv-o{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+  .wsv-d{font-size:10px;color:var(--muted-2);margin-top:5px}
+  @media(max-width:1000px){ .ws-wrap{grid-template-columns:1fr} .ws-side{position:static} }
+
   /* ---- Weekly trading report -------------------------------- */
   .wr-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}
   .wr-tile{background:linear-gradient(180deg,var(--panel) 0%,#070A0F 100%);
@@ -1817,7 +1852,7 @@ const SEED_GRADED_IDS = new Set(NOTION_TRADES.filter(t=>t.pGrade||t.sGrade||t.eG
 const DATA_VERSION = 6;   // 6: lift "Leaks:" note text into mistakes[], add confluences[]
 let trades = [];
 let currentView='dashboard';
-let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
+let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
   tradeFilters:{symbol:'',side:'',session:'',setup:'',mistake:'',account:'',riskGrade:'',outcome:'',dateFrom:'',dateTo:''},
   missedFilters:{symbol:'',direction:'',setup:'',reason:'',dateFrom:'',dateTo:''} };
 let editingId=null, modalSide='long', modalForecast=true;
@@ -3694,40 +3729,25 @@ function missedSimilarityHTML(list){
 }
 // Missed Trades dashboard — same shape as the regular Dashboard's metric row, scoped to
 // missed opportunities. Estimated figures only ever come from a trader-entered R; never fabricated.
+/* Missed-trade dashboard. The headline numbers are what the record costs:
+   the P&L gap, how often a setup is skipped, and why. */
 function missedMetricCardsHTML(list){
+  const ms=missedStats();
   const withR=list.filter(m=>m.r!=null);
   const totalR=withR.reduce((a,m)=>a+m.r,0);
-  const totalPnl=list.reduce((a,m)=>a+(m.pnl||0),0);
-  const wouldWinRate=withR.length?Math.round(withR.filter(m=>m.r>0).length/withR.length*100):null;
-  const reasonCounts={}; list.forEach(m=>(m.reasons||[]).forEach(r=>{ reasonCounts[r]=(reasonCounts[r]||0)+1; }));
-  const reasonEntries=Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]);
-  const reasonMode=reasonEntries.length?{value:reasonEntries[0][0],count:reasonEntries[0][1]}:null;
-  const netCls=totalR>0?'kpi-pos':(totalR<0?'kpi-neg':'');
-  return `<div class="metric-row">
-    <div class="card metric ${netCls}">
-      <div class="label">Total missed</div>
-      <div class="val">${list.length}</div>
-      <div style="font-size:10.5px;color:var(--muted-2);margin-top:6px">${withR.length} estimated</div>
-    </div>
-    <div class="card metric ${netCls}">
-      <div class="label">Estimated R</div>
-      <div class="val sm ${pnlClass(totalR)}">${withR.length?rStr(totalR):'—'}</div>
-      <div style="font-size:10.5px;color:var(--muted-2);margin-top:6px">if every estimated one was taken</div>
-    </div>
-    <div class="card metric ${totalPnl>0?'kpi-pos':(totalPnl<0?'kpi-neg':'')}">
-      <div class="label">Estimated $ impact</div>
-      <div class="val sm ${pnlClass(totalPnl)}">${totalPnl?disp(totalPnl):'—'}</div>
-    </div>
-    <div class="card metric">
-      <div class="label">Would-be win rate</div>
-      <div class="val sm">${wouldWinRate!=null?wouldWinRate+'%':'—'}</div>
-      <div style="font-size:10.5px;color:var(--muted-2);margin-top:6px">${withR.length} with an estimate</div>
-    </div>
-    <div class="card metric kpi-accent">
-      <div class="label">Most common reason</div>
-      <div class="val sm" style="font-size:14px;line-height:1.3">${reasonMode?esc(reasonMode.value):'—'}</div>
-      <div style="font-size:10.5px;color:var(--muted-2);margin-top:6px">${reasonMode?reasonMode.count+'×':''}</div>
-    </div>
+  const gap=ms.missedNet;
+  const tile=(l,v,sub,ico,cls)=>`<div class="wr-tile">
+    <div class="wrt-top"><span class="wrt-l">${l}</span><span class="wrt-i">${ic(ico)}</span></div>
+    <div class="wrt-v ${cls||''}">${v}</div><div class="wrt-s">${sub}</div></div>`;
+  return `<div class="wr-tiles">
+    ${tile('P&L difference', `<span class="${pnlClass(gap)}">${gap?disp(gap):'—'}</span>`,
+           `${disp(ms.takenNet)} taken → ${disp(ms.combined)} with these`, 'dollar')}
+    ${tile('Missed trades', ms.missRate+'%',
+           `${ms.missed} missed of ${ms.should} that should have been taken`, 'target')}
+    ${tile('Key missed factor', ms.topFactor? esc(ms.topFactor.name) : '—',
+           ms.topFactor? `${ms.topFactor.n} time${ms.topFactor.n===1?'':'s'}` : 'No reasons logged', 'shield')}
+    ${tile('Estimated R', withR.length? rStr(totalR) : '—',
+           `${withR.length} of ${list.length} estimated`, 'bars')}
   </div>`;
 }
 function missedReasonsBreakdownHTML(list){
@@ -4442,11 +4462,184 @@ async function saveTradeLesson(id){
 
 // ---------- Journal view (Trades + Missed trades) ----------
 function setJournalTab(t){ ui.journalTab=t; renderJournal(); }
+/* ============================================================
+   IMPROVEMENT WORKSHOP
+   Pick one thing to test — a setup, a confluence or a mistake. The matching
+   trades stay on the left; the sidebar on the right holds the filter, what the
+   numbers say, and the observation. Saving keeps the analysis; promoting it
+   turns the observation into a confluence on the trading plan.
+   ============================================================ */
+const WS_KINDS=[
+  {k:'setup',      l:'Setup type', hint:'Does this setup earn its place?'},
+  {k:'confluence', l:'Confluence', hint:'Does this criterion change the outcome?'},
+  {k:'mistake',    l:'Mistake',    hint:'What does this mistake actually cost?'}
+];
+function wsOptions(kind){
+  if(kind==='setup')      return allSetupNames().map(n=>({v:n,l:n}));
+  if(kind==='confluence') return CONFLUENCES.map(c=>({v:c.id,l:c.name}));
+  return MISTAKE_TAGS.map(n=>({v:n,l:n}));
+}
+/* Trades split into the ones carrying the thing under test and the rest. */
+function wsSplit(kind,value){
+  const all=VT();
+  const has=t=>{
+    if(!value) return false;
+    if(kind==='setup')      return t.setup===value;
+    if(kind==='confluence') return (t.confluences||[]).includes(value);
+    return (t.mistakes||[]).includes(value);
+  };
+  return {withIt:all.filter(has), without:all.filter(t=>!has(t))};
+}
+function wsObservation(kind,value){
+  const {withIt,without}=wsSplit(kind,value);
+  if(!withIt.length) return null;
+  const a=computeStats(withIt), b=computeStats(without);
+  const expA=withIt.reduce((x,t)=>x+(t.r||0),0)/withIt.length;
+  const expB=without.length? without.reduce((x,t)=>x+(t.r||0),0)/without.length : 0;
+  return {
+    n:withIt.length, nOther:without.length,
+    wr:a.tradeWin, wrOther:b.tradeWin, wrDelta:a.tradeWin-b.tradeWin,
+    net:a.net, netOther:b.net,
+    pf:a.pf, pfOther:b.pf,
+    exp:expA, expOther:expB, expDelta:expA-expB,
+    avgWin:a.avgWin, avgLoss:a.avgLoss
+  };
+}
+function setWsKind(k){ ui.wsKind=k; ui.wsValue=''; renderJournal(); }
+function setWsValue(v){ ui.wsValue=v; renderJournal(); }
+function setWsNote(v){ ui.wsNote=v; }
+
+function workshopHTML(){
+  const kind=ui.wsKind||'setup';
+  const value=ui.wsValue||'';
+  const opts=wsOptions(kind);
+  const meta=WS_KINDS.find(x=>x.k===kind);
+  const o=value? wsObservation(kind,value) : null;
+  const {withIt}=wsSplit(kind,value);
+  const label = kind==='confluence' ? (confluenceName(value)||'') : value;
+
+  const cmp=(l,a,b,fmt,better)=>{
+    const d=a-b;
+    const good = better==='high' ? d>0 : d<0;
+    return `<div class="ws-cmp">
+      <div class="wc-l">${l}</div>
+      <div class="wc-row"><span class="wc-a">${fmt(a)}</span>
+        <span class="wc-d ${d===0?'':(good?'up':'down')}">${d>0?'+':''}${fmt(d)}</span></div>
+      <div class="wc-b">rest of the record: ${fmt(b)}</div>
+    </div>`;
+  };
+
+  const findings = o
+    ? `${cmp('Win rate', o.wr, o.wrOther, v=>v.toFixed(1)+'%','high')}
+       ${cmp('Expectancy', o.exp, o.expOther, v=>rStr(v),'high')}
+       <div class="ws-cmp"><div class="wc-l">Net P&L</div>
+         <div class="wc-row"><span class="wc-a ${pnlClass(o.net)}">${disp(o.net)}</span></div>
+         <div class="wc-b">across ${o.n} trade${o.n===1?'':'s'}</div></div>
+       <div class="ws-read">${wsReading(kind,label,o)}</div>`
+    : `<div class="sp-none">Pick something to test and the numbers appear here.</div>`;
+
+  const saved = WORKSHOP.length
+    ? WORKSHOP.slice().reverse().slice(0,6).map(w=>`
+        <div class="ws-saved">
+          <div class="wsv-top"><span class="wsv-k">${esc(w.kind)}</span>
+            <span class="wsv-v">${esc(w.label)}</span>
+            ${w.addedToPlan?'<span class="wsv-plan">in plan</span>':''}
+            <span class="row-del" onclick="removeWorkshop('${w.id}')">✕</span></div>
+          <div class="wsv-o">${esc(w.observation)}</div>
+          <div class="wsv-d">${fmtShort(w.date)}</div>
+        </div>`).join('')
+    : `<div class="sp-none">Nothing saved yet.</div>`;
+
+  const left = value
+    ? (withIt.length
+        ? `<div class="rt-wrap">${tradesTable(withIt.slice().sort((a,b)=>a.date<b.date?1:-1),false)}</div>`
+        : `<div class="empty-note">No trades carry that yet.</div>`)
+    : `<div class="empty-note">Choose what to test on the right and the matching trades appear here.</div>`;
+
+  return `
+  <div class="ws-wrap">
+    <div class="ws-left">
+      <div class="ws-left-head">
+        <div class="panel-title" style="margin:0">${value? `Trades with “${esc(label)}”` : 'Trades'}</div>
+        <span class="hl-muted">${value? withIt.length+' of '+VT().length : VT().length+' total'}</span>
+      </div>
+      ${left}
+    </div>
+
+    <aside class="ws-side">
+      <div class="ws-sec">What are you testing?</div>
+      <div class="seg ws-kinds">
+        ${WS_KINDS.map(x=>`<button class="${kind===x.k?'on':''}" onclick="setWsKind('${x.k}')">${x.l}</button>`).join('')}
+      </div>
+      <div class="ws-hint">${meta.hint}</div>
+
+      <select class="prep-select" style="max-width:none;margin-top:10px" onchange="setWsValue(this.value)">
+        <option value="">Select a ${meta.l.toLowerCase()}…</option>
+        ${opts.map(x=>`<option value="${esc(x.v)}" ${x.v===value?'selected':''}>${esc(x.l)}</option>`).join('')}
+      </select>
+
+      <div class="ws-sec">Key observation</div>
+      ${findings}
+
+      <div class="ws-sec">Your note</div>
+      <textarea class="td-notes" id="wsNote" placeholder="What did you see? What would you add to or remove from the plan?"
+        oninput="setWsNote(this.value)">${esc(ui.wsNote||'')}</textarea>
+
+      <div class="ws-actions">
+        <button class="btn ghost" ${value?'':'disabled'} onclick="saveWorkshop(false)">Save analysis</button>
+        <button class="btn primary" ${value?'':'disabled'} onclick="saveWorkshop(true)">Add to trading plan</button>
+      </div>
+
+      <div class="ws-sec">Saved analyses</div>
+      ${saved}
+    </aside>
+  </div>`;
+}
+/* A plain-language read of the split, so the observation is not just numbers. */
+function wsReading(kind,label,o){
+  const dir = o.wrDelta>=3 ? 'better' : (o.wrDelta<=-3 ? 'worse' : 'about the same');
+  const subj = kind==='mistake' ? ['Trades carrying this mistake','win'] :
+               kind==='confluence' ? ['Entries with this confluence','win'] : ['This setup','wins'];
+  const amt = v=>{ const a=Math.abs(Math.round(v*100)/100); return (a%1===0?a.toFixed(0):a.toFixed(2))+'R'; };
+  const exp = o.expDelta>=0.1 ? `, and returns ${amt(o.expDelta)} more per trade`
+            : (o.expDelta<=-0.1 ? `, and returns ${amt(o.expDelta)} less per trade` : '');
+  return `${subj[0]} ${subj[1]} ${dir} than the rest of the record `
+       + `(${o.wr.toFixed(1)}% against ${o.wrOther.toFixed(1)}%)${exp}.`;
+}
+async function saveWorkshop(toPlan){
+  const kind=ui.wsKind||'setup', value=ui.wsValue;
+  if(!value) return;
+  const label = kind==='confluence' ? confluenceName(value) : value;
+  const note=(document.getElementById('wsNote')||{}).value||'';
+  if(!note.trim()){ toast('Add an observation first','err'); return; }
+  WORKSHOP.push({id:'ws'+Date.now(), date:ymd(new Date()), kind, value, label,
+                 observation:note.trim(), addedToPlan:!!toPlan});
+  await saveJSON('falcon:workshop',WORKSHOP);
+
+  if(toPlan){
+    // Promoting an observation makes it a supporting confluence you can tag.
+    const id='cf_ws'+Date.now();
+    CONFLUENCES.push({id, name:note.trim().slice(0,60), desc:'From the improvement workshop · '+label, crucial:false});
+    await saveJSON('falcon:confluences',CONFLUENCES);
+    toast('Added to the trading plan as a confluence');
+  } else {
+    toast('Analysis saved');
+  }
+  ui.wsNote='';
+  renderJournal();
+}
+async function removeWorkshop(id){
+  WORKSHOP=WORKSHOP.filter(w=>w.id!==id);
+  await saveJSON('falcon:workshop',WORKSHOP);
+  renderJournal();
+}
+
 function renderJournal(){
   const tab=ui.journalTab||'trades';
   const TABS=[
     ['trades','Trades',trades.length],
     ['missed','Missed trades',MISSED.length],
+    ['workshop','Improvement workshop',WORKSHOP.length],
     ['lessons','Lessons',activeLessons().length]
   ];
   const head=`
@@ -4475,8 +4668,12 @@ function renderJournal(){
       : (MISSED.length? '<div class="empty-note">No missed trades match these filters.</div>' : '<div class="empty-note">No missed trades logged. Capture the ones that got away — why you missed them becomes a lesson you\'ll see before you trade again.</div>');
     const filterBar = MISSED.length? missedFilterBarHTML() : '';
     const showing = MISSED.length? `<div class="filter-count">Showing ${filtered.length} of ${MISSED.length}</div>` : '';
-    const dashboard = MISSED.length? missedMetricCardsHTML(MISSED)+missedReasonsBreakdownHTML(MISSED) : '';
-    document.getElementById('viewRoot').innerHTML=head+dashboard+filterBar+showing+missedSimilarityHTML(filtered)+table;
+    const dashboard = missedMetricCardsHTML(MISSED)+(MISSED.length? missedReasonsBreakdownHTML(MISSED) : '');
+    document.getElementById('viewRoot').innerHTML=
+      logsHeaderHTML('missed')+head+dashboard+filterBar+showing+missedSimilarityHTML(filtered)+table;
+  } else if(tab==='workshop'){
+    document.getElementById('viewRoot').innerHTML=
+      logsHeaderHTML('workshop')+head+workshopHTML();
   } else if(tab==='lessons'){
     document.getElementById('viewRoot').innerHTML=head+lessonsListHTML();
   } else {
@@ -4519,7 +4716,19 @@ function setJournalQ(v){
   if(ui.journalView==='grid') sorted.forEach(t=>{ const id=(t.shots||[])[0]; if(id) loadShotInto(id); });
 }
 function setJournalView(v){ if(ui.journalView===v)return; ui.journalView=v; renderJournal(); }
-function logsHeaderHTML(){
+function logsHeaderHTML(mode){
+  if(mode==='missed') return `<div class="page-h logs-h">
+    <div>
+      <div class="ph-h1">Missed trades</div>
+      <div class="ph-p">The setups that got away, and what they cost</div>
+    </div>
+  </div>`;
+  if(mode==='workshop') return `<div class="page-h logs-h">
+    <div>
+      <div class="ph-h1">Improvement workshop</div>
+      <div class="ph-p">Test one thing at a time against your own record</div>
+    </div>
+  </div>`;
   return `<div class="page-h logs-h">
     <div>
       <div class="ph-h1">Trade logs</div>
