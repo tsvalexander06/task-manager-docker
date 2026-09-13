@@ -1404,6 +1404,20 @@
   .mk-sel-head{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-2);
     font-weight:700;margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border-soft)}
 
+  /* One quiet line at the foot of the dashboard, so the layout can be flipped
+     from where you land after scrolling rather than only from Settings. */
+  .sh-extra{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:10px;
+    font-size:12px;color:var(--muted-2)}
+  .sh-extra b{color:var(--text);font-weight:700}
+  /* With the metrics panel gone, the axis cards use the whole row. */
+  .break-body.axes-only{grid-template-columns:minmax(0,1fr)}
+  .break-body.axes-only .axis-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+  .layout-note{margin:26px 0 8px;text-align:center;font-size:12px;color:var(--muted-2)}
+  .layout-note .link{color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .layout-note .link:hover{color:var(--text)}
+  /* With the mistake panel moved out, the calendar takes the full width. */
+  .b-cal.b-cal-only{grid-template-columns:minmax(0,1fr)}
+
   /* ---- Subscription ----------------------------------------- */
   .read-only-bar{display:none;position:sticky;top:0;z-index:46;align-items:center;gap:12px;flex-wrap:wrap;
     background:linear-gradient(180deg,#1E1A0F,#16140E);border-bottom:1px solid var(--edge-strong);
@@ -2378,6 +2392,25 @@ let MISSED=[];     // missed trades: {id,date,symbol,why,prevent,steps}
 // source is 'missed' or 'mistake'. Re-hitting the same problem bumps occurrences instead of duplicating.
 let LESSONS=[];
 let WORKSHOP=[];   // saved improvement-workshop analyses: {id,date,kind,value,observation,addedToPlan}
+/* Two dashboard layouts ship side by side while the focused one is being
+   judged. 'focused' cuts the panels that restate figures shown elsewhere and
+   moves the analysis panels to the pages they belong to; 'full' is the
+   original, every panel on the dashboard. Purely a view flag — it changes
+   nothing about the data, so flipping it back and forth is free. */
+let LAYOUT='focused';
+const isFocused=()=>LAYOUT==='focused';
+async function setLayout(v){
+  if(LAYOUT===v) return;
+  LAYOUT=v;
+  await saveJSON('falcon:layout',v);
+  renderCurrentView();
+}
+function layoutSwitchHTML(){
+  return isFocused()
+    ? `<div class="layout-note">Focused layout · <span class="link" onclick="setLayout('full')">show everything</span></div>`
+    : `<div class="layout-note">Everything on one page · <span class="link" onclick="setLayout('focused')">switch to focused</span></div>`;
+}
+
 async function loadJSON(key,def){ try{ const r=await Store.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
 async function saveJSON(key,val){ try{ await Store.set(key, JSON.stringify(val)); }catch(e){} }
 
@@ -2459,6 +2492,10 @@ function cssVar(name,fallback){
 }
 const CHART_POS=cssVar('--chart-pos','#C9C3B7');
 const CHART_NEG=cssVar('--chart-neg','#7E7A72');
+/* Canvas takes literal colours only — var() never resolves inside a gradient
+   stop or a Chart.js option, so the accent is read out here as numbers. */
+const ACCENT_RGB=cssVar('--accent-rgb','150,144,133');
+const accentA=a=>`rgba(${ACCENT_RGB},${a})`;
 
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SH=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4475,7 +4512,9 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
   const wl = s.avgLoss>0 ? (s.avgWin/s.avgLoss).toFixed(2) : (s.avgWin>0?'∞':'0');
   const best = s.list.reduce((a,t)=> (t.pnl||0)>(a?(a.pnl||0):-Infinity)?t:a, null);
   const worst= s.list.reduce((a,t)=> (t.pnl||0)<(a?(a.pnl||0): Infinity)?t:a, null);
-  const metrics = [
+  // Six of these eight repeat the KPI row above. The focused layout keeps only
+  // the two that appear nowhere else.
+  const metricsAll = [
     ['Win rate',        s.tradeWin.toFixed(1)+'%'],
     ['Profit factor',   s.pf>0 ? s.pf.toFixed(2) : '—'],
     ['Avg W/L',         wl],
@@ -4484,7 +4523,8 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
     ['Worst trade',     worst? disp(mv(worst)): '—'],
     ['Best win streak', bestWinStreak(s.list)+' trade'+(bestWinStreak(s.list)===1?'':'s')],
     ['Avg hold time',   avgHoldLabel(s.list)]
-  ].map(([l,v])=>`<div class="perf-cell"><div class="pc-l">${l}</div><div class="pc-v">${v}</div></div>`).join('');
+  ];
+  const metrics = metricsAll.map(([l,v])=>`<div class="perf-cell"><div class="pc-l">${l}</div><div class="pc-v">${v}</div></div>`).join('');
 
   return `<div class="card">
     <div class="panel-h">
@@ -4496,13 +4536,15 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
     <div class="score-hero">
       ${ringSVG(es,{size:168,stroke:12,numSize:44,num:es,cap:'EDGE'})}
       <div class="sh-sub">Based on ${s.count} trade${s.count!==1?'s':''} · ${rangeLbl}</div>
+      ${isFocused()? `<div class="sh-extra">${metricsAll.slice(6).map(([l,v])=>
+          `<span><b>${v}</b> ${l.toLowerCase()}</span>`).join('')}</div>` : ''}
     </div>
     <button class="break-toggle${ui.breakOpen?' open':''}" onclick="toggleBreakdown(this)">
       ${ic('bars')}<span>Score breakdown</span><span class="bt-car">▼</span>
     </button>
-    <div class="break-body${ui.breakOpen?' open':''}" id="breakBody">
+    <div class="break-body${ui.breakOpen?' open':''}${isFocused()?' axes-only':''}" id="breakBody">
       <div class="axis-stack">${axCards}</div>
-      <div class="perf-panel">
+      ${isFocused()? '' : `<div class="perf-panel">
         <div class="panel-h" style="margin-bottom:0">
           <div style="display:flex;gap:9px;align-items:center">
             <div class="panel-ico" style="width:24px;height:24px;border-radius:7px">${ic('pulse')}</div>
@@ -4511,7 +4553,7 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
           </div>
         </div>
         <div class="perf-grid">${metrics}</div>
-      </div>
+      </div>`}
     </div>
   </div>`;
 }
@@ -4720,7 +4762,7 @@ function renderDashboard(){
 
   ${analyticsBlockHTML(s, rangeLabel(ps,pe))}
 
-  <div class="bento b-cal">
+  <div class="bento b-cal${isFocused()?' b-cal-only':''}">
     <div class="card">
       <div class="cal-head">
         <div class="cal-nav">
@@ -4732,7 +4774,7 @@ function renderDashboard(){
         <div class="cal-head-right">
           <div class="seg cal-mode">
             <button class="${ui.calMode==='pnl'?'on':''}" onclick="setCalMode('pnl')">$ P&amp;L</button>
-            <button class="${ui.calMode==='psych'?'on':''}" onclick="setCalMode('psych')">Psych</button>
+            <button class="${ui.calMode==='psych'?'on':''}" onclick="setCalMode('psych')">Setup</button>
           </div>
           <span class="cal-total ${pnlClass(monthTotal)}">${disp(monthTotal)}</span>
         </div>
@@ -4740,11 +4782,12 @@ function renderDashboard(){
       <div class="cal-grid">${calCells()}</div>
       ${calLegendHTML()}
     </div>
-    ${mistakePanelHTML(s.list)}
+    ${isFocused()? '' : mistakePanelHTML(s.list)}
   </div>
 
   ${scoreRingPanelHTML(es, axes, s, rangeLabel(ps,pe))}
 
+  ${isFocused()? '' : `
   <div class="bento b-bottom">
     <div class="card">
       <div class="rt-head">
@@ -4757,7 +4800,9 @@ function renderDashboard(){
   </div>
 
   <div class="section-label">Performance breakdown · ${rangeLabel(ps,pe)}</div>
-  ${breakdownHTML(s)}
+  ${breakdownHTML(s)}`}
+
+  ${layoutSwitchHTML()}
   `;
   document.getElementById('viewRoot').innerHTML=html;
   animateCounts();
@@ -4783,12 +4828,12 @@ function calCells(){
       const isToday = todayStr===dateStr;
       let cls='', body='';
       if(info && ui.calMode==='psych'){
-        // Psychology mode grades the process: cells carry the P/S/E average.
+        // Setup mode grades the process: cells carry the setup-quality average.
         const d=disciplineStats(info.list);
         cls = d.entries ? (d.avg>=75?'win':(d.avg>=50?'be':'loss')) : 'be';
         body = d.entries
-          ? '<span class="cpnl">'+d.avg+'</span><span class="cwl">'+gradeLetter(d.avg)+' · '+d.entries+' graded</span>'
-          : '<span class="cpnl cal-dim">—</span><span class="cwl">not graded</span>';
+          ? '<span class="cpnl">'+d.avg+'</span><span class="cwl">'+d.entries+' rated</span>'
+          : '<span class="cpnl cal-dim">—</span><span class="cwl">not rated</span>';
       } else if(info){
         cls = info.pnl>0?'win':(info.pnl<0?'loss':'be');
         body = '<span class="cpnl '+pnlClass(info.pnl)+'">'
@@ -5119,7 +5164,7 @@ function drawRadar(a){
   radarChart=new Chart(ctx,{type:'radar',
     data:{labels:['Win %','Avg win/loss','Max drawdown'],
       datasets:[{data:[a.win,a.wl,a.dd],
-        backgroundColor:'rgba(var(--accent-rgb),.16)',borderColor:'rgba(var(--accent-rgb),.85)',borderWidth:1.5,
+        backgroundColor:accentA(.16),borderColor:accentA(.85),borderWidth:1.5,
         pointBackgroundColor:'#A8A296',pointRadius:2.5}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},
       scales:{r:{min:0,max:100,ticks:{display:false,stepSize:20},grid:{color:'#1C1C1F'},angleLines:{color:'#1C1C1F'},
@@ -5139,7 +5184,7 @@ function drawTimeline(){
     let run=0; const cum=dayPnl.map(v=>run+=v);
     const neg=cum.length && cum[cum.length-1]<0;
     const grad=ctx.getContext('2d').createLinearGradient(0,0,0,200);
-    grad.addColorStop(0,'rgba(var(--accent-rgb),.24)');
+    grad.addColorStop(0,accentA(.24));
     grad.addColorStop(1,'rgba(0,0,0,0)');
     weekChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:cum,borderColor:'#C9C3B7',borderWidth:2,fill:true,backgroundColor:grad,tension:.12,pointRadius:0}]},
       options:chartOpts()});
@@ -5220,12 +5265,21 @@ function analyticsBlockHTML(s,rangeLbl){
   </div>
 
   <div class="an-row">${kpi.map(tile).join('')}</div>
-  <div class="an-row an-row-2">${kpi2.map(tile).join('')}</div>
+  ${isFocused()? '' : `<div class="an-row an-row-2">${kpi2.map(tile).join('')}</div>`}
 
   <div class="bento an-charts">
     ${chartCard('Cumulative P&L','Equity curve over the period','anCum')}
     ${chartCard('Win rate trend','Rolling win rate, 5-trade window','anWr')}
   </div>
+  ${isFocused()? '' : deepAnalysisHTML(s)}
+  `;
+}
+
+/* The four charts that answer "why", as opposed to the two that answer
+   "how am I doing". In the focused layout they move to Patterns, where a
+   trader goes to investigate rather than to glance. */
+function deepAnalysisHTML(s){
+  return `
   <div class="bento an-charts">
     ${chartCard('P&L by symbol','Net result per instrument','anSymPnl')}
     ${chartCard('Entries by symbol','How often each instrument is traded','anSymN')}
@@ -5234,8 +5288,7 @@ function analyticsBlockHTML(s,rangeLbl){
     ${prepChartCardHTML(s)}
     ${confluenceWrCardHTML(s)}
   </div>
-  ${prepHabitCardHTML(s)}
-  `;
+  ${prepHabitCardHTML(s)}`;
 }
 function chartCard(title,sub,canvasId){
   return `<div class="card">
@@ -6475,7 +6528,8 @@ function renderPlaybook(){
   <div class="pb-list" style="max-width:820px">${rows}</div>
   <div class="card" style="max-width:820px;margin-top:14px">
     <div class="acct-add"><input id="pbName" placeholder="New setup name (e.g. Impulse Entry / IE)" style="flex:3 1 240px"><button class="btn primary" onclick="addSetup()">Add setup</button></div>
-  </div>`;
+  </div>
+  ${isFocused()? `<div style="max-width:820px;margin-top:20px">${technicalsPanelHTML()}</div>` : ''}`;
   (PLAYBOOK.find(s=>s.id===pbOpen)?(PLAYBOOK.find(s=>s.id===pbOpen).shots||[]):[]).forEach(id=>loadShotInto(id));
 }
 function togglePb(id){ pbOpen = pbOpen===id? null : id; renderPlaybook(); }
@@ -6622,12 +6676,19 @@ function renderPatterns(){
         : `<button class="tag-add" onclick="openMistakeTrades('${encQ(p.name)}')">View the trades → define a fix</button>`}
     </div>`).join('')}</div>`
     : `<div class="empty-note">No patterns yet<br><span class="hl-muted" style="font-size:12.5px">Odyssey needs more tagged trades before it can identify your recurring behaviours.</span></div>`;
+  // In the focused layout this page is where behaviour is investigated, so the
+  // mistake dashboard and the four "why" charts live here rather than on the
+  // dashboard beside the calendar.
+  const st = isFocused()? computeStats(periodTrades()) : null;
   document.getElementById('viewRoot').innerHTML=`
     <div class="controls"><div class="toggle-set"><div class="dv-head"><div class="dv-title">Your patterns</div><div class="dv-sub">The behaviours that keep showing up in your trades</div></div></div></div>
     ${dnaHTML()}
+    ${isFocused()? `<div class="section-label">Mistakes</div>${mistakePanelHTML(st.list)}` : ''}
     <div class="section-label">Recurring patterns</div>
     <div class="hl-muted" style="font-size:12.5px;margin-bottom:16px">Brought forward — not buried in analytics.</div>
-    ${body}`;
+    ${body}
+    ${isFocused()? `<div class="section-label">What is working</div>${deepAnalysisHTML(st)}` : ''}`;
+  if(isFocused()) drawAnalytics(st);
 }
 const RV_Q=[
   ['q_potential','Did I perform at my potential? If yes, how? If not, why?'],
@@ -7107,6 +7168,19 @@ function renderSettings(){
       ${CONFLUENCES.length} confluence${CONFLUENCES.length===1?'':'s'}
     </div>
     <div style="margin-top:14px"><button class="btn ghost" onclick="openOnboarding()">Run setup again</button></div>
+  </div>
+
+  <div class="card" style="max-width:620px;margin-bottom:14px">
+    <div class="panel-title">Dashboard layout</div>
+    <div class="hl-muted" style="font-size:12.5px;margin-bottom:12px">
+      Focused keeps the dashboard to what you check daily and moves the analysis
+      panels to Patterns and Playbook. Everything puts all of it back on the
+      dashboard. Only changes what is shown — your data is identical either way.
+    </div>
+    <div class="seg accent">
+      <button class="${isFocused()?'on':''}" onclick="setLayout('focused')">Focused</button>
+      <button class="${isFocused()?'':'on'}" onclick="setLayout('full')">Everything</button>
+    </div>
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px" id="subCard">
@@ -7673,6 +7747,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   if(!PROFILE.name && Store.user && Store.user.email) PROFILE.name=Store.user.email.split('@')[0];
   TRADER=PROFILE.name||'Trader';
   PAIRS=await loadJSON('falcon:symbols',[]) || [];
+  LAYOUT=await loadJSON('falcon:layout','focused') || 'focused';
 
   checklist=await loadChecklist();
   ACCOUNTS=await loadAccounts();

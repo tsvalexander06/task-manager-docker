@@ -92,6 +92,21 @@ and then wonder where everything went.
 
 ---
 
+## Trying a layout change
+
+The dashboard ships in two layouts and you switch between them live — no
+redeploy, nothing lost either way:
+
+- **Settings → Dashboard layout**, or
+- the line at the foot of the dashboard: *Focused layout · show everything*.
+
+**Focused** cuts the panels that restate figures shown elsewhere and moves the
+mistake dashboard to Patterns and the technicals tabs to Playbook.
+**Everything** is the original, all of it on the dashboard.
+
+The choice is stored per journal and survives reloads and deploys. It changes
+only what is drawn — every figure is computed the same way in both.
+
 ## If a release also needs SQL
 
 Occasionally a change needs a database update too. When it does, it'll say so.
