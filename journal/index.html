@@ -1435,6 +1435,10 @@
   /* With the metrics panel gone, the axis cards use the whole row. */
   .break-body.axes-only{grid-template-columns:minmax(0,1fr)}
   .break-body.axes-only .axis-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+  body.file-over::after{content:'Drop a journal file to restore it';position:fixed;inset:12px;
+    z-index:200;border:2px dashed var(--accent);border-radius:18px;background:rgba(var(--accent-rgb),.07);
+    display:grid;place-items:center;font-size:15px;font-weight:700;color:var(--accent-bright);
+    pointer-events:none}
   .layout-note{margin:26px 0 8px;text-align:center;font-size:12px;color:var(--muted-2)}
   .layout-note .link{color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
   .layout-note .link:hover{color:var(--text)}
@@ -2509,14 +2513,20 @@ async function setSlogan(v){
 }
 
 async function loadJSON(key,def){ try{ const r=await Store.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
-async function saveJSON(key,val){ try{ await Store.set(key, JSON.stringify(val)); }catch(e){} }
+async function saveJSON(key,val){
+  try{ await Store.set(key, JSON.stringify(val)); }catch(e){}
+  if(key.indexOf('falcon:autobackup')!==0) journalChanged();
+}
 
 // ---------- Persistence ----------
 async function loadTrades(){
   try{ const r=await Store.get('falcon:trades'); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
   return null;
 }
-async function persist(){ try{ await Store.set('falcon:trades', JSON.stringify(trades)); }catch(e){} }
+async function persist(){
+  try{ await Store.set('falcon:trades', JSON.stringify(trades)); }catch(e){}
+  journalChanged();
+}
 
 function seed(){
   return [{
@@ -7281,11 +7291,17 @@ function renderSettings(){
   <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Automatic backup</div>
     <div class="hl-muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">
-      The journal saves a restore point of everything by itself — when you open it
-      each day, and before anything that replaces the journal wholesale. The last
-      ${AUTO_BACKUP_KEEP} are kept, so a bad update is a click away from undone.
+      The journal saves a restore point of everything by itself, within a minute
+      of every change you make, and at once if you close the tab with an edit
+      outstanding. Recent history is kept densely and older history thins to one
+      a day, so the ${AUTO_BACKUP_KEEP} kept cover this afternoon and last week.
     </div>
     <div id="autoBackupRows" class="set-rows">Checking…</div>
+    <div class="hl-muted" style="font-size:11.5px;margin-top:14px;line-height:1.6">
+      Have a journal file from somewhere else?
+      <span class="link" onclick="pickBackupFile()">Restore from a file…</span>
+      — or drop it anywhere on this page.
+    </div>
   </div>
 
   <div class="card" style="max-width:620px">
@@ -7741,45 +7757,121 @@ async function importAll(file){
 }
 
 /* ---------- Automatic backup ----------
-   Restore points the trader never has to remember to take. One when the journal
-   is first opened on a day, and one before anything that replaces it wholesale.
-   The newest AUTO_BACKUP_KEEP are held; older ones fall off the end. */
-const AUTO_BACKUP_KEEP=5;
+   Driven by change, not by the clock. Every write marks the journal dirty and a
+   restore point follows — coalesced, because a full copy of the journal per
+   keystroke is pure waste and a burst of edits is one piece of work, not twenty.
+   In practice a point lands within a minute of you stopping, and immediately if
+   the tab closes or goes to the background with an edit outstanding.
+
+   Each point is its own storage key, so writing one does not rewrite the rest;
+   a small index lists them. */
+const AUTO_BACKUP_KEEP=12;        // hard cap on stored points
+const AUTO_BACKUP_RECENT=6;       // the newest N are always kept
+const AUTO_BACKUP_COALESCE=45000; // a burst of edits becomes one point
+let abDirty=false, abTimer=null, abBusy=false;
+
+function journalChanged(){
+  abDirty=true;
+  if(abTimer) return;
+  abTimer=setTimeout(()=>{ abTimer=null; autoBackupIfDirty('change'); }, AUTO_BACKUP_COALESCE);
+}
+async function autoBackupIfDirty(reason){
+  if(!abDirty || abBusy) return;
+  abDirty=false;
+  await autoBackupNow(reason);
+}
+async function autoBackupIndex(){ return await loadJSON('falcon:autobackups',[]) || []; }
+
 async function autoBackupNow(reason){
+  if(abBusy) return;
+  abBusy=true;
   try{
     const kv={};
     for(const k of await journalKeys()){
-      if(k.indexOf('falcon:shot:')===0) continue;       // images are not duplicated
-      if(k==='falcon:autobackups'||k==='falcon:snapshot') continue;
+      if(k.indexOf('falcon:shot:')===0) continue;        // images are not duplicated
+      if(k.indexOf('falcon:autobackup')===0) continue;   // never back up the backups
+      if(k==='falcon:snapshot') continue;
       const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value;
     }
-    if(!Object.keys(kv).length) return;                  // nothing worth keeping yet
-    let list=await loadJSON('falcon:autobackups',[]) || [];
+    if(!Object.keys(kv).length) return;                   // nothing worth keeping yet
     let nTrades=0; try{ nTrades=JSON.parse(kv['falcon:trades']||'[]').length; }catch(e){}
-    list.unshift({at:new Date().toISOString(), reason:reason||'automatic', trades:nTrades, kv});
-    list=list.slice(0,AUTO_BACKUP_KEEP);
-    await saveJSON('falcon:autobackups',list);
+    const key='falcon:autobackup:'+Date.now();
+    await Store.set(key, JSON.stringify(kv));
+    const list=await autoBackupIndex();
+    list.unshift({key, at:new Date().toISOString(), reason:reason||'change', trades:nTrades});
+    const th=thinBackups(list);
+    await Store.set('falcon:autobackups', JSON.stringify(th.keep));
+    for(const old of th.drop){ try{ await Store.delete(old.key); }catch(e){} }
+    if(document.getElementById('autoBackupRows')) showAutoBackups();
   }catch(e){ console.error('automatic backup failed',e); }
+  finally{ abBusy=false; }
 }
-/* Once a day is enough: the cost is a full copy of the journal. */
+
+/* Recent history stays dense, older history thins to one a day, so twelve
+   points cover this afternoon and last week rather than only the last hour. */
+function thinBackups(list){
+  const keep=[], drop=[], seenDay=new Set();
+  list.forEach((b,i)=>{
+    const day=(b.at||'').slice(0,10);
+    if(i<AUTO_BACKUP_RECENT){ keep.push(b); seenDay.add(day); return; }
+    if(!seenDay.has(day) && keep.length<AUTO_BACKUP_KEEP){ seenDay.add(day); keep.push(b); }
+    else drop.push(b);
+  });
+  return {keep, drop};
+}
+
+/* One from before this session too, whatever happens during it. */
 async function autoBackupOnOpen(){
   try{
-    const list=await loadJSON('falcon:autobackups',[]) || [];
+    const list=await autoBackupIndex();
     const last=list[0] && list[0].at ? new Date(list[0].at) : null;
-    if(last && (Date.now()-last.getTime()) < 20*60*60*1000) return;
-    await autoBackupNow('daily');
+    if(last && (Date.now()-last.getTime()) < 12*60*60*1000) return;
+    await autoBackupNow('opened');
   }catch(e){}
 }
+
+/* Leaving the page is the last chance to catch an edit the timer has not
+   reached. visibilitychange fires where pagehide does not and the other way
+   round, so both are wired. */
+/* A backup file dropped on the window restores it. The same guardrails as the
+   picker: it says what it holds and takes a restore point before replacing. */
+function armBackupDrop(){
+  const isJson=e=>[...((e.dataTransfer&&e.dataTransfer.items)||[])]
+    .some(i=>i.kind==='file' && /json/.test(i.type||''));
+  window.addEventListener('dragover',e=>{ if(isJson(e)){ e.preventDefault(); document.body.classList.add('file-over'); } });
+  window.addEventListener('dragleave',e=>{ if(e.clientX<=0&&e.clientY<=0) document.body.classList.remove('file-over'); });
+  window.addEventListener('drop',e=>{
+    document.body.classList.remove('file-over');
+    const f=[...((e.dataTransfer&&e.dataTransfer.files)||[])].find(x=>/json/.test(x.type||'')||/\.json$/i.test(x.name||''));
+    if(!f) return;
+    e.preventDefault();
+    importAll(f);
+  });
+}
+function armBackupOnLeave(){
+  const flush=()=>{
+    if(!abDirty) return;
+    if(abTimer){ clearTimeout(abTimer); abTimer=null; }
+    autoBackupIfDirty('leaving');
+  };
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+}
+
 async function restoreAutoBackup(i){
-  const list=await loadJSON('falcon:autobackups',[]) || [];
+  const list=await autoBackupIndex();
   const b=list[i]; if(!b) return;
-  if(!confirm('Restore the backup from '+new Date(b.at).toLocaleString()+'?\n\n'+
-              'It holds '+b.trades+' trade'+(b.trades===1?'':'s')+'.\n'+
-              'This REPLACES the journal as it is now. A backup of the current state '+
+  if(!confirm('Restore the journal as it was '+relTime(b.at)+'?\n\n'+
+              new Date(b.at).toLocaleString()+' · '+b.trades+' trade'+(b.trades===1?'':'s')+'\n\n'+
+              'This REPLACES the journal as it is now. A restore point of the current state '+
               'is taken first, so this is itself undoable.')) return;
-  await autoBackupNow('before restoring a backup');
-  for(const [k,v] of Object.entries(b.kv)){
+  await autoBackupNow('before restoring');
+  let kv=null;
+  try{ const r=await Store.get(b.key); if(r&&r.value) kv=JSON.parse(r.value); }catch(e){}
+  if(!kv){ toast('That restore point could not be read','err'); return; }
+  for(const [k,v] of Object.entries(kv)){
     if(k.indexOf('falcon:')!==0) continue;
+    if(k.indexOf('falcon:autobackup')===0) continue;
     try{ await Store.set(k,v); }catch(e){ console.error('restore failed for',k,e); }
   }
   alert('Restored '+b.trades+' trades.\n\nThe page will reload.');
@@ -7803,8 +7895,8 @@ function relTime(iso){
 }
 async function showAutoBackups(){
   const el=document.getElementById('autoBackupRows'); if(!el) return;
-  const list=await loadJSON('falcon:autobackups',[]) || [];
-  if(!list.length){ el.innerHTML='<div class="hl-muted" style="font-size:12.5px">No restore point yet — one is taken the next time you open the journal.</div>'; return; }
+  const list=await autoBackupIndex();
+  if(!list.length){ el.innerHTML='<div class="hl-muted" style="font-size:12.5px">No restore point yet — one is taken as soon as you change anything.</div>'; return; }
   el.innerHTML=list.map((b,i)=>`<div class="set-row">
       <span>${relTime(b.at)} <span class="hl-muted">· ${b.trades} trade${b.trades===1?'':'s'} · ${esc(b.reason||'')}</span></span>
       <button class="btn ghost" style="padding:5px 12px;font-size:11.5px" onclick="restoreAutoBackup(${i})">Restore</button>
@@ -7962,7 +8054,9 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   renderDashboard();
   playViewAnim();
   dismissSplash();
-  autoBackupOnOpen();          // a restore point per day, without being asked
+  autoBackupOnOpen();          // one from before this session, whatever happens next
+  armBackupOnLeave();          // and one on the way out, if anything is outstanding
+  armBackupDrop();             // a journal file dropped on the page restores it
   renderReadOnlyBar();
   if(billingApplies() && !planActive() && PLAN.status!=='unknown'){
     setTimeout(showPaywall, prefersReduced()?0:1500);
