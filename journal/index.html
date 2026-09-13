@@ -26,17 +26,15 @@
     --muted:#9B968C;
     --muted-2:#767068;
 
-    /* Pewter, not brass. The interface metal is a warm grey — warm enough
-       not to read as cold steel, desaturated enough that a full screen of it
-       never tires the eye. Everything accent-coloured is derived from
-       --accent-rgb, so the whole theme retunes from this one triplet.
-       For the brass theme this replaced: --accent-rgb:200,162,74;
-       --accent:#C8A24A; --accent-bright:#DFC079; --on-accent:#191307. */
-    --accent-rgb:150,144,133;
-    --accent:#969085;
+    /* The interface metal. Everything accent-coloured derives from
+       --accent-rgb, so a whole theme is one triplet plus the four literals
+       under it. These are the shipped default; THEMES in the script swaps
+       them live, and Settings picks between them. */
+    --accent-rgb:203,118,52;
+    --accent:#CB7634;
     --accent-soft:rgba(var(--accent-rgb),.09);
     --accent-line:rgba(var(--accent-rgb),.26);
-    --accent-bright:#D8D3C9;
+    --accent-bright:#EDA269;
     --accent-glow:rgba(var(--accent-rgb),.22);
     /* Pale champagne, used where the old theme used cyan: meter fills and the
        lit edge of a panel. */
@@ -44,7 +42,7 @@
     --cyan-2:#D6D1C7;
     --chart-line:#B8B2A6;
     /* Filled accent surfaces are light, so what sits on them needs dark ink. */
-    --on-accent:#14140F;
+    --on-accent:#1B0C02;
 
     /* Panel edge — a brass hairline and the faintest bloom. Deliberately
        weaker than the blue theme's; a bright halo undoes the restraint. */
@@ -68,20 +66,20 @@
     --red-soft:rgba(178,173,163,.08);
     --red-line:rgba(178,173,163,.24);
 
-    /* Destructive actions only — never P&L. */
-    --danger:#D9756B;
-    --danger-soft:rgba(217,117,107,.12);
-    --danger-line:rgba(217,117,107,.36);
+    /* Destructive actions only — never P&L. Kept clearly on the red side of
+       the wheel so it cannot be mistaken for a warm accent. */
+    --danger:#D8485E;
+    --danger-soft:rgba(216,72,94,.12);
+    --danger-line:rgba(216,72,94,.36);
 
     /* Day quality reads as three intensities of the one metal. */
-    --tier-hi:#DBD6CC;
-    --tier-mid:#969085;
-    --tier-low:#524E48;
-    /* Ratings and streaks keep a trace of warmth — enough to read as "filled",
-       far short of yellow. */
-    --amber:#C3B79B;
+    --tier-hi:#F0B88B;
+    --tier-mid:#CB7634;
+    --tier-low:#5A4335;
+    /* Ratings and streaks. */
+    --amber:#E09A5E;
     /* Charts read these rather than their own literals. */
-    --chart-pos:#C9C3B7;
+    --chart-pos:#DE9257;
     --chart-neg:#7E7A72;
 
     --radius:14px;
@@ -871,7 +869,7 @@
   .discard-bar{display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text)}
   .discard-bar.show{display:flex}
   .discard-bar-actions{display:flex;gap:8px;flex:0 0 auto}
-  .btn.danger{background:var(--danger);color:#2B0E0B}
+  .btn.danger{background:var(--danger);color:#2A0810}
   .switch{width:40px;height:22px;border-radius:12px;background:#2A2A2D;position:relative;transition:.15s;flex:0 0 40px}
   .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
   .switch.on{background:var(--accent)}
@@ -2490,12 +2488,48 @@ function cssVar(name,fallback){
   const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v||fallback;
 }
-const CHART_POS=cssVar('--chart-pos','#C9C3B7');
-const CHART_NEG=cssVar('--chart-neg','#7E7A72');
 /* Canvas takes literal colours only — var() never resolves inside a gradient
-   stop or a Chart.js option, so the accent is read out here as numbers. */
-const ACCENT_RGB=cssVar('--accent-rgb','150,144,133');
+   stop or a Chart.js option, so these are read out of the stylesheet as
+   values, and re-read whenever the theme changes. */
+let CHART_POS=cssVar('--chart-pos','#DE9257');
+let CHART_NEG=cssVar('--chart-neg','#7E7A72');
+let ACCENT_RGB=cssVar('--accent-rgb','203,118,52');
 const accentA=a=>`rgba(${ACCENT_RGB},${a})`;
+
+/* An accent is one rgb triplet plus the literals that cannot be expressed as
+   an alpha of it: the lit text, the ink that sits on a filled surface, the
+   three day-quality intensities, and the chart line. Everything else in the
+   stylesheet is rgba(var(--accent-rgb), a). */
+const THEMES={
+  orange:{ name:'Orange', rgb:'203,118,52',  accent:'#CB7634', bright:'#EDA269', ink:'#1B0C02',
+           hi:'#F0B88B', low:'#5A4335', amber:'#E09A5E', pos:'#DE9257' },
+  gold:  { name:'Gold',   rgb:'200,162,74',  accent:'#C8A24A', bright:'#DFC079', ink:'#191307',
+           hi:'#E4CE97', low:'#5E5A52', amber:'#DFC079', pos:'#DFC079' },
+  pewter:{ name:'Pewter', rgb:'150,144,133', accent:'#969085', bright:'#D8D3C9', ink:'#14140F',
+           hi:'#DBD6CC', low:'#524E48', amber:'#C3B79B', pos:'#C9C3B7' }
+};
+let THEME='orange';
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.orange;
+  const r=document.documentElement.style;
+  r.setProperty('--accent-rgb',t.rgb);
+  r.setProperty('--accent',t.accent);
+  r.setProperty('--accent-bright',t.bright);
+  r.setProperty('--on-accent',t.ink);
+  r.setProperty('--tier-hi',t.hi);
+  r.setProperty('--tier-mid',t.accent);
+  r.setProperty('--tier-low',t.low);
+  r.setProperty('--amber',t.amber);
+  r.setProperty('--chart-pos',t.pos);
+  ACCENT_RGB=t.rgb; CHART_POS=t.pos;
+  THEME=name;
+}
+async function setTheme(name){
+  if(!THEMES[name] || THEME===name) return;
+  applyTheme(name);
+  await saveJSON('falcon:theme',name);
+  renderCurrentView();     // canvases carry their colours, so they need a redraw
+}
 
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SH=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -7171,6 +7205,17 @@ function renderSettings(){
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px">
+    <div class="panel-title">Accent colour</div>
+    <div class="hl-muted" style="font-size:12.5px;margin-bottom:12px">
+      The one colour the interface is built from. Changes nothing but the look.
+    </div>
+    <div class="seg accent">
+      ${Object.keys(THEMES).map(k=>
+        `<button class="${THEME===k?'on':''}" onclick="setTheme('${k}')">${THEMES[k].name}</button>`).join('')}
+    </div>
+  </div>
+
+  <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Dashboard layout</div>
     <div class="hl-muted" style="font-size:12.5px;margin-bottom:12px">
       Focused keeps the dashboard to what you check daily and moves the analysis
@@ -7748,6 +7793,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   TRADER=PROFILE.name||'Trader';
   PAIRS=await loadJSON('falcon:symbols',[]) || [];
   LAYOUT=await loadJSON('falcon:layout','focused') || 'focused';
+  applyTheme(await loadJSON('falcon:theme','orange') || 'orange');
 
   checklist=await loadChecklist();
   ACCOUNTS=await loadAccounts();
