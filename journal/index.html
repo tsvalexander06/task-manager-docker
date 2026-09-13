@@ -148,6 +148,8 @@
   .daterange{display:flex;align-items:center;gap:10px;color:var(--text);font-size:13.5px;font-weight:600}
   .rbtn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-soft);background:var(--panel);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:15px}
   .rbtn:hover{color:var(--text);background:var(--panel-hover)}
+  .rbtn.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-bright)}
+  .rbtn svg{width:15px;height:15px}
 
   /* ---------- Metric cards ---------- */
   .metric-row{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr 1.15fr;gap:14px;margin-bottom:16px}
@@ -1376,13 +1378,20 @@
   /* ---- Forecast instrument picker --------------------------- */
   .mk-picker{display:flex;flex-direction:column;gap:11px;margin-top:12px}
   .mk-gname{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:6px}
-  .mk-chips{display:flex;flex-wrap:wrap;gap:6px}
-  .mk-chip{background:var(--panel-2);border:1px solid var(--border-soft);border-radius:7px;
-    color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
-    padding:5px 9px;cursor:pointer;transition:background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
-  .mk-chip:hover{border-color:var(--edge-strong);color:var(--text)}
-  .mk-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-bright)}
+  .mk-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:7px}
+  .mk-sw{display:flex;align-items:center;gap:9px;min-width:0;cursor:pointer;user-select:none;
+    background:var(--panel-2);border:1px solid var(--border-soft);border-radius:9px;padding:7px 10px;
+    transition:background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+  .mk-sw:hover{border-color:var(--edge-strong)}
+  .mk-sw.on{background:var(--accent-soft);border-color:var(--accent-line)}
+  /* The shared switch, at two thirds scale so a long list of them stays compact. */
+  .mk-sw .switch{width:30px;height:17px;flex:0 0 30px;border-radius:10px}
+  .mk-sw .switch::after{width:13px;height:13px}
+  .mk-sw .switch.on::after{transform:translateX(13px)}
+  .mk-sym{font-size:11px;font-weight:600;color:var(--muted);min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mk-sw.on .mk-sym{color:var(--accent-bright)}
+  @media(max-width:520px){ .mk-chips{grid-template-columns:1fr 1fr} }
   .mk-sel-head{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-2);
     font-weight:700;margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border-soft)}
 
@@ -2229,7 +2238,7 @@ const SEED_GRADED_IDS = new Set(DEMO_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGra
 const DATA_VERSION = 6;   // 6: lift "Leaks:" note text into mistakes[], add confluences[]
 let trades = [];
 let currentView='dashboard';
-let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, prepCalY:null, prepCalM:null, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
+let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, prepCalY:null, prepCalM:null, prepCalOpen:false, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
   tradeFilters:{symbol:'',side:'',session:'',setup:'',mistake:'',account:'',riskGrade:'',outcome:'',dateFrom:'',dateTo:''},
   missedFilters:{symbol:'',direction:'',setup:'',reason:'',dateFrom:'',dateTo:''} };
 let editingId=null, modalSide='long', modalForecast=true;
@@ -3927,12 +3936,16 @@ function renderPrep(){
       <div class="dv-title">Market preparation</div>
       <div class="dv-sub">Your routine, your rules, and the questions you ask before entering · ${dateStr}</div>
     </div>
-    <div class="daterange"><span class="ready-badge ${ready?'ready':''}" id="brief-ready">${badgeText}</span></div>
+    <div class="daterange">
+      <button class="rbtn ${ui.prepCalOpen?'on':''}" onclick="togglePrepCal()"
+              title="${ui.prepCalOpen?'Hide the month':'See the month'}">${ic('calday')}</button>
+      <span class="ready-badge ${ready?'ready':''}" id="brief-ready">${badgeText}</span>
+    </div>
   </div>
 
   ${beforeYouTradeHTML()}
 
-  ${prepCalHTML()}
+  ${ui.prepCalOpen? prepCalHTML() : ''}
 
   <div class="prep-top">
     ${checklistCardHTML('goals','Today\'s goals',true)}
@@ -3998,8 +4011,10 @@ function forecastBlockHTML(kind,label){
     <div class="mk-group">
       <div class="mk-gname">${g.g}</div>
       <div class="mk-chips">${g.list.map(sym=>`
-        <button type="button" class="mk-chip ${chosen.has(sym)?'on':''}"
-                onclick="toggleForecastSymbol('${kind}','${esc(sym)}')">${esc(sym)}</button>`).join('')}</div>
+        <label class="mk-sw ${chosen.has(sym)?'on':''}" onclick="toggleForecastSymbol('${kind}','${esc(sym)}')">
+          <span class="switch ${chosen.has(sym)?'on':''}"></span>
+          <span class="mk-sym mono">${esc(sym)}</span>
+        </label>`).join('')}</div>
     </div>`).join('');
 
   const pairRows=arr.map((p,i)=>{
@@ -4100,6 +4115,7 @@ function prepCalHTML(){
     </div>
   </div>`;
 }
+function togglePrepCal(){ ui.prepCalOpen=!ui.prepCalOpen; renderPrep(); }
 function prepCalNudge(d){
   ui.prepCalM+=d;
   if(ui.prepCalM<0){ ui.prepCalM=11; ui.prepCalY--; }
