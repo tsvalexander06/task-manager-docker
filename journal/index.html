@@ -213,6 +213,8 @@
     box-shadow:none;transition:filter var(--dur-fast) var(--ease-out)}
   .cal-today:hover{filter:brightness(1.1)}
   .cal-cell .cpnl.cal-dim{color:var(--muted-2)}
+  .cal-cell .pc-score{margin-top:auto;font-size:14px;font-weight:800;color:var(--accent-bright)}
+  .cal-cell .pc-bits{font-size:9px;color:var(--muted-2);letter-spacing:.12em;margin-top:2px}
   .cal-legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;
     padding-top:12px;border-top:1px solid var(--border-soft);font-size:11px;color:var(--muted)}
   .cal-legend .cl-t{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
@@ -1371,6 +1373,19 @@
   .tp-t{font-size:13px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
   .tp-n{font-size:11px;color:var(--muted-2);margin-top:3px;overflow-wrap:anywhere}
 
+  /* ---- Forecast instrument picker --------------------------- */
+  .mk-picker{display:flex;flex-direction:column;gap:11px;margin-top:12px}
+  .mk-gname{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:6px}
+  .mk-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .mk-chip{background:var(--panel-2);border:1px solid var(--border-soft);border-radius:7px;
+    color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+    padding:5px 9px;cursor:pointer;transition:background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+  .mk-chip:hover{border-color:var(--edge-strong);color:var(--text)}
+  .mk-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-bright)}
+  .mk-sel-head{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-2);
+    font-weight:700;margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border-soft)}
+
   /* ---- Subscription ----------------------------------------- */
   .read-only-bar{display:none;position:sticky;top:0;z-index:46;align-items:center;gap:12px;flex-wrap:wrap;
     background:linear-gradient(180deg,#1E1A0F,#16140E);border-bottom:1px solid var(--edge-strong);
@@ -2214,7 +2229,7 @@ const SEED_GRADED_IDS = new Set(DEMO_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGra
 const DATA_VERSION = 6;   // 6: lift "Leaks:" note text into mistakes[], add confluences[]
 let trades = [];
 let currentView='dashboard';
-let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
+let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, prepCalY:null, prepCalM:null, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
   tradeFilters:{symbol:'',side:'',session:'',setup:'',mistake:'',account:'',riskGrade:'',outcome:'',dateFrom:'',dateTo:''},
   missedFilters:{symbol:'',direction:'',setup:'',reason:'',dateFrom:'',dateTo:''} };
 let editingId=null, modalSide='long', modalForecast=true;
@@ -2271,10 +2286,11 @@ function confluenceName(id){ const c=CONFLUENCES.find(x=>x.id===id); return c?c.
    results without re-reading a storage key per day. Written whenever prep
    state changes; days before this existed simply have no row. */
 let PREPLOG={};
-function prepScoreFor(m,mT,e,eT,news,forecast){
+function prepScoreFor(m,mT,e,eT,news,forecast,plan){
   const parts=[];
   if(mT) parts.push(m/mT*100);
   if(eT) parts.push(e/eT*100);
+  parts.push(plan?100:0);
   parts.push(news?100:0);
   parts.push(forecast?100:0);
   return Math.round(parts.reduce((a,b)=>a+b,0)/parts.length);
@@ -2284,8 +2300,8 @@ function writePrepLog(){
   const mT=(ROUTINE.morning||[]).length, eT=(ROUTINE.evening||[]).length;
   const m=(ROUTINE.morning||[]).filter(it=>checklist.morning&&checklist.morning[it.id]).length;
   const e=(ROUTINE.evening||[]).filter(it=>checklist.evening&&checklist.evening[it.id]).length;
-  const news=!!PREPDAY.newsChecked, forecast=!!PREPDAY.forecastChecked;
-  PREPLOG[key]={m,mT,e,eT,news,forecast,score:prepScoreFor(m,mT,e,eT,news,forecast),
+  const news=!!PREPDAY.newsChecked, forecast=!!PREPDAY.forecastChecked, plan=!!PREPDAY.planChecked;
+  PREPLOG[key]={m,mT,e,eT,news,forecast,plan,score:prepScoreFor(m,mT,e,eT,news,forecast,plan),
                 items:{...(checklist.morning||{}),...(checklist.evening||{})}};
   saveJSON('falcon:preplog',PREPLOG);
 }
@@ -2310,7 +2326,7 @@ let ROUTINE={
   // Seeding them here would put one trader's plan in every customer's journal.
   pretrade:[]
 };
-let PREPDAY={newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};   // resets daily; pairs:[{symbol,shot}]
+let PREPDAY={planChecked:false,newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};   // resets daily; pairs:[{symbol,shot}]
 async function loadPrepDay(){
   const key='falcon:prepday:'+ymd(new Date());
   try{
@@ -3777,7 +3793,7 @@ function dropRow(e,key,index,renderFn){
   else if(renderFn==='plan') renderTradingPlan();
   else renderPrep();
 }
-function tradingPrepDone(){ return !!(PREPDAY.newsChecked && PREPDAY.forecastChecked); }
+function tradingPrepDone(){ return !!(PREPDAY.planChecked && PREPDAY.newsChecked && PREPDAY.forecastChecked); }
 function stepDone(step){
   if(step==='morning'){ const items=ROUTINE.morning||[]; return items.length>0 && items.every(it=>checklist.morning&&checklist.morning[it.id]); }
   if(step==='tradingprep'){ return tradingPrepDone(); }
@@ -3868,15 +3884,23 @@ function renderPrep(){
     </div>`;
   } else if(ui.prepStep===1){
     stepBody=`<div class="card check-card prep-step-card">
-      <div class="check-head"><span class="panel-title" style="margin:0">📰 Morning prep</span><span class="check-prog">${[PREPDAY.newsChecked,PREPDAY.forecastChecked].filter(Boolean).length}/2</span></div>
+      <div class="check-head"><span class="panel-title" style="margin:0">📰 Morning prep</span><span class="check-prog">${[PREPDAY.planChecked,PREPDAY.newsChecked,PREPDAY.forecastChecked].filter(Boolean).length}/3</span></div>
       <div class="hl-muted" style="font-size:12.5px;margin-bottom:14px">Check the news, then tick off your morning forecast.</div>
 
+      <div class="prep-sub ${PREPDAY.planChecked?'sub-done':''}">
+        <div class="prep-sub-head"><span>1. Look at your trading plan</span>${PREPDAY.planChecked?'<span class="sub-check">✓ done</span>':''}</div>
+        <div class="hl-muted" style="font-size:12px;margin-bottom:10px">${(ROUTINE.pretrade||[]).length
+          ? (ROUTINE.pretrade||[]).length+' rule'+((ROUTINE.pretrade||[]).length===1?'':'s')+' that hold on every setup.'
+          : 'You have not written one yet.'}</div>
+        <button class="btn primary" onclick="openPlanFromPrep()">${(ROUTINE.pretrade||[]).length?'Open trading plan':'Create trading plan'} →</button>
+      </div>
+
       <div class="prep-sub ${PREPDAY.newsChecked?'sub-done':''}">
-        <div class="prep-sub-head"><span>1. Check the news</span>${PREPDAY.newsChecked?'<span class="sub-check">✓ done</span>':''}</div>
+        <div class="prep-sub-head"><span>2. Check the news</span>${PREPDAY.newsChecked?'<span class="sub-check">✓ done</span>':''}</div>
         <a class="btn primary" href="https://www.forexfactory.com/calendar?day=today" target="_blank" rel="noopener" onclick="markNewsChecked()">Check news on Forex Factory →</a>
       </div>
 
-      ${forecastBlockHTML('morning','2. Morning forecast')}
+      ${forecastBlockHTML('morning','3. Morning forecast')}
 
       <div class="prep-step-actions">
         <button class="btn ghost" onclick="gotoPrepStep(0)">← Morning routine</button>
@@ -3907,6 +3931,8 @@ function renderPrep(){
   </div>
 
   ${beforeYouTradeHTML()}
+
+  ${prepCalHTML()}
 
   <div class="prep-top">
     ${checklistCardHTML('goals','Today\'s goals',true)}
@@ -3941,27 +3967,168 @@ async function setForecastPairShot(kind,i,files){
 }
 async function removeForecastPairShot(kind,i){ const arr=forecastArr(kind); const p=arr[i]; if(!p||!p.shot)return; await Shots.remove(p.shot); p.shot=null; await savePrepDay(); renderPrep(); }
 // Shared markup for the Morning / Evening forecast block: a tick to mark it done, pairs, one photo per pair.
+/* The instruments the forecast blocks offer as toggles. This is a menu to pick
+   from, not the trader's watchlist — PAIRS is still what they actually trade
+   and anything they add there shows up here too. */
+const MARKET_GROUPS=[
+  {g:'Majors',  list:['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD']},
+  {g:'Crosses', list:['EURGBP','EURJPY','EURCHF','EURAUD','EURNZD','EURCAD',
+                      'GBPJPY','GBPCHF','GBPAUD','GBPNZD','GBPCAD',
+                      'AUDJPY','AUDCHF','AUDNZD','AUDCAD',
+                      'NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY']},
+  {g:'Indices', list:['US30','NAS100','SPX500','GER40','UK100','JP225','AUS200','HK50']},
+  {g:'Metals',  list:['XAUUSD','XAGUSD']},
+  {g:'Other',   list:['USOIL','BTCUSD','ETHUSD']}
+];
+function marketGroups(){
+  // Anything the trader added that is not in the standard menu still appears.
+  const known=new Set(MARKET_GROUPS.flatMap(g=>g.list));
+  const extra=PAIRS.filter(p=>!known.has(p));
+  return extra.length ? [...MARKET_GROUPS,{g:'Yours',list:extra}] : MARKET_GROUPS;
+}
+
 function forecastBlockHTML(kind,label){
-  const ticked=forecastTicked(kind); const arr=forecastArr(kind);
-  const pairOpts='<option value="">Add a pair…</option>'+PAIRS.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  const ticked=forecastTicked(kind);
+  const arr=forecastArr(kind);
+  const chosen=new Set(arr.map(p=>p.symbol));
+
+  // Every instrument as a switch, so building a forecast is tapping rather than
+  // picking from a dropdown one at a time.
+  const groups=marketGroups().map(g=>`
+    <div class="mk-group">
+      <div class="mk-gname">${g.g}</div>
+      <div class="mk-chips">${g.list.map(sym=>`
+        <button type="button" class="mk-chip ${chosen.has(sym)?'on':''}"
+                onclick="toggleForecastSymbol('${kind}','${esc(sym)}')">${esc(sym)}</button>`).join('')}</div>
+    </div>`).join('');
+
   const pairRows=arr.map((p,i)=>{
     const shotBlock = p.shot
       ? `<div class="prep-shot"><img id="img-${p.shot}" alt="${esc(p.symbol)} setup" onclick="lightbox('${p.shot}')"><button class="shot-del" onclick="removeForecastPairShot('${kind}',${i})">×</button></div>`
-      : `<label class="prep-shot-add"><input type="file" accept="image/*" style="display:none" onchange="setForecastPairShot('${kind}',${i},this.files)"><div class="drop-plus" style="width:32px;height:32px;font-size:20px">+</div><span>Add photo</span></label>`;
+      : `<label class="prep-shot-add"><input type="file" accept="image/*" style="display:none" onchange="setForecastPairShot('${kind}',${i},this.files)"><div class="drop-plus">+</div><span>Add chart</span></label>`;
     return `<div class="pair-row">
-      <div class="pair-row-head"><span class="mono">${esc(p.symbol)}</span><span class="x" onclick="removeForecastPair('${kind}',${i})">✕ remove pair</span></div>
+      <div class="pair-row-head"><span class="mono">${esc(p.symbol)}</span><span class="x" onclick="removeForecastPair('${kind}',${i})">✕</span></div>
       ${shotBlock}
     </div>`;
-  }).join('') || '<div class="hl-muted" style="font-size:12.5px">No pairs added yet — add one below, then attach a setup photo per pair.</div>';
+  }).join('');
+
   return `<div class="prep-sub ${ticked?'sub-done':''}">
     <div class="prep-sub-head">
       <span>${label}</span>
       <label class="tick-toggle" onclick="toggleForecastTick('${kind}')" title="Tick to mark done"><span class="check-box ${ticked?'on':''}"></span></label>
     </div>
-    <div class="pair-grid">${pairRows}</div>
-    <select class="prep-select" onchange="addForecastPair('${kind}',this)">${pairOpts}</select>
+    <div class="mk-picker">${groups}</div>
+    ${arr.length
+      ? `<div class="mk-sel-head">${arr.length} on watch · attach the chart you are working from</div>
+         <div class="pair-grid">${pairRows}</div>`
+      : `<div class="hl-muted" style="font-size:12px;margin-top:12px">Nothing on watch yet — tap the instruments you are following today.</div>`}
   </div>`;
 }
+async function toggleForecastSymbol(kind,sym){
+  const arr=forecastArr(kind);
+  const i=arr.findIndex(p=>p.symbol===sym);
+  if(i>=0){
+    if(arr[i].shot) await Shots.remove(arr[i].shot);
+    arr.splice(i,1);
+  } else {
+    arr.push({symbol:sym, shot:null});
+    rememberSymbol(sym);
+    await saveJSON('falcon:symbols',PAIRS);
+  }
+  await savePrepDay();
+  renderPrep();
+}
+
+/* Opening the plan counts as having looked at it. */
+async function openPlanFromPrep(){
+  PREPDAY.planChecked=true;
+  await savePrepDay();
+  switchView('plan');
+}
+/* ---------- Preparation calendar ----------
+   Reads PREPLOG, which carries one summary row per day, so a month is a single
+   lookup rather than thirty storage reads. Days before the log existed simply
+   have no entry, which the legend says out loud rather than showing as a miss. */
+function prepCalHTML(){
+  if(ui.prepCalY==null){ const n=new Date(); ui.prepCalY=n.getFullYear(); ui.prepCalM=n.getMonth(); }
+  const y=ui.prepCalY, m=ui.prepCalM;
+  const first=new Date(y,m,1), startDow=first.getDay(), dim=new Date(y,m+1,0).getDate();
+  const todayStr=ymd(new Date());
+  const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let cells=dows.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  let logged=0, sum=0;
+  const total=Math.ceil((startDow+dim)/7)*7;
+  for(let i=0;i<total;i++){
+    const dn=i-startDow+1;
+    if(dn<1||dn>dim){ cells+='<div class="cal-cell empty"></div>'; continue; }
+    const key=y+'-'+String(m+1).padStart(2,'0')+'-'+String(dn).padStart(2,'0');
+    const log=PREPLOG[key];
+    let cls='', body='';
+    if(log){
+      logged++; sum+=log.score||0;
+      cls = log.score>=75?'win':(log.score>=40?'be':'loss');
+      body=`<span class="pc-score">${log.score}</span>
+            <span class="pc-bits">${[log.plan?'P':'', log.news?'N':'', log.forecast?'F':''].filter(Boolean).join(' ')||'—'}</span>`;
+    }
+    cells+=`<div class="cal-cell ${cls}${key===todayStr?' today':''}${log?' clickable':''}"
+      ${log?`onclick="showPrepDay('${key}')"`:''}>
+      <span class="num">${dn}</span>${body}</div>`;
+  }
+
+  const avg=logged?Math.round(sum/logged):0;
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="cal-head">
+      <div class="cal-nav">
+        <button class="rbtn" onclick="prepCalNudge(-1)">‹</button>
+        <span class="cal-title">${MONTHS[m]} ${y}</span>
+        <button class="rbtn" onclick="prepCalNudge(1)">›</button>
+        <button class="cal-today" onclick="prepCalToday()">Today</button>
+      </div>
+      <div class="cal-head-right">
+        <span class="hl-muted" style="font-size:11.5px">${logged? logged+' day'+(logged===1?'':'s')+' logged · '+avg+' average' : 'Nothing logged this month yet'}</span>
+      </div>
+    </div>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-legend">
+      <span class="cl-t">Preparation</span>
+      <span class="cl-i"><i class="cl-d win"></i>Well prepared</span>
+      <span class="cl-i"><i class="cl-d be"></i>Partly</span>
+      <span class="cl-i"><i class="cl-d loss"></i>Barely</span>
+      <span class="cl-i"><i class="cl-d none"></i>Not logged</span>
+      <span class="hl-muted" style="font-size:10.5px">P plan · N news · F forecast</span>
+    </div>
+  </div>`;
+}
+function prepCalNudge(d){
+  ui.prepCalM+=d;
+  if(ui.prepCalM<0){ ui.prepCalM=11; ui.prepCalY--; }
+  if(ui.prepCalM>11){ ui.prepCalM=0; ui.prepCalY++; }
+  renderPrep();
+}
+function prepCalToday(){ const n=new Date(); ui.prepCalY=n.getFullYear(); ui.prepCalM=n.getMonth(); renderPrep(); }
+
+/* One day's preparation, read back from the log. */
+function showPrepDay(key){
+  const log=PREPLOG[key]; if(!log) return;
+  const items={...(log.items||{})};
+  const named=[...(ROUTINE.morning||[]),...(ROUTINE.evening||[])]
+    .map(it=>({text:it.text, done:!!items[it.id]}));
+  const row=(l,ok)=>`<div class="sp-row"><span>${esc(l)}</span><b>${ok?'✓':'—'}</b></div>`;
+  document.getElementById('mistakeListBody').innerHTML=`
+    <h2 style="font-size:17px;margin-bottom:4px">${fmtShort(key)}</h2>
+    <div class="msub">Preparation score ${log.score}. Routine items are shown as they stand today,
+      so a step added since is marked not done.</div>
+    <div class="sp-sec" style="margin-top:4px;padding-top:0;border-top:none">Trading prep</div>
+    ${row('Looked at the trading plan', log.plan)}
+    ${row('Checked the news', log.news)}
+    ${row('Wrote a forecast', log.forecast)}
+    <div class="sp-sec">Routine</div>
+    ${named.length? named.map(x=>row(x.text,x.done)).join('') : '<div class="sp-none">No routine items.</div>'}
+    <div class="modal-actions"><button class="btn primary" onclick="closeMistakeList()">Done</button></div>`;
+  document.getElementById('mistakeListOverlay').classList.add('show');
+}
+
 function gotoPrepStep(i){ ui.prepStep=i; renderPrep(); }
 
 // ---------- Weekly view: current week, process-focused ----------
