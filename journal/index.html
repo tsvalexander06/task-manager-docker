@@ -1328,6 +1328,11 @@
   .cfp-b{min-width:0;display:flex;flex-direction:column;gap:2px}
   .cfp-n{font-size:12px;font-weight:700}
   .cfp-d{font-size:10.5px;color:var(--muted-2)}
+
+  .cfp-add{justify-content:center;color:var(--accent-bright);font-weight:700;font-size:12px;
+    border-style:dashed;background:none;font-family:inherit;grid-column:1/-1}
+  .cfp-add:hover{background:var(--panel-2)}
+  .cf-acts{display:flex;gap:2px;flex:0 0 auto}
   .cfp-sum{grid-column:1/-1;font-size:11px;color:var(--accent-bright);font-weight:600;margin-top:2px}
   @media(max-width:760px){ .cfp-grid{grid-template-columns:1fr} }
 
@@ -1557,7 +1562,7 @@
   .pr-n{font-size:10.5px;color:var(--muted-2);margin-top:2px}
 
   .cf-list{display:flex;flex-direction:column;gap:9px}
-  .cf-row{display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(88px,.8fr) auto;gap:12px;align-items:start;
+  .cf-row{display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(80px,.7fr) auto auto;gap:12px;align-items:start;
     background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:11px 13px}
   .cf-box{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:0 0 auto;
     background:rgba(115,110,102,.12);color:var(--muted-2);font-size:11px}
@@ -1762,7 +1767,6 @@
       <div class="nav-item" data-view="journal" data-icon="book"><span>Journal</span></div>
       <div class="nav-item" data-view="review" data-icon="eye"><span>Review</span></div>
       <div class="nav-item" data-view="patterns" data-icon="bars"><span>Patterns</span></div>
-      <div class="nav-item" data-view="progress" data-icon="flag"><span>Progress</span></div>
       <div class="nav-item" data-view="playbook" data-icon="target"><span>Playbook</span></div>
       <div class="nav-item" data-view="accounts" data-icon="layers"><span>Accounts</span></div>
     </div>
@@ -2205,22 +2209,7 @@ let detailId=null, tradeChart=null, customFor=null, activeShotGroup='shots', mis
 /* Mistakes carry a severity so the dashboard can tell a clean trade from a
    small slip and from one that broke the plan. Defaults are a starting point —
    severity is editable on the Mistake dashboard and persists. */
-const MISTAKE_SEVERITY_DEFAULT={
-  'Premature entry':'crucial',
-  'No LTF confirmation':'crucial',
-  'Timeframe hunting':'crucial',
-  'FOMO chase':'crucial',
-  'Corrective structure':'crucial',
-  'Counter-trend':'crucial',
-  'Moved stop':'crucial',
-  'Overtrading':'small',
-  'Chased spread':'small',
-  'Poor management':'small',
-  // Leak names carried in the imported notes
-  'Underdeveloped LTF entry structure':'crucial',
-  'Directional conviction overriding structure':'crucial',
-  'Post-loss / comparison-triggered activity spike':'small'
-};
+const MISTAKE_SEVERITY_DEFAULT={};   // nothing shipped; the trader names their own
 let MISTAKE_SEVERITY={...MISTAKE_SEVERITY_DEFAULT};
 let ENTRY_TYPES=[];      // the trader's own entry types; nothing is shipped
 let SETUP_STARS=0;       // 1-5 rating held while the log-trade modal is open
@@ -2589,7 +2578,7 @@ function edgeAxes(s){
 }
 const EDGE_AXES_META=[
   {k:'consistency',   l:'Consistency',        d:'How even P&L is from month to month',        i:'bars'},
-  {k:'entry',         l:'Entry consistency',  d:'Crucial confluences present at entry',       i:'target'},
+  {k:'entry',         l:'Entry consistency',  d:'Trades taken from a setup in your playbook',  i:'target'},
   {k:'crucialIdx',    l:'Crucial mistake index', d:'Positions free of a plan-breaking mistake', i:'shield'},
   {k:'preparation',   l:'Preparation index',  d:'Evening and morning routine before trading', i:'sunrise'}
 ];
@@ -2679,17 +2668,20 @@ function consistencyIndex(list){
   return {score:Math.round((green+even)/2), months:byMonth, n:vals.length};
 }
 /* Entry consistency: share of crucial confluences ticked, averaged per trade. */
+/* Entry consistency: how often a trade came from a setup in the playbook,
+   rather than from something taken on the spot. A trade tagged with a setup
+   that is not in the playbook counts as off-plan, since that is exactly the
+   behaviour this is meant to catch. */
 function entryConsistency(list){
-  const crucial=crucialConfluences();
-  const tagged=list.filter(t=>(t.confluences||[]).length);
-  if(!crucial.length || !tagged.length) return {score:0, tagged:tagged.length, total:list.length, full:0};
-  let sum=0, full=0;
-  tagged.forEach(t=>{
-    const hit=crucial.filter(c=>(t.confluences||[]).includes(c.id)).length;
-    sum+=hit/crucial.length*100;
-    if(hit===crucial.length) full++;
+  if(!list.length) return {score:0, onPlan:0, total:0, offPlan:0, untagged:0};
+  const names=new Set((PLAYBOOK||[]).map(p=>p.name));
+  let onPlan=0, offPlan=0, untagged=0;
+  list.forEach(t=>{
+    if(!t.setup) untagged++;
+    else if(names.has(t.setup)) onPlan++;
+    else offPlan++;
   });
-  return {score:Math.round(sum/tagged.length), tagged:tagged.length, total:list.length, full};
+  return {score:Math.round(onPlan/list.length*100), onPlan, offPlan, untagged, total:list.length};
 }
 /* Crucial mistake index: 100 when no position carries a crucial mistake. */
 function crucialMistakeIndex(list){
@@ -2731,7 +2723,10 @@ function allSetupNames(){
    what the entry-consistency score measures against. */
 function confluencePickerHTML(t){
   const sel=t.confluences||[];
-  if(!CONFLUENCES.length) return '<div class="sp-none">No confluences defined yet.</div>';
+  if(!CONFLUENCES.length){
+    return '<div class="sp-none">No confluences yet.</div>'
+      + `<button type="button" class="cfp cfp-add" onclick="addConfluencePrompt('${t.id}')">+ Write a confluence</button>`;
+  }
   const crucial=crucialConfluences().length;
   const hit=crucialConfluences().filter(c=>sel.includes(c.id)).length;
   return CONFLUENCES.map(c=>`
@@ -2740,7 +2735,28 @@ function confluencePickerHTML(t){
       <span class="cfp-b"><span class="cfp-n">${esc(c.name)}${c.crucial?'<i class="cfw-star">◆</i>':''}</span>
       <span class="cfp-d">${esc(c.desc||'')}</span></span>
     </label>`).join('')
+    + `<button type="button" class="cfp cfp-add" onclick="addConfluencePrompt('${t.id}')">+ Write a confluence</button>`
     + (crucial? `<div class="cfp-sum">${hit} of ${crucial} crucial confluences present</div>` : '');
+}
+/* Written on a trade, kept for every trade. A confluence added here joins the
+   shared list and appears in Technicals → Confluences with its own frequency
+   and win rate, which is the point of writing it down. */
+async function addConfluencePrompt(tradeId){
+  const name=(prompt('What had to be true for this entry?')||'').trim();
+  if(!name) return;
+  let c=CONFLUENCES.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!c){
+    c={id:'cf'+Date.now(), name, desc:'', crucial:true};
+    CONFLUENCES.push(c);
+    await saveJSON('falcon:confluences',CONFLUENCES);
+  }
+  const t=trades.find(x=>x.id===tradeId);
+  if(t){
+    t.confluences=t.confluences||[];
+    if(!t.confluences.includes(c.id)) t.confluences.push(c.id);
+    await persist();
+  }
+  openTradeDetail(tradeId);
 }
 async function toggleConfluence(id,cid){
   const t=trades.find(x=>x.id===id); if(!t) return;
@@ -4221,8 +4237,11 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
   const D=axes.detail||{};
   const facts={
     consistency: D.cons ? `${D.cons.n} month${D.cons.n===1?'':'s'} of data` : '',
-    entry:       D.entry? (D.entry.tagged? `${D.entry.full}/${D.entry.tagged} entries had every crucial confluence`
-                                         : 'No entries tagged with confluences yet') : '',
+    entry:       D.entry? (D.entry.total
+                    ? `${D.entry.onPlan}/${D.entry.total} from the playbook`
+                      + (D.entry.offPlan? ` · ${D.entry.offPlan} off-plan`:'')
+                      + (D.entry.untagged? ` · ${D.entry.untagged} untagged`:'')
+                    : 'No trades in this range') : '',
     crucialIdx:  D.cmi  ? `${D.cmi.withOne} with one · ${D.cmi.withMulti} with more than one` : '',
     preparation: D.prep ? (D.prep.days? `${D.prep.days} logged prep day${D.prep.days===1?'':'s'}`
                                       : 'Prep history starts from your next routine') : ''
@@ -4358,6 +4377,10 @@ function techConfluencesHTML(){
         <div class="cf-name">${esc(c.name)}</div>
         <div class="cf-desc">${esc(c.desc||'')}</div>
       </div>
+      <div class="cf-acts">
+        <button class="cr-ico" title="${c.crucial?'Mark supporting':'Mark crucial'}" onclick="toggleConfluenceCrucial('${c.id}')">${ic('target')}</button>
+        <button class="cr-ico del" title="Remove" onclick="removeConfluence('${c.id}')">${ic('trash')}</button>
+      </div>
       <div class="cf-freq">
         <div class="cf-fl">Occurs in</div>
         <div class="cf-fv">${c.freq}%</div>
@@ -4365,11 +4388,35 @@ function techConfluencesHTML(){
       </div>
       <div class="cf-wr"><div class="cf-fl">Win rate</div><div class="cf-fv">${c.wr!=null?c.wr+'%':'—'}</div></div>
     </div>`).join('');
-  return `<div class="cf-list">${list}</div>
+  return `<div class="cf-list">${list||'<div class="sp-none">No confluences yet. Write one on a trade, or add it here.</div>'}</div>
+    <div style="margin-top:12px"><button class="ghost-btn" onclick="addConfluenceToList()">${ic('plus')} Add a confluence</button></div>
     <div class="tech-foot">${tagged} of ${VT().length} trades tagged with confluences</div>`;
 }
 
 /* ---------- Setup sidebar: every metric tied to one setup ---------- */
+async function addConfluenceToList(){
+  const name=(prompt('Add a confluence')||'').trim();
+  if(!name) return;
+  if(CONFLUENCES.some(c=>c.name.toLowerCase()===name.toLowerCase())){ toast('Already on the list','info'); return; }
+  CONFLUENCES.push({id:'cf'+Date.now(), name, desc:'', crucial:true});
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  renderDashboard();
+}
+async function toggleConfluenceCrucial(id){
+  const c=CONFLUENCES.find(x=>x.id===id); if(!c) return;
+  c.crucial=!c.crucial;
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  renderDashboard();
+}
+async function removeConfluence(id){
+  const used=trades.filter(t=>(t.confluences||[]).includes(id)).length;
+  const c=CONFLUENCES.find(x=>x.id===id);
+  if(!confirm('Remove "'+(c?c.name:'this confluence')+'"?'+
+      (used? '\n\nIt stays tagged on '+used+' trade'+(used===1?'':'s')+'; only the list entry goes.':''))) return;
+  CONFLUENCES=CONFLUENCES.filter(x=>x.id!==id);
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  renderDashboard();
+}
 function openSetupPanel(name){
   const m=setupMetrics(name,VT());
   const st=m.stats, ms=m.mistakes;
@@ -5321,7 +5368,12 @@ function openTradeDetail(id){
       <span class="sp-note">${n? n+'/5' : 'not rated'}</span></div>`;
   const chipRow=(section,presets)=>{
     const sel=t[section]||[];
-    const preset=presets.map(tag=>`<span class="tag-chip ${sel.includes(tag)?('on-'+ (section==='mistakes'?'mistake':'focus')):''}" onclick="toggleTag('${section}','${encQ(tag)}')">${esc(tag)}</span>`).join('');
+    // A selected chip carries an x, so taking a mistake off a trade is as
+    // obvious as putting one on.
+    const preset=presets.map(tag=>{
+      const on=sel.includes(tag);
+      return `<span class="tag-chip ${on?('on-'+(section==='mistakes'?'mistake':'focus')):''}" onclick="toggleTag('${section}','${encQ(tag)}')">${esc(tag)}${on?' <span class="x">×</span>':''}</span>`;
+    }).join('');
     const custom=sel.filter(x=>!presets.includes(x)).map(tag=>`<span class="tag-chip on-${section==='mistakes'?'mistake':'focus'}" onclick="toggleTag('${section}','${encQ(tag)}')">${esc(tag)} <span class="x">×</span></span>`).join('');
     const tail = customFor===section
       ? `<input class="tag-input" placeholder="type & Enter" onkeydown="tagKey(event,'${section}')" onblur="setTimeout(cancelCustom,150)">`
@@ -6199,14 +6251,6 @@ function relativeDay(dateStr){
 }
 // ---------- Progress — the Journey. Stages reflect real data, never an arbitrary score,
 // and Mastery is never auto-awarded (it's the path's endpoint, not something to unlock). ----------
-const JOURNEY_STAGES=['Foundation','Discipline','Execution','Consistency','Mastery'];
-const JOURNEY_DESC=[
-  "You're building the record everything else depends on. Keep logging.",
-  "You've started reflecting on what happened and why — that's where real change begins.",
-  "Reviews and lessons are becoming a habit, not an afterthought.",
-  "Your patterns are trending the right way more often than not.",
-  "Mastery isn't a milestone you unlock — it's the direction, not a destination."
-];
 function patternTrendRatio(){
   const now=new Date(); const cut1=addDays(now,-30), cut2=addDays(now,-60);
   const recentCount={}, priorCount={};
@@ -6216,17 +6260,6 @@ function patternTrendRatio(){
   const tags=new Set([...Object.keys(recentCount),...Object.keys(priorCount)]);
   let improving=0; tags.forEach(t=>{ if((recentCount[t]||0)<(priorCount[t]||0)) improving++; });
   return {ratio: tags.size?improving/tags.size:0, n:tags.size};
-}
-function journeyStage(){
-  const total=trades.length;
-  const activeCount=activeLessons().length;
-  const reviewsCompleted=Object.values(REVIEWS).filter(r=>r.reviewed).length;
-  const trend=patternTrendRatio();
-  let idx=0;
-  if(total>=10 && (activeCount>0||reviewsCompleted>0)) idx=1;
-  if(total>=25 && activeCount>=1 && reviewsCompleted>=2) idx=2;
-  if(total>=25 && trend.n>0 && trend.ratio>=0.5 && reviewsCompleted>=4) idx=3;
-  return {idx, total, activeCount, reviewsCompleted, trend};
 }
 function dimensionRow(icon,label,desc,score){
   const has=score!=null;
@@ -6248,39 +6281,6 @@ function behaviourScore(){
   let withFix=0;
   tags.forEach(name=>{ const nameLc=name.toLowerCase(); if(LESSONS.some(l=>l.active && (l.problem.toLowerCase().includes(nameLc)||nameLc.includes(l.problem.toLowerCase())))) withFix++; });
   return Math.round(withFix/tags.length*100);
-}
-function renderProgress(){
-  const st=journeyStage();
-  const enoughData = trades.length>=5;
-  const invalidPct = trades.length? trades.filter(t=>t.riskGrade==='Invalid').length/trades.length : 0;
-  const withSetup = trades.length? trades.filter(t=>t.setup).length/trades.length : 0;
-  const days=new Set(trades.map(t=>t.date));
-  const span = trades.length? Math.max(1,Math.round((parseD(latestDate())-parseD(earliestDate()))/86400000)+1) : 0;
-  const freq = span? days.size/span : 0;
-
-  const track=JOURNEY_STAGES.map((s,i)=>{
-    const cls = i<st.idx?'done':(i===st.idx?'current':'');
-    return `<div class="journey-node ${cls}"><div class="journey-dot"></div><div class="journey-label">${s}</div></div>`
-      + (i<JOURNEY_STAGES.length-1?`<div class="journey-line ${i<st.idx?'filled':''}"></div>`:'');
-  }).join('');
-
-  document.getElementById('viewRoot').innerHTML=`
-    <div class="controls"><div class="toggle-set"><div class="dv-head"><div class="dv-title">Your journey</div><div class="dv-sub">Targets, streaks and how far you have come</div></div></div></div>
-    <div class="card" style="margin-bottom:18px">
-      <div class="journey-track">${track}</div>
-      <div class="journey-current-label">${JOURNEY_STAGES[st.idx]}</div>
-      <div class="journey-desc">${JOURNEY_DESC[st.idx]}</div>
-    </div>
-    <div class="section-label">Score breakdown</div>
-    <div class="card">
-      ${dimensionRow('target','Discipline','Recurring mistakes trending down over the last 30 days', st.trend.n? Math.round(st.trend.ratio*100) : null)}
-      ${dimensionRow('bars','Execution','Weekly reviews completed and signed off', enoughData? Math.min(100,Math.round(st.reviewsCompleted/4*100)) : null)}
-      ${dimensionRow('flask','Risk management','Share of trades within your defined risk grade', enoughData? Math.round((1-invalidPct)*100) : null)}
-      ${dimensionRow('layers','Process','Trades logged against a defined setup', enoughData? Math.round(withSetup*100) : null)}
-      ${dimensionRow('eye','Behaviour','Mistake patterns that already have an active fix', behaviourScore())}
-      ${dimensionRow('calday','Consistency','How regularly you trade across your active days', span>=7? Math.min(100,Math.round(freq*100)) : null)}
-    </div>
-    <div class="hl-muted" style="font-size:11.5px;margin-top:12px">Scores reflect what's in your journal, not a rating — "—" just means not enough data yet.</div>`;
 }
 function renderPatterns(){
   const mc={};
@@ -6904,7 +6904,6 @@ function switchView(v,label){
   else if(v==='accounts')renderAccounts();
   else if(v==='review')renderReview();
   else if(v==='patterns')renderPatterns();
-  else if(v==='progress')renderProgress();
   else if(v==='playbook')renderPlaybook();
   else if(v==='journal')renderJournal();
   else if(v==='settings')renderSettings();
