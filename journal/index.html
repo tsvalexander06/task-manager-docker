@@ -517,9 +517,14 @@
     background:linear-gradient(90deg,#131315 25%,#1B1B1E 37%,#131315 63%);background-size:200% 100%;
     animation:shimmer 1.2s linear infinite;aspect-ratio:16/10;min-height:150px}
   .shot.ready{animation:none;background:#101012}
-  .shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity var(--dur-base) var(--ease-out)}
+  .shot img{width:100%;height:auto;display:block;cursor:zoom-in;opacity:0;transition:opacity var(--dur-base) var(--ease-out)}
   .shot.ready img{opacity:1}
-  .shot img{width:100%;height:auto;display:block;cursor:zoom-in}
+  /* A screenshot that cannot be fetched used to show the browser's broken-image
+     icon, which says nothing. Hide the image and print the reason instead. */
+  .shot.failed{animation:none;background:var(--panel-2);border-style:dashed;display:grid;place-items:center;padding:18px}
+  .shot.failed img{display:none}
+  .shot.failed::after{content:attr(data-why);font-size:11.5px;line-height:1.5;color:var(--muted-2);
+    text-align:center;max-width:280px}
   .shot-del{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:7px;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center}
   .shot-del:hover{background:var(--red)}
   .shots-drop{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border:2px dashed var(--border);border-radius:16px;cursor:pointer;min-height:280px;transition:.15s}
@@ -753,9 +758,6 @@
   .acct-line{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border-soft)}
   .acct-line b{color:var(--text)}
   .acct-line.acct-total{border-bottom:none;border-top:1px solid var(--border);margin-top:2px;padding-top:10px;color:var(--text);font-weight:600}
-  .stars{display:flex;gap:5px;font-size:23px;color:#3A3A3E}
-  .stars .s{cursor:pointer;transition:.1s}
-  .stars .s.on{color:var(--amber)}
   .td-notes{width:100%;min-height:72px;background:#0E0E10;border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:13px;padding:10px 11px;resize:vertical;margin-top:2px;outline:none}
   .td-notes:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
@@ -1375,23 +1377,20 @@
   .tp-t{font-size:13px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
   .tp-n{font-size:11px;color:var(--muted-2);margin-top:3px;overflow-wrap:anywhere}
 
-  /* ---- Forecast instrument picker --------------------------- */
-  .mk-picker{display:flex;flex-direction:column;gap:11px;margin-top:12px}
-  .mk-gname{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:6px}
-  .mk-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:7px}
-  .mk-sw{display:flex;align-items:center;gap:9px;min-width:0;cursor:pointer;user-select:none;
-    background:var(--panel-2);border:1px solid var(--border-soft);border-radius:9px;padding:7px 10px;
-    transition:background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
-  .mk-sw:hover{border-color:var(--edge-strong)}
-  .mk-sw.on{background:var(--accent-soft);border-color:var(--accent-line)}
-  /* The shared switch, at two thirds scale so a long list of them stays compact. */
-  .mk-sw .switch{width:30px;height:17px;flex:0 0 30px;border-radius:10px}
-  .mk-sw .switch::after{width:13px;height:13px}
-  .mk-sw .switch.on::after{transform:translateX(13px)}
-  .mk-sym{font-size:11px;font-weight:600;color:var(--muted);min-width:0;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mk-sw.on .mk-sym{color:var(--accent-bright)}
-  @media(max-width:520px){ .mk-chips{grid-template-columns:1fr 1fr} }
+  /* ---- Forecast instrument picker ---------------------------
+     One dropdown, grouped the way a broker platform groups instruments.
+     Picking one adds it to the watch list below; the list is the record of
+     what was chosen, so the picker itself carries no state. */
+  .mk-picker{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .mk-select{flex:1 1 240px;min-width:0;max-width:340px;
+    background:var(--panel-2);border:1px solid var(--border-soft);border-radius:9px;
+    color:var(--text);font-family:inherit;font-size:12.5px;padding:10px 12px;
+    outline:none;cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out)}
+  .mk-select:hover{border-color:var(--edge-strong)}
+  .mk-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .mk-select optgroup{background:var(--panel);color:var(--muted-2);font-size:11px}
+  .mk-select option{background:var(--panel);color:var(--text);font-size:12.5px}
+  .mk-hint{font-size:11.5px;color:var(--muted-2)}
   .mk-sel-head{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-2);
     font-weight:700;margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--border-soft)}
 
@@ -2431,8 +2430,7 @@ function migrate(list){
       mistakes: Array.isArray(t.mistakes)? t.mistakes : [],
       focus: Array.isArray(t.focus)? t.focus : [],
       confluences: Array.isArray(t.confluences)? t.confluences : [],
-      setupStars: Number(t.setupStars)||0,
-      rating: t.rating || 0,
+      setupStars: Number(t.setupStars) || Number(t.rating) || 0,
       hadMistake: (t.hadMistake!==undefined) ? t.hadMistake : ((Array.isArray(t.mistakes)&&t.mistakes.length)?true:null),
       mistakeWhy: t.mistakeWhy || '',
       lessonId: t.lessonId || null,
@@ -2929,6 +2927,7 @@ function dismissSplash(){
 const Shots = (function(){
   const BUCKET='screenshots';
   const urlCache=new Map();     // id -> object/signed URL
+  const lastErr=new Map();      // id -> why the last resolve failed, for the UI to show
   const IDB_STORE='shots';
 
   function idbDB(){
@@ -2994,6 +2993,7 @@ const Shots = (function(){
       const path=Store.user.id+'/'+id+'.jpg';
       const {data,error}=await Store.client.storage.from(BUCKET).createSignedUrl(path,60*60*8);
       if(!error && data) out=data.signedUrl;
+      else if(error){ lastErr.set(id, 'Storage said: '+error.message); console.error('screenshot url failed',path,error); }
     }
     if(!out){
       try{ const bl=await idbOp('readonly',st=>st.get(id)); if(bl) out=URL.createObjectURL(bl); }catch(e){}
@@ -3078,7 +3078,8 @@ const Shots = (function(){
     }catch(e){ return null; }
   }
 
-  return {put, url, remove, usage, list, raw, putRaw};
+  const lastError=id=>lastErr.get(id)||null;
+  return {put, url, remove, usage, list, raw, putRaw, lastError};
 })();
 function fmtBytes(n){
   if(n==null) return '—';
@@ -3958,7 +3959,17 @@ async function toggleForecastTick(kind){
   else PREPDAY.forecastChecked=!PREPDAY.forecastChecked;
   await savePrepDay(); renderPrep();
 }
-async function addForecastPair(kind,sel){ const v=sel.value; if(!v)return; const arr=forecastArr(kind); if(!arr.some(p=>p.symbol===v))arr.push({symbol:v,shot:null}); await savePrepDay(); renderPrep(); }
+async function addForecastPair(kind,sel){
+  const v=sel.value; sel.value='';          // back to the placeholder, ready for the next one
+  if(!v)return;
+  const arr=forecastArr(kind);
+  if(!arr.some(p=>p.symbol===v)){
+    arr.push({symbol:v,shot:null});
+    rememberSymbol(v);
+    await saveJSON('falcon:symbols',PAIRS);
+  }
+  await savePrepDay(); renderPrep();
+}
 async function removeForecastPair(kind,i){
   const arr=forecastArr(kind); const p=arr[i]; if(p&&p.shot){ await Shots.remove(p.shot); }
   arr.splice(i,1); await savePrepDay(); renderPrep();
@@ -3974,9 +3985,9 @@ async function setForecastPairShot(kind,i,files){
 }
 async function removeForecastPairShot(kind,i){ const arr=forecastArr(kind); const p=arr[i]; if(!p||!p.shot)return; await Shots.remove(p.shot); p.shot=null; await savePrepDay(); renderPrep(); }
 // Shared markup for the Morning / Evening forecast block: a tick to mark it done, pairs, one photo per pair.
-/* The instruments the forecast blocks offer as toggles. This is a menu to pick
-   from, not the trader's watchlist — PAIRS is still what they actually trade
-   and anything they add there shows up here too. */
+/* The instruments the forecast dropdown offers. This is a menu to pick from,
+   not the trader's watchlist — PAIRS is still what they actually trade, and
+   anything they add there shows up here too. */
 const MARKET_GROUPS=[
   {g:'Majors',  list:['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD']},
   {g:'Crosses', list:['EURGBP','EURJPY','EURCHF','EURAUD','EURNZD','EURCAD',
@@ -3999,17 +4010,13 @@ function forecastBlockHTML(kind,label){
   const arr=forecastArr(kind);
   const chosen=new Set(arr.map(p=>p.symbol));
 
-  // Every instrument as a switch, so building a forecast is tapping rather than
-  // picking from a dropdown one at a time.
-  const groups=marketGroups().map(g=>`
-    <div class="mk-group">
-      <div class="mk-gname">${g.g}</div>
-      <div class="mk-chips">${g.list.map(sym=>`
-        <label class="mk-sw ${chosen.has(sym)?'on':''}" onclick="toggleForecastSymbol('${kind}','${esc(sym)}')">
-          <span class="switch ${chosen.has(sym)?'on':''}"></span>
-          <span class="mk-sym mono">${esc(sym)}</span>
-        </label>`).join('')}</div>
-    </div>`).join('');
+  // Instruments already on watch drop out of the menu — the watch list below
+  // is where they are removed from, so they are never offered twice.
+  const groups=marketGroups().map(g=>{
+    const opts=g.list.filter(sym=>!chosen.has(sym))
+      .map(sym=>`<option value="${esc(sym)}">${esc(sym)}</option>`).join('');
+    return opts? `<optgroup label="${esc(g.g)}">${opts}</optgroup>` : '';
+  }).join('');
 
   const pairRows=arr.map((p,i)=>{
     const shotBlock = p.shot
@@ -4026,28 +4033,19 @@ function forecastBlockHTML(kind,label){
       <span>${label}</span>
       <label class="tick-toggle" onclick="toggleForecastTick('${kind}')" title="Tick to mark done"><span class="check-box ${ticked?'on':''}"></span></label>
     </div>
-    <div class="mk-picker">${groups}</div>
+    <div class="mk-picker">
+      <select class="mk-select" onchange="addForecastPair('${kind}',this)">
+        <option value="">Add an instrument…</option>
+        ${groups}
+      </select>
+      <span class="mk-hint">${arr.length? arr.length+' on watch' : 'Nothing on watch yet'}</span>
+    </div>
     ${arr.length
-      ? `<div class="mk-sel-head">${arr.length} on watch · attach the chart you are working from</div>
+      ? `<div class="mk-sel-head">Attach the chart you are working from</div>
          <div class="pair-grid">${pairRows}</div>`
-      : `<div class="hl-muted" style="font-size:12px;margin-top:12px">Nothing on watch yet — tap the instruments you are following today.</div>`}
+      : ''}
   </div>`;
 }
-async function toggleForecastSymbol(kind,sym){
-  const arr=forecastArr(kind);
-  const i=arr.findIndex(p=>p.symbol===sym);
-  if(i>=0){
-    if(arr[i].shot) await Shots.remove(arr[i].shot);
-    arr.splice(i,1);
-  } else {
-    arr.push({symbol:sym, shot:null});
-    rememberSymbol(sym);
-    await saveJSON('falcon:symbols',PAIRS);
-  }
-  await savePrepDay();
-  renderPrep();
-}
-
 /* Opening the plan counts as having looked at it. */
 async function openPlanFromPrep(){
   PREPDAY.planChecked=true;
@@ -5562,7 +5560,7 @@ function durationStr(a,b){
 function openTradeDetail(id){
   const t=trades.find(x=>x.id===id); if(!t)return;
   detailId=id;
-  if(!Array.isArray(t.mistakes))t.mistakes=[]; if(!Array.isArray(t.focus))t.focus=[]; if(t.rating==null)t.rating=0;
+  if(!Array.isArray(t.mistakes))t.mistakes=[]; if(!Array.isArray(t.focus))t.focus=[];
   if(t.hadMistake===undefined)t.hadMistake=(t.mistakes.length>0)?true:null; if(t.mistakeWhy===undefined)t.mistakeWhy=''; if(t.lessonId===undefined)t.lessonId=null;
   const et=t.entryAt&&t.entryAt.includes('T')?t.entryAt.split('T')[1]:'—';
   const xt=t.closeAt&&t.closeAt.includes('T')?t.closeAt.split('T')[1]:'—';
@@ -5589,7 +5587,6 @@ function openTradeDetail(id){
       : `<button class="tag-add" onclick="startCustom('${section}')">+ custom</button>`;
     return preset+custom+tail;
   };
-  const stars=[1,2,3,4,5].map(n=>`<span class="s ${n<=t.rating?'on':''}" onclick="setTradeRating(${n})">★</span>`).join('');
   document.getElementById('tradeModalBody').innerHTML=`
     <div class="td-head">
       <div><span class="td-symbol mono">${esc(t.symbol)}</span> <span class="td-date">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getDay()]}, ${dd.getDate()} ${MONTHS_SH[dd.getMonth()]} ${dd.getFullYear()}</span></div>
@@ -5616,8 +5613,6 @@ function openTradeDetail(id){
         <div class="acct-breakdown">${acctRows}</div>
         <div class="td-sec-title">Setup quality</div>
         <div class="td-chips">${grades}</div>
-        <div class="td-sec-title">Trade rating</div>
-        <div class="stars">${stars}</div>
         <div class="td-sec-title">Did I make a mistake?</div>
         <div class="seg"><button class="${t.hadMistake===true?'on':''}" onclick="setHadMistake('${t.id}',true)">Yes</button><button class="${t.hadMistake===false?'on':''}" onclick="setHadMistake('${t.id}',false)">No</button></div>
         ${t.hadMistake?`
@@ -5684,14 +5679,18 @@ async function handleShotFiles(files, group){
 async function loadShotInto(id){
   const el=document.getElementById('img-'+id);
   if(!el) return;
-  const done=()=>{ const slot=el.closest('.shot'); if(slot) slot.classList.add('ready'); };
+  const slot=el.closest('.shot');
+  const done=()=>{ if(slot) slot.classList.add('ready'); };
+  const failed=why=>{ done(); if(slot){ slot.classList.add('failed'); slot.setAttribute('data-why',why); } };
   try{
     const src=await Shots.url(id);
-    if(!src){ done(); return; }        // nothing stored: stop the shimmer anyway
+    if(!src){ failed(Shots.lastError(id) || 'This screenshot is no longer in storage.'); return; }
     el.addEventListener('load',done,{once:true});
-    el.addEventListener('error',done,{once:true});
+    // The URL resolved but the browser refused it. In practice that is the
+    // site's image policy blocking the storage host, or an expired link.
+    el.addEventListener('error',()=>failed('Could not load this screenshot. Reload the page; if it keeps failing the site is blocking the storage host.'),{once:true});
     el.src=src;
-  }catch(e){ done(); }
+  }catch(e){ failed(e.message||'Could not load this screenshot.'); }
 }
 async function deleteShot(id, group){
   const t=trades.find(x=>x.id===detailId); if(!t)return;
@@ -5732,7 +5731,6 @@ function tagKey(e,section){
     customFor=null; openTradeDetail(detailId);
   } else if(e.key==='Escape'){ customFor=null; openTradeDetail(detailId); }
 }
-function setTradeRating(n){ const t=trades.find(x=>x.id===detailId); if(!t)return; t.rating=(t.rating===n?0:n); persist(); openTradeDetail(detailId); }
 function saveNotes(el){ const t=trades.find(x=>x.id===detailId); if(!t)return; t.notes=el.value; persist(); }
 function closeTradeDetail(){ document.getElementById('tradeOverlay').classList.remove('show'); detailId=null; }
 function editFromDetail(){ const id=detailId; closeTradeDetail(); editTrade(id); }
@@ -7445,8 +7443,8 @@ async function saveTrade(){
   };
   if(editingId){ const prev=trades.find(x=>x.id===editingId)||{}; t.mistakes=prev.mistakes||[]; t.focus=prev.focus||[]; t.confluences=prev.confluences||[];
     // Grades from before the star rating are carried through, not dropped.
-    t.pGrade=prev.pGrade||''; t.sGrade=prev.sGrade||''; t.eGrade=prev.eGrade||''; t.rating=prev.rating||0; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
-  else { t.mistakes=[]; t.focus=[]; t.confluences=[]; t.rating=0; t.shots=[]; t.hadMistake=null; t.mistakeWhy=''; t.lessonId=null; trades.push(t); }
+    t.pGrade=prev.pGrade||''; t.sGrade=prev.sGrade||''; t.eGrade=prev.eGrade||''; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
+  else { t.mistakes=[]; t.focus=[]; t.confluences=[]; t.shots=[]; t.hadMistake=null; t.mistakeWhy=''; t.lessonId=null; trades.push(t); }
   const wasEditing=!!editingId;
   const btn=document.getElementById('saveBtn'); if(btn) btn.classList.add('is-loading');
   await persist();
