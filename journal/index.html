@@ -29,24 +29,24 @@
     /* Brass rather than yellow. Restraint is what keeps gold from reading
        cheap: one metal, low saturation, and glows kept near-invisible. */
     --accent:#C8A24A;
-    --accent-soft:rgba(200,162,74,.10);
-    --accent-line:rgba(200,162,74,.30);
+    --accent-soft:rgba(200,162,74,.08);
+    --accent-line:rgba(200,162,74,.24);
     --accent-bright:#DFC079;
     --accent-glow:rgba(200,162,74,.26);
     /* Pale champagne, used where the old theme used cyan: meter fills and the
        lit edge of a panel. */
-    --cyan:#E4CE97;
-    --cyan-2:#F2E4BE;
-    --chart-line:#DFC079;
+    --cyan:#B8B2A6;
+    --cyan-2:#D6D1C7;
+    --chart-line:#B8B2A6;
     /* Gold is a light colour, so anything sitting on it needs dark ink. */
     --on-accent:#191307;
 
     /* Panel edge — a brass hairline and the faintest bloom. Deliberately
        weaker than the blue theme's; a bright halo undoes the restraint. */
-    --edge:rgba(200,162,74,.14);
-    --edge-strong:rgba(200,162,74,.30);
-    --bloom:0 0 0 1px var(--edge), 0 0 18px rgba(200,162,74,.025);
-    --bloom-hover:0 0 0 1px var(--edge-strong), 0 0 22px rgba(200,162,74,.06);
+    --edge:rgba(255,255,255,.07);
+    --edge-strong:rgba(255,255,255,.14);
+    --bloom:0 0 0 1px var(--edge);
+    --bloom-hover:0 0 0 1px var(--edge-strong);
 
     /* ------------------------------------------------------------------
        P&L SEMANTICS
@@ -56,9 +56,9 @@
          --green:#A8E063; --green-soft:rgba(168,224,99,.14); --green-line:rgba(168,224,99,.40);
          --red:#FF6B6B;   --red-soft:rgba(255,107,107,.13);  --red-line:rgba(255,107,107,.42);
        ------------------------------------------------------------------ */
-    --green:#DFC079;
-    --green-soft:rgba(200,162,74,.12);
-    --green-line:rgba(200,162,74,.34);
+    --green:#C9C3B7;
+    --green-soft:rgba(201,195,183,.10);
+    --green-line:rgba(201,195,183,.26);
     --red:#B2ADA3;
     --red-soft:rgba(178,173,163,.08);
     --red-line:rgba(178,173,163,.24);
@@ -1550,7 +1550,7 @@
   .cfw-star{grid-area:auto;color:var(--cyan);font-style:normal;font-size:9px;margin-left:5px}
   .cfw-n{grid-area:n;font-size:11px;color:var(--muted-2);font-weight:600}
   .cfw-track{grid-area:track;height:5px;border-radius:3px;background:#232325;overflow:hidden}
-  .cfw-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 6px rgba(200,162,74,.14)}
+  .cfw-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#6E6A62,#A8A296)}
   .cfw-wr{grid-area:wr;font-size:12.5px;font-weight:800;color:var(--accent-bright)}
 
   .ph-list{display:flex;flex-direction:column;gap:8px}
@@ -1560,7 +1560,7 @@
   .phr-days{font-size:10px;color:var(--muted-2);white-space:nowrap}
   .phr-track{height:5px;border-radius:3px;background:#232325;overflow:hidden}
   .phr-fill{height:100%;border-radius:3px}
-  .phr-fill.up{background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 6px rgba(200,162,74,.14)}
+  .phr-fill.up{background:linear-gradient(90deg,#6E6A62,#A8A296)}
   .phr-fill.down{background:#4E4A42}
   .phr-lift{font-size:12.5px;font-weight:800;white-space:nowrap}
 
@@ -1582,7 +1582,7 @@
   .sr-pnl{grid-area:pnl;font-size:13.5px;font-weight:800;white-space:nowrap}
   .sr-car{grid-area:car;color:var(--muted-2);font-size:15px}
   .sr-track{grid-area:track;height:4px;border-radius:3px;background:#232325;overflow:hidden}
-  .sr-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--cyan))}
+  .sr-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#6E6A62,#A8A296)}
 
   .plan-rules{display:flex;flex-direction:column;gap:8px}
   .pr-item{display:flex;gap:11px;align-items:flex-start;background:var(--panel-2);
@@ -1643,7 +1643,7 @@
   .q-split{margin-bottom:14px}
   .q-bar{display:flex;gap:3px;height:9px;border-radius:5px;overflow:hidden;margin-bottom:12px}
   .qb-seg{display:block;border-radius:3px}
-  .qb-seg.q-clean{background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 6px rgba(200,162,74,.14)}
+  .qb-seg.q-clean{background:linear-gradient(90deg,#6E6A62,#A8A296)}
   .qb-seg.q-small{background:#4E4A42}
   .qb-seg.q-crucial{background:#9B968C}
   .qb-seg.q-none{background:#2A2A2D}
@@ -1680,7 +1680,7 @@
   .mk-row .mk-name{grid-area:name;font-size:12px;font-weight:600;overflow-wrap:anywhere;line-height:1.35}
   .mk-row .mk-n{grid-area:n;font-size:12.5px;font-weight:800;color:var(--accent-bright)}
   .mk-track{grid-area:track;height:4px;border-radius:3px;background:#232325;overflow:hidden}
-  .mk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--cyan));box-shadow:0 0 6px rgba(200,162,74,.14)}
+  .mk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#6E6A62,#A8A296)}
   .mk-empty{font-size:12px;color:var(--muted-2);padding:10px 0}
   .mk-warn{margin-top:10px;font-size:11px;color:var(--muted);background:rgba(178,173,163,.06);
     border:1px solid var(--red-line);border-radius:9px;padding:9px 11px}
@@ -5093,7 +5093,7 @@ function drawRadar(a){
     data:{labels:['Win %','Avg win/loss','Max drawdown'],
       datasets:[{data:[a.win,a.wl,a.dd],
         backgroundColor:'rgba(200,162,74,.16)',borderColor:'rgba(200,162,74,.85)',borderWidth:1.5,
-        pointBackgroundColor:'#C8A24A',pointRadius:2.5}]},
+        pointBackgroundColor:'#A8A296',pointRadius:2.5}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},
       scales:{r:{min:0,max:100,ticks:{display:false,stepSize:20},grid:{color:'#1C1C1F'},angleLines:{color:'#1C1C1F'},
         pointLabels:{color:'#9B968C',font:{size:11,family:'Inter'}}}}}});
@@ -5114,7 +5114,7 @@ function drawTimeline(){
     const grad=ctx.getContext('2d').createLinearGradient(0,0,0,200);
     grad.addColorStop(0,'rgba(200,162,74,.24)');
     grad.addColorStop(1,'rgba(0,0,0,0)');
-    weekChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:cum,borderColor:'#DFC079',borderWidth:2,fill:true,backgroundColor:grad,tension:.12,pointRadius:0}]},
+    weekChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:cum,borderColor:'#C9C3B7',borderWidth:2,fill:true,backgroundColor:grad,tension:.12,pointRadius:0}]},
       options:chartOpts()});
   } else {
     weekChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:dayPnl,backgroundColor:dayPnl.map(v=>v>=0?'#DFC079':'#A29D93'),borderRadius:3}]},
@@ -5327,17 +5327,17 @@ function mkChart(id,type,labels,data,opt){
   // A canvas cannot be restyled by the print stylesheet, so the chart is
   // redrawn in greyscale before printing and back in colour afterwards.
   const P=PRINT_MODE;
-  const line = P? '#000' : '#DFC079';
+  const line = P? '#000' : '#C9C3B7';
   const grid = P? '#d8d8d8' : '#232325';
   const tick = P? '#444'    : '#77736B';
   let bg;
   if(type==='line' && opt.fill){
     bg=ctx.createLinearGradient(0,0,0,200);
-    bg.addColorStop(0, P? 'rgba(0,0,0,.18)' : 'rgba(200,162,74,.34)');
+    bg.addColorStop(0, P? 'rgba(0,0,0,.18)' : 'rgba(201,195,183,.20)');
     bg.addColorStop(1,'rgba(0,0,0,0)');
   }
   const colors = type==='bar'
-    ? data.map(v=> P ? (v>=0?'#1a1a1a':'#b4b4b4') : (v>=0?'#DFC079':'#A29D93'))
+    ? data.map(v=> P ? (v>=0?'#1a1a1a':'#b4b4b4') : (v>=0?'#C9C3B7':'#6E6A62'))
     : line;
   const fmt = opt.pct? (v=>v+'%') : (opt.count? (v=>v) : (v=>'$'+v));
   const c=new Chart(ctx,{
@@ -5528,7 +5528,7 @@ function drawDayChart(id, list){
   sorted.forEach(t=>{ run+=mv(t); pts.push(run); labels.push(t.entryAt&&t.entryAt.includes('T')?t.entryAt.split('T')[1]:''); });
   const net=run;
   const grad=ctx.getContext('2d').createLinearGradient(0,0,0,130);
-  grad.addColorStop(0, net>=0?'rgba(200,162,74,.34)':'rgba(178,173,163,.18)');
+  grad.addColorStop(0, net>=0?'rgba(201,195,183,.22)':'rgba(110,106,98,.18)');
   grad.addColorStop(1,'rgba(0,0,0,0)');
   const opts={responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.raw)}}},
@@ -5701,7 +5701,7 @@ function drawTradeChart(t){
   const xt=t.closeAt&&t.closeAt.includes('T')?t.closeAt.split('T')[1]:'Exit';
   const net=mv(t);
   const grad=ctx.getContext('2d').createLinearGradient(0,0,0,120);
-  grad.addColorStop(0, net>=0?'rgba(200,162,74,.34)':'rgba(178,173,163,.18)'); grad.addColorStop(1,'rgba(0,0,0,0)');
+  grad.addColorStop(0, net>=0?'rgba(201,195,183,.22)':'rgba(110,106,98,.18)'); grad.addColorStop(1,'rgba(0,0,0,0)');
   const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.raw)}}},
     scales:{x:{grid:{display:false},ticks:{color:'#77736B',font:{size:10}}},y:{grid:{color:'#232325'},ticks:{color:'#77736B',font:{size:9},callback:v=>'$'+v}}}};
   tradeChart=new Chart(ctx,{type:'line',data:{labels:[et,xt],datasets:[{data:[0,net],borderColor:net>=0?'#DFC079':'#A29D93',borderWidth:2,fill:true,backgroundColor:grad,tension:.3,pointRadius:3,pointBackgroundColor:net>=0?'#DFC079':'#A29D93'}]},options:opts});
