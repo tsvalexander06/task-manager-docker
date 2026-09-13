@@ -504,7 +504,15 @@
   .pb-shots .shot img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
   .pb-add{width:64px;height:64px;border:2px dashed var(--border);border-radius:9px;display:grid;place-items:center;cursor:pointer}
   .pb-add:hover{border-color:var(--accent)}
-  .shot{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border-soft);background:#101012;height:max-content}
+  /* The image src arrives asynchronously. Without a reserved slot the <img>
+     has no intrinsic size and the whole row collapses to a few pixels while it
+     loads, which reads as broken rather than pending. */
+  .shot{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border-soft);
+    background:linear-gradient(90deg,#131315 25%,#1B1B1E 37%,#131315 63%);background-size:200% 100%;
+    animation:shimmer 1.2s linear infinite;aspect-ratio:16/10;min-height:150px}
+  .shot.ready{animation:none;background:#101012}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity var(--dur-base) var(--ease-out)}
+  .shot.ready img{opacity:1}
   .shot img{width:100%;height:auto;display:block;cursor:zoom-in}
   .shot-del{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:7px;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:16px;line-height:1;display:grid;place-items:center}
   .shot-del:hover{background:var(--red)}
@@ -4639,7 +4647,9 @@ function tradeSimilarityHTML(list){
   const baseWinRate=trades.length?Math.round(trades.filter(t=>t.pnl>0).length/trades.length*100):0;
   const avgR=list.reduce((a,t)=>a+(t.r||0),0)/list.length;
   const baseAvgR=trades.length?trades.reduce((a,t)=>a+(t.r||0),0)/trades.length:0;
-  const netPnl=list.reduce((a,t)=>a+(t.pnl||0),0);
+  // mv() follows the $ / R toggle; t.pnl is always dollars, so summing it here
+  // and formatting with disp() printed a dollar figure with an R on the end.
+  const netPnl=list.reduce((a,t)=>a+mv(t),0);
   const winDelta=winRate-baseWinRate, rDelta=avgR-baseAvgR;
 
   const threads=[];
@@ -5344,11 +5354,16 @@ async function handleShotFiles(files, group){
   openTradeDetail(detailId);
 }
 async function loadShotInto(id){
+  const el=document.getElementById('img-'+id);
+  if(!el) return;
+  const done=()=>{ const slot=el.closest('.shot'); if(slot) slot.classList.add('ready'); };
   try{
     const src=await Shots.url(id);
-    const el=document.getElementById('img-'+id);
-    if(el && src) el.src=src;
-  }catch(e){}
+    if(!src){ done(); return; }        // nothing stored: stop the shimmer anyway
+    el.addEventListener('load',done,{once:true});
+    el.addEventListener('error',done,{once:true});
+    el.src=src;
+  }catch(e){ done(); }
 }
 async function deleteShot(id, group){
   const t=trades.find(x=>x.id===detailId); if(!t)return;
@@ -6487,9 +6502,20 @@ function accountProgress(a){
   const acctTrades=trades.filter(t=>Array.isArray(t.accounts)&&t.accounts.some(x=>x.id===a.id))
     .slice().sort((x,y)=>String(x.date).localeCompare(String(y.date))||String(x.closeAt||'').localeCompare(String(y.closeAt||'')));
   const days=new Set(acctTrades.map(t=>t.date)).size;
-  let run=(a.basePnl||0), low=Math.min(0,run);
-  acctTrades.forEach(t=>{ const acc=t.accounts.find(x=>x.id===a.id); if(t.r!=null&&acc){ run+=t.r*(acc.risk/100)*acc.size; } low=Math.min(low,run); });
-  return {days, low:Math.round(low*100)/100};
+  // Drawdown is measured from the equity peak, not from zero and not from the
+  // current balance. Three losses after a win used to report only the net,
+  // which under-states how far the account actually fell — the direction that
+  // gets an account breached while the bar still looks healthy.
+  let run=(a.basePnl||0), peak=Math.max(0,run), low=Math.min(0,run), maxDD=0;
+  acctTrades.forEach(t=>{
+    const acc=t.accounts.find(x=>x.id===a.id);
+    if(t.r!=null&&acc){ run+=t.r*(acc.risk/100)*acc.size; }
+    if(run>peak) peak=run;
+    const dd=peak-run; if(dd>maxDD) maxDD=dd;
+    low=Math.min(low,run);
+  });
+  return {days, low:Math.round(low*100)/100, maxDD:Math.round(maxDD*100)/100,
+          peak:Math.round(peak*100)/100};
 }
 function trBar(pct,cls){ return `<div class="tr-bar"><div class="tr-fill ${cls}" style="width:${Math.max(0,Math.min(100,pct))}%"></div></div>`; }
 // Per-account Targets & Rules section — profit target / max drawdown / min trading days progress,
@@ -6514,17 +6540,19 @@ function renderTargetsRules(a){
     </div>`;
   }
   if(a.maxDD!=null && a.maxDD>0){
-    const used=Math.max(0,-total);
+    // The deepest fall from the peak is what a prop firm measures, so that is
+    // what the bar shows. The current net sits underneath as context.
+    const used=prog.maxDD;
     const usedPct=used/a.maxDD*100;
     const buffer=Math.round((a.maxDD-used)*100)/100;
-    const worstUsed=Math.round(Math.max(0,-prog.low)*100)/100;
+    const currentDown=Math.round(Math.max(0,-total)*100)/100;
     const breached=buffer<=0;
     const cls=breached?'red':(usedPct>=60?'amber':'green');
     bars+=`<div class="tr-row">
       <div class="tr-top"><span class="tr-name">Max drawdown</span>
         <span class="tr-val">${money(used)} / ${money(a.maxDD)}</span></div>
       ${trBar(usedPct,cls)}
-      <div class="tr-note">${breached?'<span style="color:var(--red);font-weight:700">Breached</span>':money(buffer)+' buffer left'}${worstUsed>used?' · worst reached '+money(worstUsed):''}</div>
+      <div class="tr-note">${breached?'<span style="color:var(--danger);font-weight:700">Breached</span>':money(buffer)+' buffer left'} · deepest fall from peak${currentDown!==used?' · '+money(currentDown)+' down right now':''}</div>
     </div>`;
   }
   if(a.minDays!=null && a.minDays>0){
