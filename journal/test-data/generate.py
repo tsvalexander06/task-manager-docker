@@ -96,6 +96,65 @@ PLAN = {
   (2026,8): ([5.5,3.8,3.2,2.9,2.6,2.2,1.9,3.1,2.4], [0.0,0.0], [-1.0]*11 + [-0.5,-0.5]), # +15.6R = +7.80%
 }
 
+
+# ---------------- Missed trades ----------------
+MISSED_REASONS=["Was not at the screen","Waited for a confirmation that never came",
+                "Did not trust the setup","Already at max trades for the day",
+                "Entry was outside my session","Talked myself out of it"]
+MISSED_NOTES=[
+ "Sweep and CHoCH both there. I was still reading the news and the entry was gone in four candles.",
+ "Wanted the 5m to close back inside the block before entering. It never did and ran 4R without me.",
+ "Perfect first tap of the Daily order block. Hesitated because the last two of these lost.",
+ "Two trades already down for the day, so the rule kept me out. Right call, still worth logging.",
+ "Setup formed at the Asia open, outside the hours in my plan.",
+ "Called it out loud, then convinced myself the HTF was against it. It was not.",
+ "Inducement taken, OTE tagged, closed at the opposing pool. Textbook and I watched it.",
+ "Saw it late — price was already mid-leg and there was no entry left with a sensible stop.",
+]
+def build_missed(trades):
+    out=[]; rnd=random.Random(7)
+    days=sorted({t["date"] for t in trades})
+    for i,day in enumerate(rnd.sample(days,12)):
+        sym=rnd.choice(PAIRS); setup=rnd.choice(SETUPS)[0]
+        r=round(rnd.choice([1.8,2.2,2.6,3.0,3.4,4.0,4.5]),1)
+        out.append({
+          "id":"ms_%02d"%(i+1), "date":day, "symbol":sym,
+          "direction":rnd.choice(["long","short"]), "setup":setup,
+          "reasons":[rnd.choice(MISSED_REASONS)],
+          "whatHappened":rnd.choice(MISSED_NOTES),
+          "entryType":"", "timeframe":rnd.choice(TFS),
+          "riskGrade":"", "r":r,
+          "slPips":round(rnd.uniform(7,24),1),
+          "pnl":round(sum(r*(RISK/100)*a["size"] for a in ACCOUNTS),2),
+          "accounts":[dict(a) for a in ACCT_REF],
+          "shots":[], "lessonId":None,
+        })
+    return sorted(out,key=lambda m:m["date"])
+
+# ---------------- Preparation history ----------------
+# One row per trading day, so "Result by preparation" has days on both sides of
+# the line and the preparation index is not a flat zero.
+MORNING=["wake","hydrate","coffee","move","clear"]
+EVENING=["ev_journal","ev_shots","ev_missed"]
+def build_preplog(trades):
+    rnd=random.Random(23); log={}
+    for day in sorted({t["date"] for t in trades}):
+        # preparation improves across the three months, which is what makes the
+        # comparison against results worth looking at
+        mon=int(day[5:7]); base={6:0.45,7:0.7,8:0.9}.get(mon,0.6)
+        m=sum(1 for _ in MORNING if rnd.random()<base)
+        e=sum(1 for _ in EVENING if rnd.random()<base)
+        news=rnd.random()<base; forecast=rnd.random()<base; plan=rnd.random()<base+0.05
+        parts=[m/len(MORNING)*100, e/len(EVENING)*100, 100 if plan else 0,
+               100 if news else 0, 100 if forecast else 0]
+        items={}
+        for k in MORNING[:m]: items[k]=True
+        for k in EVENING[:e]: items[k]=True
+        log[day]={"m":m,"mT":len(MORNING),"e":e,"eT":len(EVENING),
+                  "news":news,"forecast":forecast,"plan":plan,
+                  "score":round(sum(parts)/len(parts)), "items":items}
+    return log
+
 def business_days(y,m):
     d=dt.date(y,m,1); out=[]
     while d.month==m:
@@ -167,7 +226,12 @@ for a in ACCOUNTS:
     print("   %-20s %s"%(a["name"],"$%,.2f".replace("%,",  "%")%0 if False else "${:,.2f}".format(tot*RISK/100*a["size"])))
 print("   combined dollars     ${:,.2f}".format(sum(tot*RISK/100*a["size"] for a in ACCOUNTS)))
 
-json.dump({"trades":trades,"accounts":ACCOUNTS,
+MISSED=build_missed(trades)
+PREPLOG=build_preplog(trades)
+print("   missed trades        %d"%len(MISSED))
+print("   prep-logged days     %d  (avg score %d)"%(len(PREPLOG), sum(v["score"] for v in PREPLOG.values())//max(1,len(PREPLOG))))
+
+json.dump({"trades":trades,"accounts":ACCOUNTS,"missed":MISSED,"preplog":PREPLOG,
            "confluences":[{"id":CF_IDS[i],"name":c[0],"desc":c[1],"crucial":c[2]} for i,c in enumerate(CONFLUENCES)],
            "playbook":[{"id":"pb_smc_%d"%i,"name":s[0],"about":s[1],"plan":s[2],"shots":[]} for i,s in enumerate(SETUPS)],
            "pairs":sorted({t["symbol"] for t in trades})},

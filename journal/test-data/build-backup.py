@@ -73,9 +73,9 @@ kv={
  "falcon:mistakeSeverity":json.dumps(SEVERITY),
  "falcon:dna":json.dumps(DNA),
  "falcon:profile":json.dumps({"name":"SMC Tester","onboarded":True}),
- "falcon:missed":json.dumps([]),
+ "falcon:missed":json.dumps(P["missed"]),
  "falcon:workshop":json.dumps([]),
- "falcon:preplog":json.dumps({}),
+ "falcon:preplog":json.dumps(P["preplog"]),
  "falcon:dataVersion":"7",
 }
 payload={"format":1,"exportedAt":dt.datetime(2026,9,1,9,0).isoformat()+"Z",

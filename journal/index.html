@@ -201,7 +201,7 @@
   .cal-total{font-weight:700;font-size:14px}
   /* minmax(0,..) on every track: a bare 1fr keeps a min-content floor, which
      lets the week column push the grid out past the card. */
-  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,.92fr);gap:6px;min-width:0}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,.8fr);gap:6px;min-width:0}
   .cal-dow-wk{color:var(--accent-bright)}
   /* Week-summary column, as in the reference's month view */
   .cal-week{border:1px solid var(--edge);border-radius:9px;background:#101012;padding:7px 8px;
@@ -210,6 +210,10 @@
   .cal-week.clickable{cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out)}
   .cal-week.clickable:hover{border-color:var(--edge-strong);background:var(--panel-2)}
   .cal-week .cw-range{font-size:9.5px;font-weight:700;color:var(--accent-bright);margin-bottom:3px;letter-spacing:.02em}
+  .cal-week .cw-pnl{font-size:14px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px}
+  .cal-week .cw-full{margin-top:auto;font-size:9px;font-weight:700;color:var(--accent-bright);
+    letter-spacing:.01em;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-week:hover .cw-full{opacity:1}
   .cal-week .cw-row{display:flex;align-items:baseline;justify-content:space-between;gap:5px;color:var(--muted-2);min-width:0}
   .cal-week .cw-row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cal-week .cw-row b{white-space:nowrap}
@@ -234,11 +238,12 @@
   .cal-legend .cl-d.loss{background:rgba(178,173,163,.16);border-color:var(--red-line)}
   .cal-legend .cl-d.be{background:#2A2A2D}
   .cal-legend .cl-d.none{background:transparent}
-  @media(max-width:1440px){
+  /* The week column used to carry four labelled rows and needed a wide screen
+     to hold them. It now carries one figure, so it survives much further down
+     before it has to go. */
+  @media(max-width:900px){
     /* Same minmax(0,..) reason as above: a bare 1fr keeps a min-content floor,
-       so the P&L text in a cell would widen the grid past the viewport.
-       The week column is hidden rather than squeezed — below this width its
-       labels and figures no longer fit on one line. */
+       so the P&L text in a cell would widen the grid past the viewport. */
     .cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
     .cal-week,.cal-dow-wk{display:none}
   }
@@ -601,6 +606,9 @@
   .qa-item{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border-soft);border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out)}
   .qa-item svg{width:15px;height:15px}
   .qa-item:hover{border-color:var(--accent-line);color:var(--text)}
+  .check-item.lesson-row{opacity:.85}
+  .check-item.lesson-row .fi-n{background:var(--accent-soft);color:var(--accent-bright);
+    border:1px solid var(--accent-line);font-weight:800}
   .focus-card{background:var(--panel);border:1px solid var(--border-soft);border-top:2px solid var(--accent);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px}
   /* Journey — signature progress visual. Restrained: no bars, no percentages, no XP feel. */
   .journey-track{display:flex;align-items:center;padding:8px 4px 22px}
@@ -1345,6 +1353,23 @@
   .cfp-n{font-size:12px;font-weight:700}
   .cfp-d{font-size:10.5px;color:var(--muted-2)}
 
+  /* Confluence editor, floating over the trade so journalling is not interrupted. */
+  #cfPop{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55);backdrop-filter:blur(3px);padding:20px}
+  #cfPop.show{display:flex;animation:fadeIn var(--dur-base) var(--ease-out)}
+  .cf-pop-card{width:min(520px,100%);max-height:86vh;overflow:auto;background:var(--panel);
+    border:1px solid var(--accent-line);border-radius:16px;padding:20px 22px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);animation:popIn var(--dur-base) var(--ease-spring)}
+  .cf-pop-head{display:flex;align-items:center;justify-content:space-between;
+    font-size:14px;font-weight:800;margin-bottom:14px}
+  .cf-pop-card .pb-ta{min-height:96px}
+
+  /* The trade sheet leans on the accent: section titles, selected chips and
+     the fields when they take focus. */
+  .td-left .td-sec-title{color:var(--accent-bright)}
+  .td-notes:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .td-left .field input:focus,.td-left .field textarea:focus{border-color:var(--accent)}
+  .cfp.on{border-color:var(--accent-line);background:var(--accent-soft)}
   .cfp-add{justify-content:center;color:var(--accent-bright);font-weight:700;font-size:12px;
     border-style:dashed;background:none;font-family:inherit;grid-column:1/-1}
   .cfp-add:hover{background:var(--panel-2)}
@@ -1447,6 +1472,7 @@
     font-size:12px;color:var(--muted-2)}
 
   /* ---- Account / sync bar ----------------------------------- */
+  .acct-bar:empty{display:none}
   .acct-bar{display:inline-flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
     background:var(--panel-2);border:1px solid var(--edge);border-radius:9px;padding:5px 10px}
   .acct-bar .ab-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
@@ -1458,6 +1484,10 @@
   .acct-bar .ab-btn:hover{background:var(--panel-hover);color:var(--text)}
   .acct-bar .ab-btn.primary{color:var(--accent-bright)}
   @media(max-width:760px){ .acct-bar .ab-t{max-width:130px} }
+  /* The trader's own line, where the sync badges used to sit. */
+  .greet-slogan{font-size:12.5px;font-style:italic;color:var(--muted);
+    max-width:min(420px,38vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:760px){ .greet-slogan{display:none} }
 
   /* ---- Improvement workshop --------------------------------- */
   .ws-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);gap:16px;align-items:start}
@@ -1827,7 +1857,6 @@
       <div class="nav-item" data-view="prep" data-icon="sunrise"><span>Market preparation</span></div>
       <div class="nav-item" data-view="journal" data-icon="book"><span>Journal</span></div>
       <div class="nav-item" data-view="review" data-icon="eye"><span>Review</span></div>
-      <div class="nav-item" data-view="patterns" data-icon="bars"><span>Patterns</span></div>
       <div class="nav-item" data-view="playbook" data-icon="target"><span>Playbook</span></div>
       <div class="nav-item" data-view="accounts" data-icon="layers"><span>Accounts</span></div>
     </div>
@@ -1841,9 +1870,8 @@
         <div class="meta" id="greetMeta">—</div>
       </div>
       <div class="badges">
+        <span class="greet-slogan" id="greetSlogan"></span>
         <span class="acct-bar" id="acctBar"></span>
-        <span class="badge-pro">PRO</span>
-        <span class="badge-sync"><span class="d"></span> SYNCED</span>
         <button class="rbtn" title="Settings" onclick="switchView('settings')" style="margin-left:2px">⚙</button>
       </div>
     </div>
@@ -1855,6 +1883,7 @@
 <div class="overlay" id="tradeOverlay">
   <div class="modal trade-modal"><div id="tradeModalBody"></div></div>
 </div>
+<div id="cfPop" onclick="closeConfluencePop()"></div>
 <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" alt="screenshot"></div>
 <div class="overlay" id="missedOverlay">
   <div class="modal trade-modal"><div id="missedModalBody"></div></div>
@@ -2259,7 +2288,7 @@ const SEED_GRADED_IDS = new Set(DEMO_TRADES.filter(t=>t.pGrade||t.sGrade||t.eGra
 const DATA_VERSION = 7;   // 7: no mistakes are seeded; the trader writes their own
 let trades = [];
 let currentView='dashboard';
-let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, prepCalY:null, prepCalM:null, prepCalOpen:false, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
+let ui={ period:'all', currency:'$', breakOpen:true, calMode:'pnl', journalView:'list', journalQ:'', rvCurrency:null, prepCalY:null, prepCalM:null, prepCalOpen:false, wsKind:'setup', wsValue:'', wsNote:'', techTab:'setups', cfShowAll:false, pbTab:'setups', filtersOpen:false, anchor:null, calY:null, calM:null, weekMode:'cumulative', allView:'overview', dvY:null, dvM:null, dvDay:null, acctFilter:'all', prepStep:null, acctAddOpen:false, acctAddMore:false, editAccountId:null,
   tradeFilters:{symbol:'',side:'',session:'',setup:'',mistake:'',account:'',riskGrade:'',outcome:'',dateFrom:'',dateTo:''},
   missedFilters:{symbol:'',direction:'',setup:'',reason:'',dateFrom:'',dateTo:''} };
 let editingId=null, modalSide='long', modalForecast=true;
@@ -2335,7 +2364,26 @@ function writePrepLog(){
                 items:{...(checklist.morning||{}),...(checklist.evening||{})}};
   saveJSON('falcon:preplog',PREPLOG);
 }
-const FOCUS_TAGS=['Wait for LTF confirmation','Trade the plan','Patience at entry','Respect max trades','Only 15M structure','Let winners run'];
+/* "Things to focus on" and the reminders shown before a trade were two lists of
+   the same sentences. Adding a focus here writes a key observation, so it turns
+   up in Market preparation rather than only on this one trade. */
+const FOCUS_TAGS=[];
+function focusOptions(){
+  const fromLessons=LESSONS.filter(l=>l.active&&l.reminder).map(l=>l.reminder);
+  const fromTrades=[]; trades.forEach(t=>(t.focus||[]).forEach(f=>{ if(!fromTrades.includes(f)) fromTrades.push(f); }));
+  return [...new Set([...fromLessons,...fromTrades])];
+}
+/* A focus written on a trade becomes an observation, so the next preparation
+   picks it up without it having to be typed twice. */
+async function ensureObservation(text){
+  text=(text||'').trim(); if(!text) return;
+  if(LESSONS.some(l=>(l.reminder||'').toLowerCase()===text.toLowerCase())) return;
+  const now=Date.now();
+  LESSONS.push({id:'ls_'+now+'_'+Math.random().toString(36).slice(2,6),
+    problem:text, why:'', solution:'', reminder:text,
+    occurrences:0, active:true, source:'observation', createdAt:now, lastAt:now});
+  await saveJSON('falcon:lessons',LESSONS);
+}
 let checklist={morning:{},pretrade:{}};
 // Editable routine/checklist item definitions (authored by the user in Market preparation).
 let ROUTINE={
@@ -2356,6 +2404,44 @@ let ROUTINE={
   // Seeding them here would put one trader's plan in every customer's journal.
   pretrade:[]
 };
+/* Goals written the evening before. When that date arrives they become the
+   day's goals, so the morning starts from a decision made with a clear head
+   rather than one made while the market is open. */
+let TOMORROW={forDate:'',items:[]};
+async function saveTomorrow(){ await saveJSON('falcon:tomorrow',TOMORROW); }
+function tomorrowStr(){ const d=new Date(); d.setDate(d.getDate()+1); return ymd(d); }
+async function addTomorrowGoal(e){
+  if(e.key!=='Enter')return;
+  const v=e.target.value.trim(); if(!v)return;
+  TOMORROW.forDate=tomorrowStr();
+  TOMORROW.items=TOMORROW.items||[];
+  TOMORROW.items.push(v);
+  await saveTomorrow(); renderPrep();
+}
+async function removeTomorrowGoal(i){ (TOMORROW.items||[]).splice(i,1); await saveTomorrow(); renderPrep(); }
+/* Promote them once their day has come. */
+async function promoteTomorrowGoals(){
+  if(!TOMORROW.forDate || !(TOMORROW.items||[]).length) return;
+  if(TOMORROW.forDate > ymd(new Date())) return;
+  ROUTINE.goals=TOMORROW.items.map((t,i)=>({id:'g'+Date.now()+'_'+i, text:t}));
+  TOMORROW={forDate:'',items:[]};
+  await saveJSON('falcon:routineDef',ROUTINE);
+  await saveTomorrow();
+}
+function tomorrowGoalsHTML(){
+  const items=TOMORROW.items||[];
+  const rows=items.map((t,i)=>`<div class="check-item plain">
+      <span class="drag-handle">›</span><span style="flex:1">${esc(t)}</span>
+      <span class="ci-del" onclick="removeTomorrowGoal(${i})">✕</span></div>`).join('')
+    || '<div class="hl-muted" style="font-size:12.5px;padding:6px 4px">Nothing set yet — decide tomorrow now, while today is fresh.</div>';
+  return `<div class="check-head" style="margin-top:18px">
+      <span class="panel-title" style="margin:0">Tomorrow's goals</span>
+      <span class="check-prog">${items.length}</span></div>
+    <div class="hl-muted" style="font-size:12.5px;margin-bottom:10px">These become your goals when you open the journal tomorrow.</div>
+    <div class="check-list">${rows}</div>
+    <div class="ci-add"><input placeholder="What does tomorrow look like? Press Enter" onkeydown="addTomorrowGoal(event)"></div>`;
+}
+
 let PREPDAY={planChecked:false,newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};   // resets daily; pairs:[{symbol,shot}]
 async function loadPrepDay(){
   const key='falcon:prepday:'+ymd(new Date());
@@ -2395,18 +2481,31 @@ let WORKSHOP=[];   // saved improvement-workshop analyses: {id,date,kind,value,o
    moves the analysis panels to the pages they belong to; 'full' is the
    original, every panel on the dashboard. Purely a view flag — it changes
    nothing about the data, so flipping it back and forth is free. */
-let LAYOUT='focused';
-const isFocused=()=>LAYOUT==='focused';
-async function setLayout(v){
-  if(LAYOUT===v) return;
-  LAYOUT=v;
-  await saveJSON('falcon:layout',v);
+/* The account currency. Only the symbol changes — the journal never converts,
+   because a funded account is denominated in one currency and the figures in it
+   are already in that currency. */
+const CURRENCIES={
+  USD:{sym:'$',  name:'US dollar'},      EUR:{sym:'€',  name:'Euro'},
+  GBP:{sym:'£',  name:'Pound sterling'}, CHF:{sym:'CHF ',name:'Swiss franc'},
+  JPY:{sym:'¥',  name:'Japanese yen'},   AUD:{sym:'A$', name:'Australian dollar'},
+  CAD:{sym:'C$', name:'Canadian dollar'},NZD:{sym:'NZ$',name:'New Zealand dollar'},
+  SEK:{sym:'kr ',name:'Swedish krona'},  ZAR:{sym:'R',  name:'South African rand'}
+};
+let CURRENCY='USD';
+const curSym=()=>(CURRENCIES[CURRENCY]||CURRENCIES.USD).sym;
+async function setCurrencyCode(code){
+  if(!CURRENCIES[code] || CURRENCY===code) return;
+  CURRENCY=code;
+  await saveJSON('falcon:currency',code);
   renderCurrentView();
 }
-function layoutSwitchHTML(){
-  return isFocused()
-    ? `<div class="layout-note">Focused layout · <span class="link" onclick="setLayout('full')">show everything</span></div>`
-    : `<div class="layout-note">Everything on one page · <span class="link" onclick="setLayout('focused')">switch to focused</span></div>`;
+
+/* The line under the greeting. The trader's own words, not ours. */
+let SLOGAN='Plan the trade, trade the plan.';
+async function setSlogan(v){
+  SLOGAN=(v||'').trim();
+  await saveJSON('falcon:slogan',SLOGAN);
+  renderGreeting();
 }
 
 async function loadJSON(key,def){ try{ const r=await Store.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){} return def; }
@@ -2550,7 +2649,7 @@ function rangeLabel(ps,pe){
 // decimal on a money figure ("$23,887.5") reads as a typo.
 function money(n){
   const s=n<0?'-':'', a=Math.abs(n), cents=Math.round(a*100)%100!==0;
-  return s+'$'+a.toLocaleString('en-US',{minimumFractionDigits:cents?2:0,maximumFractionDigits:2});
+  return s+curSym()+a.toLocaleString('en-US',{minimumFractionDigits:cents?2:0,maximumFractionDigits:2});
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // encodeURIComponent deliberately leaves ' unescaped, which breaks a single-quoted onclick="fn('...')"
@@ -2566,7 +2665,7 @@ function disp(n){ return ui.currency==='%' ? rStr(n) : money(n); }
 function dispTight(n){
   if(ui.currency==='%') return rStr(n);
   const a=Math.abs(n), sign=n<0?'-':'';
-  if(a>=1000) return sign+'$'+(a/1000).toFixed(a%1000?1:0).replace(/\.0$/,'')+'k';
+  if(a>=1000) return sign+curSym()+(a/1000).toFixed(a%1000?1:0).replace(/\.0$/,'')+'k';
   return money(n);
 }
 function pnlClass(n){ return n>0?'pos':(n<0?'neg':''); }
@@ -2853,7 +2952,7 @@ function confluencePickerHTML(t){
   const sel=t.confluences||[];
   if(!CONFLUENCES.length){
     return '<div class="sp-none">No confluences yet.</div>'
-      + `<button type="button" class="cfp cfp-add" onclick="addConfluencePrompt('${t.id}')">+ Write a confluence</button>`;
+      + `<button type="button" class="cfp cfp-add" onclick="openConfluencePop('${t.id}',null)">+ Write a confluence</button>`;
   }
   const crucial=crucialConfluences().length;
   const hit=crucialConfluences().filter(c=>sel.includes(c.id)).length;
@@ -2863,29 +2962,63 @@ function confluencePickerHTML(t){
       <span class="cfp-b"><span class="cfp-n">${esc(c.name)}${c.crucial?'<i class="cfw-star">◆</i>':''}</span>
       <span class="cfp-d">${esc(c.desc||'')}</span></span>
     </label>`).join('')
-    + `<button type="button" class="cfp cfp-add" onclick="addConfluencePrompt('${t.id}')">+ Write a confluence</button>`
+    + `<button type="button" class="cfp cfp-add" onclick="openConfluencePop('${t.id}',null)">+ Write a confluence</button>`
     + (crucial? `<div class="cfp-sum">${hit} of ${crucial} crucial confluences present</div>` : '');
 }
 /* Written on a trade, kept for every trade. A confluence added here joins the
    shared list and appears in Technicals → Confluences with its own frequency
    and win rate, which is the point of writing it down. */
-async function addConfluencePrompt(tradeId){
-  const name=(prompt('What had to be true for this entry?')||'').trim();
-  if(!name) return;
-  let c=CONFLUENCES.find(x=>x.name.toLowerCase()===name.toLowerCase());
-  if(!c){
-    c={id:'cf'+Date.now(), name, desc:'', crucial:true};
-    CONFLUENCES.push(c);
-    await saveJSON('falcon:confluences',CONFLUENCES);
-  }
-  const t=trades.find(x=>x.id===tradeId);
-  if(t){
-    t.confluences=t.confluences||[];
-    if(!t.confluences.includes(c.id)) t.confluences.push(c.id);
-    await persist();
-  }
-  openTradeDetail(tradeId);
+/* A confluence is worth a sentence of its own, and a prompt() box cannot hold
+   one. This opens the confluence editor over the trade — write it, click away,
+   carry on journalling. */
+let cfPopFor=null;
+function openConfluencePop(tradeId,cid){
+  cfPopFor=tradeId;
+  const c = cid? CONFLUENCES.find(x=>x.id===cid) : null;
+  const el=document.getElementById('cfPop');
+  el.innerHTML=`<div class="cf-pop-card" onclick="event.stopPropagation()">
+    <div class="cf-pop-head">
+      <span>${c?'Edit confluence':'Write a confluence'}</span>
+      <button class="rbtn" onclick="closeConfluencePop()">✕</button>
+    </div>
+    <div class="field full"><label>Name</label>
+      <input id="cfPopName" value="${c?esc(c.name):''}" placeholder="e.g. Liquidity swept before entry" autofocus></div>
+    <div class="field full"><label>What it means, and how you know it is there</label>
+      <textarea id="cfPopDesc" class="pb-ta" placeholder="The detail you will want in six months, when you are asking why this one works.">${c?esc(c.desc||''):''}</textarea></div>
+    <label class="plan-toggle" style="cursor:pointer;margin-top:4px" onclick="this.querySelector('.switch').classList.toggle('on')">
+      <div class="switch ${(!c||c.crucial)?'on':''}" id="cfPopCrucial"></div>
+      <span>Crucial — an entry without it is off-plan</span></label>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn ghost" onclick="closeConfluencePop()">Cancel</button>
+      <button class="btn primary" onclick="saveConfluencePop('${cid||''}')">${c?'Save':'Add to this trade'}</button>
+    </div>
+  </div>`;
+  el.classList.add('show');
+  setTimeout(()=>{ const i=document.getElementById('cfPopName'); if(i)i.focus(); },40);
 }
+function closeConfluencePop(){
+  const el=document.getElementById('cfPop');
+  if(el){ el.classList.remove('show'); el.innerHTML=''; }
+  cfPopFor=null;
+}
+async function saveConfluencePop(cid){
+  const name=(document.getElementById('cfPopName').value||'').trim();
+  if(!name){ document.getElementById('cfPopName').focus(); return; }
+  const desc=(document.getElementById('cfPopDesc').value||'').trim();
+  const crucial=document.getElementById('cfPopCrucial').classList.contains('on');
+  const tradeId=cfPopFor;
+  let c = cid? CONFLUENCES.find(x=>x.id===cid) : CONFLUENCES.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(c){ c.name=name; c.desc=desc; c.crucial=crucial; }
+  else { c={id:'cf'+Date.now(), name, desc, crucial}; CONFLUENCES.push(c); }
+  await saveJSON('falcon:confluences',CONFLUENCES);
+  if(tradeId){
+    const t=trades.find(x=>x.id===tradeId);
+    if(t){ t.confluences=t.confluences||[]; if(!t.confluences.includes(c.id)) t.confluences.push(c.id); await persist(); }
+  }
+  closeConfluencePop();
+  if(tradeId) openTradeDetail(tradeId); else renderCurrentView();
+}
+function addConfluencePrompt(tradeId){ openConfluencePop(tradeId,null); }
 async function toggleConfluence(id,cid){
   const t=trades.find(x=>x.id===id); if(!t) return;
   t.confluences=t.confluences||[];
@@ -3410,19 +3543,14 @@ function renderAccountBar(){
   const b=Store.backend;
   const cfgd=!!(window.ODYSSEY_CONFIG&&window.ODYSSEY_CONFIG.supabaseUrl);
 
+  // Signed in is the quiet case: nothing to say and nothing to do, so the bar
+  // stays empty and the account lives in Settings.
   if(b==='supabase'){
-    el.innerHTML=`<span class="ab-dot ok"></span>
-      <span class="ab-t">Synced · ${esc(Store.user.email||'signed in')}</span>
-      <button class="ab-btn" onclick="pushLocal()">Upload this device's data</button>
-      <button class="ab-btn" onclick="signOut()">Sign out</button>`;
+    el.innerHTML='';
   } else if(cfgd){
-    el.innerHTML=`<span class="ab-dot warn"></span>
-      <span class="ab-t">Saved on this device only</span>
-      <button class="ab-btn primary" onclick="openSignIn()">Sign in to sync</button>`;
-  } else if(b==='artifact'){
-    el.innerHTML=`<span class="ab-dot ok"></span><span class="ab-t">Saved to your Claude account</span>`;
+    el.innerHTML=`<button class="ab-btn primary" onclick="openSignIn()">Sign in to sync</button>`;
   } else {
-    el.innerHTML=`<span class="ab-dot warn"></span><span class="ab-t">Saved on this device only</span>`;
+    el.innerHTML='';
   }
 }
 function openSignIn(){
@@ -3625,7 +3753,11 @@ function renderGreeting(){
   document.getElementById('greet').innerHTML=g+', <span>'+TRADER+'</span>';
   const now=new Date();
   const dow=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][now.getDay()];
-  document.getElementById('greetMeta').textContent=dow+' '+now.getDate()+' '+MONTHS[now.getMonth()]+' · '+trades.length+' trades on record';
+  const best=bestWeekday();
+  document.getElementById('greetMeta').textContent=
+    dow+' '+now.getDate()+' '+MONTHS[now.getMonth()]+(best?' · best day '+best:'');
+  const sl=document.getElementById('greetSlogan');
+  if(sl){ sl.textContent=SLOGAN||''; sl.style.display=SLOGAN?'':'none'; }
 }
 
 // ---------- Shared UI pieces ----------
@@ -3853,13 +3985,31 @@ function editRoutineItem(section,id){
 function weekFocusCardHTML(renderFn){
   const k=todayReviewKey(); const plan=(REVIEWS[k]&&REVIEWS[k].plan)||[];
   const rows=plan.map((text,i)=>`<div class="check-item plain" draggable="true" ondragstart="dragStart(event,'weekfocus',${i})" ondragend="dragEndRow(event)" ondragover="dragOverRow(event,'weekfocus')" ondragleave="dragLeaveRow(event)" ondrop="dropRow(event,'weekfocus',${i},'${renderFn||''}')">
-      <span class="drag-handle">⠿</span><span>${esc(text)}</span><span class="ci-del" onclick="event.stopPropagation();removeWeekFocus(${i},'${renderFn||''}')">✕</span></div>`).join('')
-    || '<div class="hl-muted" style="font-size:12.5px;padding:6px 4px">No focus items yet — add one below, or set your plan in the Review page.</div>';
+      <span class="drag-handle">⠿</span><span>${esc(text)}</span><span class="ci-del" onclick="event.stopPropagation();removeWeekFocus(${i},'${renderFn||''}')">✕</span></div>`).join('');
+  // The active lesson reminders used to sit in a card of their own directly
+  // above this one, saying the same kind of thing. They are focus items, so
+  // they belong in the focus list — offered, with one tap to adopt them.
+  const goalTexts=(ROUTINE.goals||[]).map(g=>(g.text||'').toLowerCase());
+  const planLc=plan.map(x=>x.toLowerCase());
+  const offered=topReminders(4)
+    .filter(l=>l.reminder && !planLc.includes(l.reminder.toLowerCase()))
+    .map(l=>`<div class="check-item plain lesson-row">
+        <span class="fi-n">!</span><span style="flex:1">${esc(l.reminder)}</span>
+        <button class="tag-add" onclick="addWeekFocus('${encQ(l.reminder)}','${renderFn||''}')">+ add</button>
+      </div>`).join('');
+  const body = (rows+offered) || '<div class="hl-muted" style="font-size:12.5px;padding:6px 4px">No focus items yet — add one below, or set your plan in the Review page.</div>';
   return `<div class="card check-card">
-    <div class="check-head"><span class="panel-title" style="margin:0">This week's focus <span class="hl-muted" style="font-weight:400">· from your Review plan</span></span></div>
-    <div class="check-list">${rows}</div>
+    <div class="check-head"><span class="panel-title" style="margin:0">This week's focus <span class="hl-muted" style="font-weight:400">· from your Review plan and your lessons</span></span></div>
+    <div class="check-list">${body}</div>
     <div class="ci-add"><input placeholder="Add a focus for this week, press Enter" onkeydown="weekFocusKey(event,'${renderFn||''}')"></div>
   </div>`;
+}
+async function addWeekFocus(enc,renderFn){
+  const v=decodeURIComponent(enc||'').trim(); if(!v) return;
+  const k=todayReviewKey(); REVIEWS[k]=REVIEWS[k]||{}; REVIEWS[k].plan=REVIEWS[k].plan||[];
+  if(!REVIEWS[k].plan.includes(v)) REVIEWS[k].plan.push(v);
+  await saveJSON('falcon:reviews',REVIEWS);
+  if(renderFn==='review')renderReview(); else renderPrep();
 }
 function weekFocusKey(e,renderFn){ if(e.key!=='Enter')return; const v=e.target.value.trim(); if(!v)return; const k=todayReviewKey(); REVIEWS[k]=REVIEWS[k]||{}; REVIEWS[k].plan=REVIEWS[k].plan||[]; REVIEWS[k].plan.push(v); saveJSON('falcon:reviews',REVIEWS); if(renderFn==='review')renderReview(); else renderPrep(); }
 function removeWeekFocus(i,renderFn){ const k=todayReviewKey(); if(!REVIEWS[k]||!REVIEWS[k].plan)return; REVIEWS[k].plan.splice(i,1); saveJSON('falcon:reviews',REVIEWS); if(renderFn==='review')renderReview(); else renderPrep(); }
@@ -3908,18 +4058,6 @@ function readinessCount(){
 // "Before you trade" — same active-lesson reminders as Dashboard's focus card, but each one
 // can be pulled straight into Today's Goals with one click since this is the page you're on
 // right before the market opens.
-function beforeYouTradeHTML(){
-  const reminders=topReminders(4);
-  if(!reminders.length){
-    return `<div class="focus-card"><div class="panel-title">Before you trade</div><div class="hl-muted" style="font-size:12.5px;margin-top:4px">No active lessons yet — save one from a missed trade or a trade mistake and it'll show up here.</div></div>`;
-  }
-  const goalTexts=(ROUTINE.goals||[]).map(g=>(g.text||'').toLowerCase());
-  const items=reminders.map((l,i)=>{
-    const already=goalTexts.includes((l.reminder||'').toLowerCase());
-    return `<div class="focus-item"><span class="fi-n">${i+1}</span><span style="flex:1">${esc(l.reminder)}</span>${already?'<span class="hl-muted" style="font-size:10.5px">in goals ✓</span>':`<button class="tag-add" onclick="addLessonToGoals('${encQ(l.reminder)}')">+ goal</button>`}</div>`;
-  }).join('');
-  return `<div class="focus-card"><div class="panel-title">Before you trade</div><div class="focus-list">${items}</div></div>`;
-}
 async function addLessonToGoals(encText){
   const text=decodeURIComponent(encText); if(!text)return;
   if(!ROUTINE.goals)ROUTINE.goals=[];
@@ -4016,6 +4154,8 @@ function renderPrep(){
 
       <div style="margin-top:16px">${forecastBlockHTML('evening','Evening forecast')}</div>
 
+      ${tomorrowGoalsHTML()}
+
       <div class="prep-step-actions"><button class="btn ghost" onclick="gotoPrepStep(1)">← Morning prep</button></div>
     </div>`;
   }
@@ -4033,7 +4173,6 @@ function renderPrep(){
     </div>
   </div>
 
-  ${beforeYouTradeHTML()}
 
   ${ui.prepCalOpen? prepCalHTML() : ''}
 
@@ -4329,12 +4468,8 @@ function todayState(){
 }
 function todayHeroHTML(){
   const st=todayState();
-  const top=topReminders(1)[0];
-  const mission = top ? top.reminder : 'Protect capital. Trade your plan.';
   return `<div class="today-hero">
     <div class="today-state st-${st.code}"><span class="dot"></span>${st.label}</div>
-    <div class="today-mission-label">Today's mission</div>
-    <div class="today-mission-text">${esc(mission)}</div>
   </div>`;
 }
 function focusCardHTML(title){
@@ -4548,51 +4683,24 @@ function scoreRingPanelHTML(es, axes, s, rangeLbl){
     </div>`;
   }).join('');
 
-  const wl = s.avgLoss>0 ? (s.avgWin/s.avgLoss).toFixed(2) : (s.avgWin>0?'∞':'0');
-  const best = s.list.reduce((a,t)=> (t.pnl||0)>(a?(a.pnl||0):-Infinity)?t:a, null);
-  const worst= s.list.reduce((a,t)=> (t.pnl||0)<(a?(a.pnl||0): Infinity)?t:a, null);
-  // Six of these eight repeat the KPI row above. The focused layout keeps only
-  // the two that appear nowhere else.
-  const metricsAll = [
-    ['Win rate',        s.tradeWin.toFixed(1)+'%'],
-    ['Profit factor',   s.pf>0 ? s.pf.toFixed(2) : '—'],
-    ['Avg W/L',         wl],
-    ['Total trades',    String(s.count)],
-    ['Best trade',      best ? disp(mv(best)) : '—'],
-    ['Worst trade',     worst? disp(mv(worst)): '—'],
-    ['Best win streak', bestWinStreak(s.list)+' trade'+(bestWinStreak(s.list)===1?'':'s')],
-    ['Avg hold time',   avgHoldLabel(s.list)]
-  ];
-  const metrics = metricsAll.map(([l,v])=>`<div class="perf-cell"><div class="pc-l">${l}</div><div class="pc-v">${v}</div></div>`).join('');
 
   return `<div class="card">
     <div class="panel-h">
       <div style="display:flex;gap:11px;align-items:center">
         <div class="panel-ico">${ic('flag')}</div>
-        <div><div class="ph-title">Your Edge Score</div><div class="ph-sub">Comprehensive performance analysis</div></div>
+        <div><div class="ph-title">Processes Score</div><div class="ph-sub">How well the process was followed, not how the market paid</div></div>
       </div>
     </div>
     <div class="score-hero">
-      ${ringSVG(es,{size:168,stroke:12,numSize:44,num:es,cap:'EDGE'})}
+      ${ringSVG(es,{size:168,stroke:12,numSize:44,num:es,cap:'PROCESS'})}
       <div class="sh-sub">Based on ${s.count} trade${s.count!==1?'s':''} · ${rangeLbl}</div>
-      ${isFocused()? `<div class="sh-extra">${metricsAll.slice(6).map(([l,v])=>
-          `<span><b>${v}</b> ${l.toLowerCase()}</span>`).join('')}</div>` : ''}
+
     </div>
     <button class="break-toggle${ui.breakOpen?' open':''}" onclick="toggleBreakdown(this)">
       ${ic('bars')}<span>Score breakdown</span><span class="bt-car">▼</span>
     </button>
-    <div class="break-body${ui.breakOpen?' open':''}${isFocused()?' axes-only':''}" id="breakBody">
+    <div class="break-body${ui.breakOpen?' open':''} axes-only" id="breakBody">
       <div class="axis-stack">${axCards}</div>
-      ${isFocused()? '' : `<div class="perf-panel">
-        <div class="panel-h" style="margin-bottom:0">
-          <div style="display:flex;gap:9px;align-items:center">
-            <div class="panel-ico" style="width:24px;height:24px;border-radius:7px">${ic('pulse')}</div>
-            <div><div class="ph-title" style="font-size:13px">Performance metrics</div>
-                 <div class="ph-sub" style="font-size:10.5px">${rangeLbl}</div></div>
-          </div>
-        </div>
-        <div class="perf-grid">${metrics}</div>
-      </div>`}
     </div>
   </div>`;
 }
@@ -4606,23 +4714,6 @@ function toggleBreakdown(btn){
 }
 /* ---------- Technicals dashboard (was "Trading Plan") ----------
    Three tabs: Setups dashboard, Trading plan (the rules), and Confluences. */
-function technicalsPanelHTML(){
-  const tab=ui.techTab||'setups';
-  const TABS=[['setups','Setups dashboard'],['plan','Trading plan'],['confluences','Confluences']];
-  const body = tab==='plan' ? techPlanHTML() : (tab==='confluences' ? techConfluencesHTML() : techSetupsHTML());
-  return `<div class="card">
-    <div class="panel-h">
-      <div style="display:flex;gap:11px;align-items:center">
-        <div class="panel-ico">${ic('book')}</div>
-        <div><div class="ph-title">Technicals dashboard</div><div class="ph-sub">Setups, rules and entry criteria</div></div>
-      </div>
-    </div>
-    <div class="rtabs tech-tabs">
-      ${TABS.map(([k,l])=>`<button class="rtab ${tab===k?'on':''}" onclick="setTechTab('${k}')">${l}</button>`).join('')}
-    </div>
-    ${body}
-  </div>`;
-}
 function setTechTab(k){ ui.techTab=k; renderDashboard(); }
 
 /* Every setup with its headline numbers; clicking one opens the full sidebar. */
@@ -4662,8 +4753,11 @@ function techPlanHTML(){
 /* Confluence list with how often each one appears in an entry. */
 function techConfluencesHTML(){
   const rows=confluenceStats(VT());
-  const tagged=VT().filter(t=>(t.confluences||[]).length).length;
-  const list=rows.map(c=>`
+  // Five is enough to see the shape of it; the rest are a click away rather
+  // than a wall of them every time the tab is opened.
+  const LIMIT=5;
+  const shown = ui.cfShowAll ? rows : rows.slice(0,LIMIT);
+  const list=shown.map(c=>`
     <div class="cf-row">
       <div class="cf-box ${c.crucial?'crucial':''}" title="${c.crucial?'Crucial':'Supporting'}">${c.crucial?'◆':'◇'}</div>
       <div class="cf-body">
@@ -4681,10 +4775,15 @@ function techConfluencesHTML(){
       </div>
       <div class="cf-wr"><div class="cf-fl">Win rate</div><div class="cf-fv">${c.wr!=null?c.wr+'%':'—'}</div></div>
     </div>`).join('');
+  const more = rows.length>LIMIT
+    ? `<div style="margin-top:10px"><button class="ghost-btn" onclick="toggleConfluenceShowAll()">${
+        ui.cfShowAll ? 'Show fewer' : 'Show all '+rows.length}</button></div>`
+    : '';
   return `<div class="cf-list">${list||'<div class="sp-none">No confluences yet. Write one on a trade, or add it here.</div>'}</div>
-    <div style="margin-top:12px"><button class="ghost-btn" onclick="addConfluenceToList()">${ic('plus')} Add a confluence</button></div>
-    <div class="tech-foot">${tagged} of ${VT().length} trades tagged with confluences</div>`;
+    ${more}
+    <div style="margin-top:12px"><button class="ghost-btn" onclick="addConfluenceToList()">${ic('plus')} Add a confluence</button></div>`;
 }
+function toggleConfluenceShowAll(){ ui.cfShowAll=!ui.cfShowAll; renderCurrentView(); }
 
 /* ---------- Setup sidebar: every metric tied to one setup ---------- */
 async function addConfluenceToList(){
@@ -4801,7 +4900,7 @@ function renderDashboard(){
 
   ${analyticsBlockHTML(s, rangeLabel(ps,pe))}
 
-  <div class="bento b-cal${isFocused()?' b-cal-only':''}">
+  <div class="bento b-cal b-cal-only">
     <div class="card">
       <div class="cal-head">
         <div class="cal-nav">
@@ -4821,27 +4920,11 @@ function renderDashboard(){
       <div class="cal-grid">${calCells()}</div>
       ${calLegendHTML()}
     </div>
-    ${isFocused()? '' : mistakePanelHTML(s.list)}
   </div>
 
   ${scoreRingPanelHTML(es, axes, s, rangeLabel(ps,pe))}
 
-  ${isFocused()? '' : `
-  <div class="bento b-bottom">
-    <div class="card">
-      <div class="rt-head">
-        <div class="panel-title" style="margin:0">Trades &amp; notes</div>
-        <span class="link" onclick="switchView('journal')">View all →</span>
-      </div>
-      ${tradesTable(s.list.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,8), false)}
-    </div>
-    ${technicalsPanelHTML()}
-  </div>
-
-  <div class="section-label">Performance breakdown · ${rangeLabel(ps,pe)}</div>
-  ${breakdownHTML(s)}`}
-
-  ${layoutSwitchHTML()}
+  ${mistakePanelHTML(s.list)}
   `;
   document.getElementById('viewRoot').innerHTML=html;
   animateCounts();
@@ -4905,18 +4988,15 @@ function weekSummaryCell(byDay,firstDay,daysInMonth){
     pnl+=info.pnl; w+=info.w; l+=info.l; n+=info.list.length; list=list.concat(info.list);
   }
   if(from==null) return '<div class="cal-week empty"></div>';
-  const label=MONTHS_SH[ui.calM]+' '+from+'–'+to;
-  // Any week opens its report; one is created on the spot if it does not exist.
+  // The month is in the header two inches above; repeating it in every week row
+  // was noise. The week carries its result, its process score, and the way in.
   const open=`onclick="openWeekReport(${ui.calY},${ui.calM},${from})"`;
-  if(!n) return `<div class="cal-week clickable" ${open}><div class="cw-range">${label} ›</div><div class="cw-none">No trades</div></div>`;
-  const wr = (w+l) ? Math.round(w/(w+l)*100) : 0;
+  if(!n) return `<div class="cal-week clickable" ${open}><div class="cw-none">No trades</div></div>`;
   const psych = disciplineStats(list);
   return `<div class="cal-week clickable" ${open}>
-    <div class="cw-range">${label} ›</div>
-    <div class="cw-row"><span>P&amp;L</span><b class="${pnlClass(pnl)}">${disp(pnl)}</b></div>
-    <div class="cw-row"><span>Win rate</span><b>${wr}%</b></div>
-    <div class="cw-row"><span>Trades</span><b>${n}</b></div>
+    <div class="cw-pnl ${pnlClass(pnl)}">${disp(pnl)}</div>
     ${psych.entries?`<div class="cw-row"><span>Psych</span><b>${psych.avg}</b></div>`:''}
+    <div class="cw-full">Full breakdown ›</div>
   </div>`;
 }
 /* Legend under the grid — only the states this data model can actually produce. */
@@ -4949,38 +5029,6 @@ function openDayFromCalendar(dateStr){
   switchView('dayview');
 }
 
-function breakdownHTML(s){
-  const byDayName={};
-  s.list.forEach(t=>{const dn=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseD(t.date).getDay()]; if(!byDayName[dn])byDayName[dn]={pnl:0,c:0}; byDayName[dn].pnl+=mv(t); byDayName[dn].c++;});
-  const entries=Object.entries(byDayName);
-  let mostActive=entries.sort((a,b)=>b[1].c-a[1].c)[0];
-  let mostProfit=entries.slice().sort((a,b)=>b[1].pnl-a[1].pnl)[0];
-  let leastProfit=entries.slice().sort((a,b)=>a[1].pnl-b[1].pnl)[0];
-  const longs=s.list.filter(t=>t.side==='long').length, shorts=s.list.filter(t=>t.side==='short').length;
-  const longPct=s.count?Math.round(longs/s.count*100):0;
-  const best=s.list.slice().sort((a,b)=>mv(b)-mv(a))[0];
-  const worst=s.list.slice().sort((a,b)=>mv(a)-mv(b))[0];
-  const tradeLine=t=> t?((t.side==='long'?'Long':'Short')+' '+t.symbol+' · '+t.date+' · '+(t.entryType||'')+(t.timeframe?(' '+t.timeframe):'')):'—';
-  const dash='—';
-  return `
-  <div class="bd-grid">
-    <div class="card bd-card"><div class="t">Most active day</div><div class="v">${mostActive?mostActive[0]:dash}</div><div class="s">${mostActive?entries.filter(e=>e[1].c>0).length+' active days · '+s.count+' trades':''}</div></div>
-    <div class="card bd-card"><div class="t">Most profitable day</div><div class="v">${mostProfit?mostProfit[0]:dash}</div><div class="s ${mostProfit?pnlClass(mostProfit[1].pnl):''}">${mostProfit?disp(mostProfit[1].pnl):''}</div></div>
-    <div class="card bd-card"><div class="t">Least profitable day</div><div class="v">${leastProfit?leastProfit[0]:dash}</div><div class="s ${leastProfit?pnlClass(leastProfit[1].pnl):''}">${leastProfit?disp(leastProfit[1].pnl):''}</div></div>
-  </div>
-  <div class="bd-grid">
-    <div class="card bd-card"><div class="t">Total trades</div><div class="v">${s.count}</div></div>
-    <div class="card bd-card"><div class="t">Avg win / loss</div><div class="v"><span class="pos" style="font-size:18px">${disp(s.avgWin)}</span> <span style="color:var(--muted-2)">/</span> <span class="neg" style="font-size:18px">${disp(s.avgLoss)}</span></div></div>
-    <div class="card bd-card dir-card">
-      <div><div class="t">Direction</div><div class="v">${longPct}% <span style="color:var(--muted);font-weight:600">${longPct>=50?'long':'short'}</span></div><div class="s">${longs}L · ${shorts}S</div></div>
-      <div class="dir-bars"><div class="b lg" style="height:${Math.max(longs,0.2)/(Math.max(longs,shorts)||1)*100}%"></div><div class="b sh" style="height:${Math.max(shorts,0.2)/(Math.max(longs,shorts)||1)*100}%"></div></div>
-    </div>
-  </div>
-  <div class="bd-2">
-    <div class="card bd-card"><div class="t">Best trade</div><div class="v ${best?pnlClass(best.pnl):''}">${best?disp(mv(best)):dash}</div><div class="s">${tradeLine(best)}</div></div>
-    <div class="card bd-card"><div class="t">Worst trade</div><div class="v ${worst?pnlClass(worst.pnl):''}">${worst?disp(mv(worst)):dash}</div><div class="s">${tradeLine(worst)}</div></div>
-  </div>`;
-}
 
 // ---------- Journal filtering + similarity analysis ----------
 function distinctVals(arr,key){ return [...new Set(arr.map(x=>x[key]).filter(Boolean))].sort(); }
@@ -5304,13 +5352,13 @@ function analyticsBlockHTML(s,rangeLbl){
   </div>
 
   <div class="an-row">${kpi.map(tile).join('')}</div>
-  ${isFocused()? '' : `<div class="an-row an-row-2">${kpi2.map(tile).join('')}</div>`}
+
 
   <div class="bento an-charts">
     ${chartCard('Cumulative P&L','Equity curve over the period','anCum')}
-    ${chartCard('Win rate trend','Rolling win rate, 5-trade window','anWr')}
+    ${chartCard('P&L by day','Every trading day of the year, net','anDay')}
   </div>
-  ${isFocused()? '' : deepAnalysisHTML(s)}
+  ${deepAnalysisHTML(s)}
   `;
 }
 
@@ -5321,13 +5369,12 @@ function deepAnalysisHTML(s){
   return `
   <div class="bento an-charts">
     ${chartCard('P&L by symbol','Net result per instrument','anSymPnl')}
-    ${chartCard('Entries by symbol','How often each instrument is traded','anSymN')}
+    ${chartCard('Entries by symbol','Share of entries per instrument','anSymN')}
   </div>
   <div class="bento an-charts">
     ${prepChartCardHTML(s)}
     ${confluenceWrCardHTML(s)}
-  </div>
-  ${prepHabitCardHTML(s)}`;
+  </div>`;
 }
 function chartCard(title,sub,canvasId){
   return `<div class="card">
@@ -5380,31 +5427,6 @@ function confluenceWrCardHTML(s){
 }
 /* Which prep habits sit behind the better days, ranked by the P&L gap between
    days the habit was done and days it was skipped. */
-function prepHabitCardHTML(s){
-  const rows=prepHabitImpact(s.list).filter(r=>r.lift!=null).slice(0,6);
-  const max=rows.length? Math.max(...rows.map(r=>Math.abs(r.lift))) : 1;
-  const body = rows.length
-    ? rows.map(r=>`
-        <div class="ph-row">
-          <span class="phr-name">${esc(r.text)}</span>
-          <span class="phr-days">${r.onDays}d done · ${r.offDays}d skipped</span>
-          <div class="phr-track"><div class="phr-fill ${r.lift>=0?'up':'down'}"
-               style="width:${Math.round(Math.abs(r.lift)/max*100)}%"></div></div>
-          <span class="phr-lift ${pnlClass(r.lift)}">${r.lift>=0?'+':''}${disp(r.lift)}</span>
-        </div>`).join('')
-    : `<div class="an-empty">Not enough prep history to rank habits yet.<br>
-         <span>Each habit needs days where it was done and days where it was not, so the gap means something.</span></div>`;
-  return `<div class="card" style="margin-bottom:14px">
-    <div class="panel-h">
-      <div style="display:flex;gap:11px;align-items:center">
-        <div class="panel-ico">${ic('sunrise')}</div>
-        <div><div class="ph-title">Which preparation habits matter most</div>
-        <div class="ph-sub">Average day P&L when the habit was done, against when it was not</div></div>
-      </div>
-    </div>
-    <div class="ph-list">${body}</div>
-  </div>`;
-}
 
 /* ---------- Analytics charts ---------- */
 let anCharts=[];
@@ -5422,19 +5444,16 @@ function drawAnalytics(s){
   sorted.forEach(t=>{ run+=mv(t); cum.push(run); });
   mkChart('anCum','line',sorted.map(t=>fmtShort(t.date)),cum,{fill:true});
 
-  // Rolling win rate over a 5-trade window
-  const W=5, wr=[];
-  sorted.forEach((t,i)=>{
-    const w=sorted.slice(Math.max(0,i-W+1),i+1);
-    const win=w.filter(x=>(x.pnl||0)>0).length, los=w.filter(x=>(x.pnl||0)<0).length;
-    wr.push((win+los)? Math.round(win/(win+los)*100) : 0);
-  });
-  mkChart('anWr','line',sorted.map(t=>fmtShort(t.date)),wr,{pct:true});
+  // Every day that was traded, netted — the shape of the year day by day.
+  const byDay={};
+  s.list.forEach(t=>{ byDay[t.date]=(byDay[t.date]||0)+mv(t); });
+  const days=Object.keys(byDay).sort();
+  mkChart('anDay','bar',days.map(fmtShort),days.map(d=>Math.round(byDay[d]*100)/100),{});
 
-  // Symbols
+  // Symbols: the money as bars, the share of entries as a pie.
   const syms=symbolStats(s.list).slice(0,10);
   mkChart('anSymPnl','bar',syms.map(x=>x.symbol),syms.map(x=>x.net),{});
-  mkChart('anSymN','bar',syms.map(x=>x.symbol),syms.map(x=>x.n),{count:true});
+  mkChart('anSymN','doughnut',syms.map(x=>x.symbol),syms.map(x=>x.n),{count:true,legend:true});
 
   // Preparation buckets
   const p=prepVsPerformance(s.list);
@@ -5455,21 +5474,36 @@ function mkChart(id,type,labels,data,opt){
     bg.addColorStop(0, P? 'rgba(0,0,0,.18)' : 'rgba(201,195,183,.20)');
     bg.addColorStop(1,'rgba(0,0,0,0)');
   }
+  // A share-of-total chart needs a series of distinguishable slices rather than
+  // the win/loss pair, so the accent is stepped down in opacity.
+  const slice = i => P
+    ? ['#1a1a1a','#3d3d3d','#5c5c5c','#7a7a7a','#949494','#adadad','#c2c2c2','#d4d4d4','#e2e2e2','#efefef'][i%10]
+    : accentA(1 - (i%10)*0.085);
   const colors = type==='bar'
-    ? data.map(v=> P ? (v>=0?'#1a1a1a':'#b4b4b4') : (v>=0?'#C9C3B7':'#6E6A62'))
-    : line;
-  const fmt = opt.pct? (v=>v+'%') : (opt.count? (v=>v) : (v=>'$'+v));
+    ? data.map(v=> P ? (v>=0?'#1a1a1a':'#b4b4b4') : (v>=0?CHART_POS:CHART_NEG))
+    : (type==='doughnut'||type==='pie') ? data.map((_,i)=>slice(i)) : line;
+  const cur = opt.pct? (v=>v+'%') : (opt.count? (v=>v) : (v=>money(v)));
+  const fmt = cur;
+  const round = type==='doughnut'||type==='pie';
   const c=new Chart(ctx,{
     type,
     data:{labels,datasets:[{data,
-      borderColor:type==='line'?line:undefined,
-      backgroundColor: type==='bar'? colors : bg,
-      borderWidth:type==='line'?2:0, borderRadius:type==='bar'?4:0,
+      borderColor: type==='line'?line:(round?'rgba(0,0,0,.35)':undefined),
+      backgroundColor: (type==='bar'||round)? colors : bg,
+      borderWidth: type==='line'?2:(round?1.5:0), borderRadius:type==='bar'?4:0,
       fill:!!opt.fill, tension:.18, pointRadius:0}]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>String(fmt(x.raw))}}},
-      scales:{x:{grid:{display:false},ticks:{color:tick,font:{size:10},maxTicksLimit:8,autoSkip:true,maxRotation:0}},
-              y:{grid:{color:grid},ticks:{color:tick,font:{size:10},callback:fmt}}}}
+      cutout: round? '58%' : undefined,
+      plugins:{
+        legend: (round&&opt.legend)
+          ? {display:true,position:'right',labels:{color:tick,font:{size:10.5},boxWidth:9,boxHeight:9,padding:9,usePointStyle:true,pointStyle:'circle'}}
+          : {display:false},
+        tooltip:{callbacks:{label:x=> round
+          ? x.label+': '+fmt(x.raw)+' ('+Math.round(x.raw/x.dataset.data.reduce((a,b)=>a+b,0)*100)+'%)'
+          : String(fmt(x.raw))}}},
+      scales: round? {} :
+        {x:{grid:{display:false},ticks:{color:tick,font:{size:10},maxTicksLimit:8,autoSkip:true,maxRotation:0}},
+         y:{grid:{color:grid},ticks:{color:tick,font:{size:10},callback:fmt}}}}
   });
   anCharts.push(c);
 }
@@ -5725,18 +5759,14 @@ function openTradeDetail(id){
         <div class="td-sec-title">Setup quality</div>
         <div class="td-chips">${grades}</div>
         <div class="td-sec-title">Did I make a mistake?</div>
-        <div class="seg"><button class="${t.hadMistake===true?'on':''}" onclick="setHadMistake('${t.id}',true)">Yes</button><button class="${t.hadMistake===false?'on':''}" onclick="setHadMistake('${t.id}',false)">No</button></div>
-        ${t.hadMistake?`
+        <div class="seg accent"><button class="${t.hadMistake===true?'on':''}" onclick="setHadMistake('${t.id}',true)">Yes</button><button class="${t.hadMistake===false?'on':''}" onclick="setHadMistake('${t.id}',false)">No</button></div>
         <div class="td-sec-title">What was the mistake?</div>
         <div class="td-chips">${chipRow('mistakes',MISTAKE_TAGS)}</div>
-        <div class="field full" style="margin-top:10px"><label>Why did it happen?</label><input value="${esc(t.mistakeWhy||'')}" onchange="saveMistakeWhy('${t.id}',this.value)" placeholder="Short — why did it happen?"></div>
-        <div class="td-sec-title">How will I prevent it?</div>
-        ${mistakeLessonBlock(t)}
-        ` : ''}
+        ${t.hadMistake?`<div class="field full" style="margin-top:10px"><label>Why did it happen?</label><input value="${esc(t.mistakeWhy||'')}" onchange="saveMistakeWhy('${t.id}',this.value)" placeholder="Short — why did it happen?"></div>`:''}
         <div class="td-sec-title">Confluences present at entry</div>
         <div class="cfp-grid">${confluencePickerHTML(t)}</div>
-        <div class="td-sec-title">Things to focus on</div>
-        <div class="td-chips">${chipRow('focus',FOCUS_TAGS)}</div>
+        <div class="td-sec-title">Things to focus on <span class="hl-muted" style="font-weight:400;text-transform:none;letter-spacing:0">— each one shows up before you trade</span></div>
+        <div class="td-chips">${chipRow('focus',focusOptions())}</div>
         <div class="td-sec-title">Why did I take this trade? / Notes</div>
         <textarea class="td-notes" onchange="saveNotes(this)" placeholder="Setup, reason for entry, market context — what happened, what to remember…">${esc(t.notes||'')}</textarea>
       </div>
@@ -5748,22 +5778,6 @@ function openTradeDetail(id){
   document.getElementById('tradeOverlay').classList.add('show');
   (t.shots||[]).forEach(id=>loadShotInto(id));
   if(customFor){ const inp=document.querySelector('.tag-input'); if(inp)inp.focus(); }
-}
-// The mistake→prevent→reminder block always renders, whether or not the lesson exists yet —
-// mistakeLessonBlock below decides which (existing summary vs. the create form).
-function mistakeLessonBlock(t){
-  const existing = t.lessonId ? LESSONS.find(l=>l.id===t.lessonId) : null;
-  if(existing){
-    return `<div class="lesson-card">
-        <div class="lesson-head"><b>${esc(existing.problem)}</b><span class="hl-muted">${existing.occurrences}× seen</span></div>
-        <div class="lesson-reminder">${esc(existing.reminder||'—')}</div>
-      </div>
-      <div class="hl-muted" style="font-size:12px;margin-top:8px">Saved as an active lesson. <span class="link" onclick="closeTradeDetail();setJournalTab('lessons')">View in Lessons →</span></div>`;
-  }
-  return `${lessonFormHTML('trademis_',(t.mistakes||[]).join(', '),t.mistakeWhy||'')}
-      <div class="modal-actions" style="margin-top:8px;justify-content:flex-start">
-        <button class="btn primary" onclick="saveTradeLesson('${t.id}')">Save as active lesson</button>
-      </div>`;
 }
 function shotGroupHTML(group,title,ids){
   const head=`<div class="shots-head"><span class="td-sec-title" style="margin:0">${title} <span class="shots-hint">· Ctrl/⌘+V</span></span>${ids.length?`<label class="tag-add" style="cursor:pointer;display:inline-flex;align-items:center" onclick="activeShotGroup='${group}'">+ add<input type="file" accept="image/*" multiple style="display:none" onchange="handleShotFiles(this.files,'${group}')"></label>`:''}</div>`;
@@ -5838,7 +5852,12 @@ function cancelCustom(){ if(customFor!==null){ customFor=null; openTradeDetail(d
 function tagKey(e,section){
   if(e.key==='Enter'){
     const v=e.target.value.trim(); const t=trades.find(x=>x.id===detailId);
-    if(t&&v){ if(!Array.isArray(t[section]))t[section]=[]; if(!t[section].includes(v))t[section].push(v); persist(); }
+    if(t&&v){
+      if(!Array.isArray(t[section]))t[section]=[];
+      if(!t[section].includes(v))t[section].push(v);
+      if(section==='focus') ensureObservation(v);
+      persist();
+    }
     customFor=null; openTradeDetail(detailId);
   } else if(e.key==='Escape'){ customFor=null; openTradeDetail(detailId); }
 }
@@ -6035,12 +6054,14 @@ function renderJournal(){
     ['trades','Trades',trades.length],
     ['missed','Missed trades',MISSED.length],
     ['workshop','Improvement workshop',WORKSHOP.length],
-    ['lessons','Lessons',activeLessons().length]
+    ['lessons','Key observations',activeLessons().length]
   ];
   const head=`
   <div class="rtabs">
     ${TABS.map(([k,l,n])=>`<button class="rtab ${tab===k?'on':''}" onclick="setJournalTab('${k}')">${l}<span class="rt-n">(${n})</span></button>`).join('')}
     <div class="rtabs-acts">
+      ${(tab==='trades'&&trades.length)||(tab==='missed'&&MISSED.length)
+        ? `<button class="ghost-btn ${ui.filtersOpen?'on':''}" onclick="toggleFilters()">${ic('rows')} Filters${filterCount(tab)?' ('+filterCount(tab)+')':''}</button>` : ''}
       ${(tab==='trades'||tab==='missed')&&trades.length&&MISSED.length?`<button class="ghost-btn" onclick="openComparison()">${ic('bars')} Compare</button>`:''}
       ${tab==='trades'?`<button class="ghost-btn" onclick="openModal()">${ic('plus')} Log trade</button>`:''}
       ${tab==='missed'?`<button class="ghost-btn" onclick="addMissed()">${ic('plus')} Missed trade</button>`:''}
@@ -6061,7 +6082,7 @@ function renderJournal(){
     }).join('') : '';
     const table = filtered.length? `<div class="rt-wrap"><table><thead><tr><th>Date</th><th>Symbol</th><th>Why missed</th><th class="r">Est. impact</th><th class="r">Lesson</th><th class="r"></th></tr></thead><tbody>${rows}</tbody></table></div>`
       : (MISSED.length? '<div class="empty-note">No missed trades match these filters.</div>' : '<div class="empty-note">No missed trades logged. Capture the ones that got away — why you missed them becomes a lesson you\'ll see before you trade again.</div>');
-    const filterBar = MISSED.length? missedFilterBarHTML() : '';
+    const filterBar = (MISSED.length && ui.filtersOpen)? missedFilterBarHTML() : '';
     const showing = MISSED.length? `<div class="filter-count">Showing ${filtered.length} of ${MISSED.length}</div>` : '';
     const dashboard = missedMetricCardsHTML(MISSED)+(MISSED.length? missedReasonsBreakdownHTML(MISSED) : '');
     document.getElementById('viewRoot').innerHTML=
@@ -6074,7 +6095,7 @@ function renderJournal(){
   } else {
     const filtered=tradeSearch(applyTradeFilters(trades));
     const sorted=filtered.slice().sort((a,b)=>a.date<b.date?1:-1);
-    const filterBar = trades.length? tradeFilterBarHTML() : '';
+    const filterBar = (trades.length && ui.filtersOpen)? tradeFilterBarHTML() : '';
     const body = sorted.length
       ? (ui.journalView==='grid' ? tradeGridHTML(sorted) : `<div class="rt-wrap">${tradesTable(sorted,true)}</div>`)
       : (trades.length? '<div class="empty-note">No trades match this search.</div>'
@@ -6111,6 +6132,12 @@ function setJournalQ(v){
   if(ui.journalView==='grid') sorted.forEach(t=>{ const id=(t.shots||[])[0]; if(id) loadShotInto(id); });
 }
 function setJournalView(v){ if(ui.journalView===v)return; ui.journalView=v; renderJournal(); }
+function toggleFilters(){ ui.filtersOpen=!ui.filtersOpen; renderJournal(); }
+/* How many filters are actually narrowing the list, for the button's badge. */
+function filterCount(tab){
+  const f = tab==='missed' ? ui.missedFilters : ui.tradeFilters;
+  return Object.values(f||{}).filter(v=>v!=='' && v!=null).length;
+}
 function logsHeaderHTML(mode){
   if(mode==='missed') return `<div class="page-h logs-h">
     <div>
@@ -6343,6 +6370,16 @@ async function deleteMissedShot(id,sid){
 // ---------- Active Lessons (Journal tab) ----------
 let lessonEditId=null;
 function toggleLessonEdit(id){ lessonEditId=(lessonEditId===id)?null:id; renderJournal(); }
+async function addObservation(){
+  const text=(prompt('What did you notice?\n\ne.g. "when price sweeps liquidity into a 4H order block, the reaction comes within two candles or not at all"')||'').trim();
+  if(!text) return;
+  const now=Date.now();
+  LESSONS.push({id:'ls_'+now+'_'+Math.random().toString(36).slice(2,6),
+    problem:text, why:'', solution:'', reminder:text,
+    occurrences:0, active:true, source:'observation', createdAt:now, lastAt:now});
+  await saveJSON('falcon:lessons',LESSONS);
+  renderJournal();
+}
 function lessonsListHTML(){
   const active=LESSONS.filter(l=>l.active).sort((a,b)=>(b.lastAt||0)-(a.lastAt||0));
   const inactive=LESSONS.filter(l=>!l.active).sort((a,b)=>(b.lastAt||0)-(a.lastAt||0));
@@ -6362,10 +6399,10 @@ function lessonsListHTML(){
     }
     return `<div class="lesson-card">
       <div class="lesson-head">
-        <div><b>${esc(l.problem)}</b> <span class="hl-muted">· ${l.occurrences}× · ${l.source==='missed'?'missed trade':'trade mistake'}</span></div>
+        <div><b>${esc(l.problem)}</b> <span class="hl-muted">· ${l.source==='observation'?'written by you':((l.occurrences||0)+'× · '+(l.source==='missed'?'missed trade':'trade mistake'))}</span></div>
         <div class="lesson-actions">
           <button class="tag-add" onclick="toggleLessonEdit('${l.id}')">Edit</button>
-          <button class="tag-add" onclick="${l.active?`deactivateLesson('${l.id}')`:`reactivateLesson('${l.id}')`}">${l.active?'Deactivate':'Reactivate'}</button>
+          <button class="tag-add" onclick="${l.active?`deactivateLesson('${l.id}')`:`reactivateLesson('${l.id}')`}">${l.active?'Archive':'Restore'}</button>
           <button class="row-del" onclick="deleteLessonRec('${l.id}')">🗑</button>
         </div>
       </div>
@@ -6374,9 +6411,23 @@ function lessonsListHTML(){
       ${l.reminder?`<div class="lesson-reminder">${esc(l.reminder)}</div>`:''}
     </div>`;
   };
-  const activeHTML = active.length? active.map(card).join('') : '<div class="empty-note">No active lessons yet. They\'re created from missed trades and trade mistakes — once you understand why something happened, save it here.</div>';
-  const inactiveHTML = inactive.length? `<div class="section-label">Deactivated</div>${inactive.map(card).join('')}` : '';
-  return `<div class="lesson-list">${activeHTML}${inactiveHTML}</div>`;
+  const activeHTML = active.length? active.map(card).join('')
+    : '<div class="empty-note">Nothing written down yet.<br><span class="hl-muted" style="font-size:12.5px">Anything the charts keep showing you belongs here — technical or emotional.</span></div>';
+  const inactiveHTML = inactive.length? `<div class="section-label">Archived</div>${inactive.map(card).join('')}` : '';
+  return `<div class="page-h logs-h">
+      <div>
+        <div class="ph-h1">Key observations</div>
+        <div class="ph-p">What your own trades keep telling you — technical and emotional</div>
+      </div>
+      <div class="ph-side"><button class="ghost-btn" onclick="addObservation()">${ic('plus')} Write an observation</button></div>
+    </div>
+    <div class="hl-muted" style="font-size:12.5px;margin:-4px 0 16px;line-height:1.6">
+      Written in your own words, as a rule you can act on:
+      <i>&ldquo;when price sweeps liquidity into a 4H order block, the reaction comes within two candles or not at all&rdquo;</i>,
+      <i>&ldquo;I overtrade the hour after a loss&rdquo;</i>.
+      Each one shows up in Market preparation before you trade.
+    </div>
+    <div class="lesson-list">${activeHTML}${inactiveHTML}</div>`;
 }
 async function saveLessonEdit(id){
   const v=k=>{ const el=document.getElementById('le_'+k+'_'+id); return el?el.value.trim():''; };
@@ -6556,21 +6607,59 @@ function renderPlaybook(){
         </div>`;
       }).join('')
     : '<div class="empty-note">No setups yet. Add each setup in your strategy — write about it, add your plan, and paste example charts.</div>';
+  // Three things live here and they are different in kind: the rules that
+  // govern execution, the setups those rules are applied to, and the criteria
+  // a setup is judged by. One tab each rather than one long page.
+  const tab=ui.pbTab||'setups';
+  const TABS=[['plan','Trading plan'],['setups','Setups'],['confluences','Confluences']];
+  const planItems=ROUTINE.pretrade||[];
+  const planBody = planItems.length
+    ? `<div class="card" style="max-width:820px">
+         <div class="hl-muted" style="font-size:12.5px;margin-bottom:14px">
+           The rules that govern every entry — execution, risk, and when you trade.</div>
+         ${techPlanHTML()}
+         <div style="margin-top:16px"><button class="btn ghost" onclick="switchView('plan')">Edit the plan</button></div>
+       </div>`
+    : `<div class="card" style="max-width:820px;text-align:center;padding:40px 24px">
+         <div style="font-size:15px;font-weight:700;margin-bottom:8px">No trading plan yet</div>
+         <div class="hl-muted" style="font-size:12.5px;line-height:1.6;max-width:440px;margin:0 auto 20px">
+           The rules you hold yourself to before an entry — what you will trade, how much
+           you risk, what times you are at the screen, and what takes you out.</div>
+         <button class="btn primary" onclick="switchView('plan')">Create a trading plan</button>
+       </div>`;
+  const setupsBody = `
+    <div class="pb-list" style="max-width:820px">${rows}</div>
+    <div class="card" style="max-width:820px;margin-top:14px">
+      <div class="acct-add"><input id="pbName" placeholder="New setup name (e.g. Impulse Entry / IE)" style="flex:3 1 240px"><button class="btn primary" onclick="addSetup()">Add setup</button></div>
+    </div>
+    <div class="card" style="max-width:820px;margin-top:18px">
+      <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
+        <div class="panel-ico">${ic('bars')}</div>
+        <div><div class="ph-title">How each setup performs</div>
+             <div class="ph-sub">Profitability by setup type — click one for its full breakdown</div></div>
+      </div></div>
+      ${techSetupsHTML()}
+    </div>`;
+  const cfBody = `<div class="card" style="max-width:820px">
+      <div class="hl-muted" style="font-size:12.5px;margin-bottom:14px">
+        What has to be true before you take an entry, and how each one actually performs.</div>
+      ${techConfluencesHTML()}
+    </div>`;
   document.getElementById('viewRoot').innerHTML=`
   <div class="controls">
-    <div class="toggle-set"><div class="dv-head"><div class="dv-title">Playbook · setups</div>
-    <div class="dv-sub">The setups you trade, and how each one performs</div></div></div>
-    <div style="display:flex;gap:8px">
-      <button class="ghost-btn" onclick="switchView('plan')">${ic('shield')} ${(ROUTINE.pretrade||[]).length?'Trading plan':'Create trading plan'}</button>
-    </div>
+    <div class="toggle-set"><div class="dv-head"><div class="dv-title">Playbook</div>
+    <div class="dv-sub">Your plan, your setups, and the criteria you judge them by</div></div></div>
   </div>
-  <div class="pb-list" style="max-width:820px">${rows}</div>
-  <div class="card" style="max-width:820px;margin-top:14px">
-    <div class="acct-add"><input id="pbName" placeholder="New setup name (e.g. Impulse Entry / IE)" style="flex:3 1 240px"><button class="btn primary" onclick="addSetup()">Add setup</button></div>
+  <div class="rtabs tech-tabs" style="max-width:820px;margin-bottom:16px">
+    ${TABS.map(([k,l])=>`<button class="rtab ${tab===k?'on':''}" onclick="setPbTab('${k}')">${l}</button>`).join('')}
   </div>
-  ${isFocused()? `<div style="max-width:820px;margin-top:20px">${technicalsPanelHTML()}</div>` : ''}`;
-  (PLAYBOOK.find(s=>s.id===pbOpen)?(PLAYBOOK.find(s=>s.id===pbOpen).shots||[]):[]).forEach(id=>loadShotInto(id));
+  ${tab==='plan'? planBody : (tab==='confluences'? cfBody : setupsBody)}
+`;
+  if(tab==='setups'){
+    (PLAYBOOK.find(s=>s.id===pbOpen)?(PLAYBOOK.find(s=>s.id===pbOpen).shots||[]):[]).forEach(id=>loadShotInto(id));
+  }
 }
+function setPbTab(k){ ui.pbTab=k; renderPlaybook(); }
 function togglePb(id){ pbOpen = pbOpen===id? null : id; renderPlaybook(); }
 async function addSetup(){ const n=document.getElementById('pbName'); if(!n)return; const name=(n.value||'').trim(); if(!name)return; const id='pb'+Date.now()+Math.random().toString(36).slice(2,5); PLAYBOOK.push({id,name,about:'',plan:'',shots:[]}); pbOpen=id; await saveJSON('falcon:playbook',PLAYBOOK); renderPlaybook(); }
 async function removeSetup(id){
@@ -6595,9 +6684,9 @@ function reviewKey(){ const [s]=reviewBounds(); return 'W-'+ymd(s); }
 function reviewLabel(){ const [s,e]=reviewBounds(); return s.getDate()+' '+MONTHS_SH[s.getMonth()]+' – '+e.getDate()+' '+MONTHS_SH[e.getMonth()]+' '+e.getFullYear(); }
 function reviewTrades(){ const [s,e]=reviewBounds(); return trades.filter(t=>{const d=parseD(t.date);return d>=s&&d<=e;}); }
 // ---------- Patterns — recurring mistakes, brought forward instead of buried in Review ----------
-async function addDnaItem(kind,text){ text=(text||'').trim(); if(!text)return; DNA[kind]=DNA[kind]||[]; if(DNA[kind].some(x=>x.text.toLowerCase()===text.toLowerCase()))return; DNA[kind].push({id:'d'+Date.now()+Math.random().toString(36).slice(2,5),text}); await saveJSON('falcon:dna',DNA); renderPatterns(); }
+async function addDnaItem(kind,text){ text=(text||'').trim(); if(!text)return; DNA[kind]=DNA[kind]||[]; if(DNA[kind].some(x=>x.text.toLowerCase()===text.toLowerCase()))return; DNA[kind].push({id:'d'+Date.now()+Math.random().toString(36).slice(2,5),text}); await saveJSON('falcon:dna',DNA); renderCurrentView(); }
 function dnaKey(e,kind){ if(e.key!=='Enter')return; const v=e.target.value.trim(); if(!v)return; addDnaItem(kind,v); }
-async function removeDnaItem(kind,id){ DNA[kind]=(DNA[kind]||[]).filter(x=>x.id!==id); await saveJSON('falcon:dna',DNA); renderPatterns(); }
+async function removeDnaItem(kind,id){ DNA[kind]=(DNA[kind]||[]).filter(x=>x.id!==id); await saveJSON('falcon:dna',DNA); renderCurrentView(); }
 // Weaknesses are never manually entered — always the live top mistake patterns, so this
 // section can't go stale the way a self-assessment would.
 function topWeaknesses(n){
@@ -6683,51 +6772,6 @@ function behaviourScore(){
   let withFix=0;
   tags.forEach(name=>{ const nameLc=name.toLowerCase(); if(LESSONS.some(l=>l.active && (l.problem.toLowerCase().includes(nameLc)||nameLc.includes(l.problem.toLowerCase())))) withFix++; });
   return Math.round(withFix/tags.length*100);
-}
-function renderPatterns(){
-  const mc={};
-  trades.forEach(t=>(t.mistakes||[]).forEach(m=>{
-    if(!mc[m])mc[m]={n:0,lastDate:null};
-    mc[m].n++; if(!mc[m].lastDate || t.date>mc[m].lastDate) mc[m].lastDate=t.date;
-  }));
-  const now=new Date(); const cut1=addDays(now,-30), cut2=addDays(now,-60);
-  const recentCount={}, priorCount={};
-  trades.forEach(t=>{ const d=parseD(t.date); (t.mistakes||[]).forEach(m=>{
-    if(d>=cut1) recentCount[m]=(recentCount[m]||0)+1;
-    else if(d>=cut2 && d<cut1) priorCount[m]=(priorCount[m]||0)+1;
-  });});
-  const patterns=Object.entries(mc).sort((a,b)=>b[1].n-a[1].n).map(([name,v])=>{
-    const recent=recentCount[name]||0, prior=priorCount[name]||0;
-    const trend = recent>prior?'up':(recent<prior?'down':'flat');
-    const nameLc=name.toLowerCase();
-    const lesson=LESSONS.find(l=>l.active && (l.problem.toLowerCase().includes(nameLc) || nameLc.includes(l.problem.toLowerCase())));
-    return {name, n:v.n, lastDate:v.lastDate, trend, lesson};
-  });
-  const body = patterns.length ? `<div class="pattern-list">${patterns.map(p=>`
-    <div class="pattern-card">
-      <div class="pattern-head">
-        <div class="pattern-name">${esc(p.name)}</div>
-        <div class="pattern-trend trend-${p.trend}">${p.trend==='up'?'↑ increasing':(p.trend==='down'?'↓ decreasing':'→ steady')}</div>
-      </div>
-      <div class="pattern-meta">${p.n} occurrence${p.n!==1?'s':''} · last ${relativeDay(p.lastDate)}</div>
-      ${p.lesson
-        ? `<div class="pattern-fix"><span class="pattern-fix-label">Your fix</span>${esc(p.lesson.reminder||p.lesson.solution||'—')}</div>`
-        : `<button class="tag-add" onclick="openMistakeTrades('${encQ(p.name)}')">View the trades → define a fix</button>`}
-    </div>`).join('')}</div>`
-    : `<div class="empty-note">No patterns yet<br><span class="hl-muted" style="font-size:12.5px">Odyssey needs more tagged trades before it can identify your recurring behaviours.</span></div>`;
-  // In the focused layout this page is where behaviour is investigated, so the
-  // mistake dashboard and the four "why" charts live here rather than on the
-  // dashboard beside the calendar.
-  const st = isFocused()? computeStats(periodTrades()) : null;
-  document.getElementById('viewRoot').innerHTML=`
-    <div class="controls"><div class="toggle-set"><div class="dv-head"><div class="dv-title">Your patterns</div><div class="dv-sub">The behaviours that keep showing up in your trades</div></div></div></div>
-    ${dnaHTML()}
-    ${isFocused()? `<div class="section-label">Mistakes</div>${mistakePanelHTML(st.list)}` : ''}
-    <div class="section-label">Recurring patterns</div>
-    <div class="hl-muted" style="font-size:12.5px;margin-bottom:16px">Brought forward — not buried in analytics.</div>
-    ${body}
-    ${isFocused()? `<div class="section-label">What is working</div>${deepAnalysisHTML(st)}` : ''}`;
-  if(isFocused()) drawAnalytics(st);
 }
 const RV_Q=[
   ['q_potential','Did I perform at my potential? If yes, how? If not, why?'],
@@ -6843,10 +6887,7 @@ function renderReviewDetail(){
   const tradeCards = list.length
     ? list.slice().sort((a,b)=>a.date<b.date?1:-1).map(t=>{
         const mk=(t.mistakes||[]);
-        const strong=[
-          ...(t.confluences||[]).map(confluenceName),
-          ...(Number(t.setupStars)>=4 ? [t.setupStars+'/5 setup'] : [])
-        ];
+        const strong = Number(t.setupStars)>=4 ? [t.setupStars+'/5 setup'] : [];
         return `<div class="wt-card" onclick="openTradeDetail('${t.id}')">
           <div class="wt-top">
             <span class="mono wt-sym">${esc(t.symbol||'—')}</span>
@@ -6929,7 +6970,7 @@ function renderReviewDetail(){
     <div class="card">
       <div class="panel-h"><div style="display:flex;gap:11px;align-items:center">
         <div class="panel-ico">${ic('book')}</div>
-        <div><div class="ph-title">Trades taken this week</div><div class="ph-sub">Strong points and mistakes on each</div></div>
+        <div><div class="ph-title">Trades taken this week</div><div class="ph-sub">What went wrong on each</div></div>
       </div></div>
       <div class="wt-list">${tradeCards}</div>
     </div>
@@ -7210,27 +7251,26 @@ function renderSettings(){
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px">
-    <div class="panel-title">Accent colour</div>
+    <div class="panel-title">Slogan</div>
     <div class="hl-muted" style="font-size:12.5px;margin-bottom:12px">
-      The one colour the interface is built from. Changes nothing but the look.
+      Shown under your name on every page. Make it the thing you need to read.
     </div>
-    <div class="seg accent">
-      ${Object.keys(THEMES).map(k=>
-        `<button class="${THEME===k?'on':''}" onclick="setTheme('${k}')">${THEMES[k].name}</button>`).join('')}
-    </div>
+    <div class="field full"><input value="${esc(SLOGAN)}"
+      placeholder="Plan the trade, trade the plan."
+      onchange="setSlogan(this.value)"></div>
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px">
-    <div class="panel-title">Dashboard layout</div>
+    <div class="panel-title">Currency</div>
     <div class="hl-muted" style="font-size:12.5px;margin-bottom:12px">
-      Focused keeps the dashboard to what you check daily and moves the analysis
-      panels to Patterns and Playbook. Everything puts all of it back on the
-      dashboard. Only changes what is shown — your data is identical either way.
+      The currency your accounts are denominated in. Changes how every figure is
+      written — nothing is converted, because a funded account is already in one
+      currency.
     </div>
-    <div class="seg accent">
-      <button class="${isFocused()?'on':''}" onclick="setLayout('focused')">Focused</button>
-      <button class="${isFocused()?'':'on'}" onclick="setLayout('full')">Everything</button>
-    </div>
+    <div class="field full"><select onchange="setCurrencyCode(this.value)">
+      ${Object.keys(CURRENCIES).map(c=>
+        `<option value="${c}" ${CURRENCY===c?'selected':''}>${c} · ${CURRENCIES[c].sym.trim()} · ${CURRENCIES[c].name}</option>`).join('')}
+    </select></div>
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px" id="subCard">
@@ -7239,48 +7279,21 @@ function renderSettings(){
   </div>
 
   <div class="card" style="max-width:620px;margin-bottom:14px">
-    <div class="panel-title">Where your data lives</div>
-    <div id="storeFacts" class="set-rows">Checking…</div>
-  </div>
-
-  <div class="card" style="max-width:620px;margin-bottom:14px">
-    <div class="panel-title">Backup &amp; restore</div>
+    <div class="panel-title">Automatic backup</div>
     <div class="hl-muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">
-      Take a full backup before you deploy a change. The restore below reads the
-      same file back, so a backup is always recoverable.
+      The journal saves a restore point of everything by itself — when you open it
+      each day, and before anything that replaces the journal wholesale. The last
+      ${AUTO_BACKUP_KEEP} are kept, so a bad update is a click away from undone.
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn primary" onclick="exportAll(true)">Back up everything</button>
-      <button class="btn ghost" onclick="exportAll(false)">Back up without screenshots</button>
-      <button class="btn ghost" onclick="pickBackupFile()">Restore from a backup…</button>
-    </div>
-    <div id="snapRow" class="hl-muted" style="font-size:12px;margin-top:14px"></div>
-  </div>
-
-  <div class="card" style="max-width:620px;margin-bottom:14px">
-    <div class="panel-title">Screenshots</div>
-    <div id="shotUsage" class="hl-muted" style="font-size:12.5px">Checking…</div>
-    <div class="hl-muted" style="font-size:11.5px;margin-top:10px;line-height:1.6">
-      Paste straight from TradingView with <b>Ctrl/Cmd + V</b> while a trade is open,
-      or drag the file in. Captures are resized to 1920px and stored as JPEG.
-      Deleting a trade, setup or missed trade now deletes its screenshots too.
-    </div>
-    <div style="margin-top:14px"><button class="btn ghost" onclick="sweepOrphanShots()">Find orphaned screenshots</button></div>
+    <div id="autoBackupRows" class="set-rows">Checking…</div>
   </div>
 
   <div class="card" style="max-width:620px">
-    <div class="panel-title">Danger zone</div>
-    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn ghost" onclick="loadDemoData()">Load demo record</button>
-      <button class="btn ghost" style="color:var(--danger)" onclick="resetAll()">Clear all trades</button>
-    </div>
-    <div class="hl-muted" style="font-size:11.5px;margin-top:12px">
-      Both ask first and take a snapshot you can roll back.
-    </div>
+    <div class="panel-title">Account</div>
+    <div id="acctSettings" class="hl-muted" style="font-size:12.5px">Checking…</div>
   </div>`;
-  showShotUsage();
-  showStoreFacts();
-  showSnapshotRow();
+    showAutoBackups();
+  showAccountSettings();
   showSubscription();
 }
 
@@ -7363,7 +7376,6 @@ function switchView(v,label){
   else if(v==='dayview')renderDayView();
   else if(v==='accounts')renderAccounts();
   else if(v==='review')renderReview();
-  else if(v==='patterns')renderPatterns();
   else if(v==='playbook')renderPlaybook();
   else if(v==='plan')renderTradingPlan();
   else if(v==='journal')renderJournal();
@@ -7628,7 +7640,7 @@ async function loadDemoData(){
   // trader has a real record.
   if(trades.length && !confirm('Replace your '+trades.length+' real trades with the demo record?\n\n'+
       'A snapshot is taken first, and Settings can roll it back.')) return;
-  if(trades.length) await snapshotNow('before loading demo data');
+  if(trades.length){ await snapshotNow('before loading demo data'); await autoBackupNow('before loading demo data'); }
   trades=migrate(DEMO_TRADES);
   await persist();
   try{await Store.set('falcon:dataVersion',String(DATA_VERSION));}catch(e){}
@@ -7714,6 +7726,7 @@ async function importAll(file){
       'A snapshot of the current state is taken first, and Settings can roll it back.')) return;
 
   await snapshotNow('before restoring a backup');
+  await autoBackupNow('before restoring a backup');
 
   for(const [k,v] of Object.entries(payload.kv)){
     if(k.indexOf('falcon:')!==0) continue;    // never write a key outside the journal's namespace
@@ -7725,6 +7738,92 @@ async function importAll(file){
   }
   alert('Restored '+nTrades+' trades'+(shotsDone?' and '+shotsDone+' screenshots':'')+'.\n\nThe page will reload.');
   location.reload();
+}
+
+/* ---------- Automatic backup ----------
+   Restore points the trader never has to remember to take. One when the journal
+   is first opened on a day, and one before anything that replaces it wholesale.
+   The newest AUTO_BACKUP_KEEP are held; older ones fall off the end. */
+const AUTO_BACKUP_KEEP=5;
+async function autoBackupNow(reason){
+  try{
+    const kv={};
+    for(const k of await journalKeys()){
+      if(k.indexOf('falcon:shot:')===0) continue;       // images are not duplicated
+      if(k==='falcon:autobackups'||k==='falcon:snapshot') continue;
+      const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value;
+    }
+    if(!Object.keys(kv).length) return;                  // nothing worth keeping yet
+    let list=await loadJSON('falcon:autobackups',[]) || [];
+    let nTrades=0; try{ nTrades=JSON.parse(kv['falcon:trades']||'[]').length; }catch(e){}
+    list.unshift({at:new Date().toISOString(), reason:reason||'automatic', trades:nTrades, kv});
+    list=list.slice(0,AUTO_BACKUP_KEEP);
+    await saveJSON('falcon:autobackups',list);
+  }catch(e){ console.error('automatic backup failed',e); }
+}
+/* Once a day is enough: the cost is a full copy of the journal. */
+async function autoBackupOnOpen(){
+  try{
+    const list=await loadJSON('falcon:autobackups',[]) || [];
+    const last=list[0] && list[0].at ? new Date(list[0].at) : null;
+    if(last && (Date.now()-last.getTime()) < 20*60*60*1000) return;
+    await autoBackupNow('daily');
+  }catch(e){}
+}
+async function restoreAutoBackup(i){
+  const list=await loadJSON('falcon:autobackups',[]) || [];
+  const b=list[i]; if(!b) return;
+  if(!confirm('Restore the backup from '+new Date(b.at).toLocaleString()+'?\n\n'+
+              'It holds '+b.trades+' trade'+(b.trades===1?'':'s')+'.\n'+
+              'This REPLACES the journal as it is now. A backup of the current state '+
+              'is taken first, so this is itself undoable.')) return;
+  await autoBackupNow('before restoring a backup');
+  for(const [k,v] of Object.entries(b.kv)){
+    if(k.indexOf('falcon:')!==0) continue;
+    try{ await Store.set(k,v); }catch(e){ console.error('restore failed for',k,e); }
+  }
+  alert('Restored '+b.trades+' trades.\n\nThe page will reload.');
+  location.reload();
+}
+function bestWeekday(){
+  if(!trades.length) return '';
+  const by={};
+  trades.forEach(t=>{ const d=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseD(t.date).getDay()];
+    by[d]=(by[d]||0)+(t.pnl||0); });
+  const best=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
+  return (best && best[1]>0) ? best[0] : '';
+}
+function relTime(iso){
+  const ms=Date.now()-new Date(iso).getTime();
+  const m=Math.round(ms/60000);
+  if(m<1) return 'just now';
+  if(m<60) return m+' min ago';
+  const h=Math.round(m/60); if(h<24) return h+'h ago';
+  const d=Math.round(h/24); return d+' day'+(d===1?'':'s')+' ago';
+}
+async function showAutoBackups(){
+  const el=document.getElementById('autoBackupRows'); if(!el) return;
+  const list=await loadJSON('falcon:autobackups',[]) || [];
+  if(!list.length){ el.innerHTML='<div class="hl-muted" style="font-size:12.5px">No restore point yet — one is taken the next time you open the journal.</div>'; return; }
+  el.innerHTML=list.map((b,i)=>`<div class="set-row">
+      <span>${relTime(b.at)} <span class="hl-muted">· ${b.trades} trade${b.trades===1?'':'s'} · ${esc(b.reason||'')}</span></span>
+      <button class="btn ghost" style="padding:5px 12px;font-size:11.5px" onclick="restoreAutoBackup(${i})">Restore</button>
+    </div>`).join('');
+}
+async function showAccountSettings(){
+  const el=document.getElementById('acctSettings'); if(!el) return;
+  if(Store.backend==='supabase'){
+    el.innerHTML=`<div class="set-row"><span>Signed in as <b>${esc(Store.user.email||'')}</b></span></div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" onclick="pushLocal()">Upload this device's data</button>
+        <button class="btn ghost" onclick="signOut()">Sign out</button>
+      </div>`;
+  } else if(window.ODYSSEY_CONFIG&&window.ODYSSEY_CONFIG.supabaseUrl){
+    el.innerHTML=`<div class="set-row"><span>Not signed in — this journal is saved in this browser only.</span></div>
+      <div style="margin-top:14px"><button class="btn primary" onclick="openSignIn()">Sign in to sync</button></div>`;
+  } else {
+    el.innerHTML='<div class="set-row"><span>Saved in this browser.</span></div>';
+  }
 }
 
 /* ---------- Safety snapshot ----------
@@ -7797,8 +7896,11 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   if(!PROFILE.name && Store.user && Store.user.email) PROFILE.name=Store.user.email.split('@')[0];
   TRADER=PROFILE.name||'Trader';
   PAIRS=await loadJSON('falcon:symbols',[]) || [];
-  LAYOUT=await loadJSON('falcon:layout','focused') || 'focused';
-  applyTheme(await loadJSON('falcon:theme','orange') || 'orange');
+  CURRENCY=await loadJSON('falcon:currency','USD') || 'USD';
+  TOMORROW=await loadJSON('falcon:tomorrow',{forDate:'',items:[]}) || {forDate:'',items:[]};
+  SLOGAN=await loadJSON('falcon:slogan','Plan the trade, trade the plan.');
+  if(SLOGAN==null) SLOGAN='Plan the trade, trade the plan.';
+  applyTheme('orange');
 
   checklist=await loadChecklist();
   ACCOUNTS=await loadAccounts();
@@ -7853,12 +7955,14 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
     delete m.steps; delete m.prevent; delete m.why; delete m.entryInfo; delete m.exitInfo;
   });
   refreshMistakeTags();
+  await promoteTomorrowGoals();
   const anchorDate = trades.length? parseD(latestDate()) : new Date();
   ui.anchor=anchorDate; ui.calY=anchorDate.getFullYear(); ui.calM=anchorDate.getMonth();
   renderGreeting();
   renderDashboard();
   playViewAnim();
   dismissSplash();
+  autoBackupOnOpen();          // a restore point per day, without being asked
   renderReadOnlyBar();
   if(billingApplies() && !planActive() && PLAN.status!=='unknown'){
     setTimeout(showPaywall, prefersReduced()?0:1500);
