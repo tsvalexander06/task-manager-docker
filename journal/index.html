@@ -858,6 +858,16 @@
   .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}
   .switch.on{background:var(--accent)}
   .switch.on::after{transform:translateX(18px)}
+
+  .sym-row{display:flex;gap:8px;align-items:center}
+  .sym-row select{flex:1;min-width:0}
+  .sym-row .tag-add{flex:0 0 auto;white-space:nowrap}
+  .star-pick{display:flex;align-items:center;gap:4px}
+  .star-pick .sp-star{font-size:23px;line-height:1;color:#3A3A3E;cursor:pointer;
+    transition:color var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+  .star-pick .sp-star:hover{transform:scale(1.12)}
+  .star-pick .sp-star.on{color:var(--accent-bright)}
+  .star-pick .sp-note{margin-left:9px;font-size:11px;color:var(--muted-2);font-weight:600}
   .pse-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   .pse-cell{display:flex;flex-direction:column;gap:5px}
   .pse-cell span{font-size:10.5px;color:var(--muted-2)}
@@ -1836,9 +1846,10 @@
 
       <div class="field">
         <label>Symbol</label>
-        <input id="fSymbol" list="symbolList" placeholder="e.g. EURUSD" autocomplete="off"
-               oninput="this.value=this.value.toUpperCase()">
-        <datalist id="symbolList"></datalist>
+        <div class="sym-row">
+          <select id="fSymbol"></select>
+          <button type="button" class="tag-add" onclick="addSymbolPrompt()">+ add</button>
+        </div>
       </div>
       <div class="field">
         <label>Side</label>
@@ -1850,7 +1861,10 @@
 
       <div class="field">
         <label>Entry type</label>
-        <select id="fEntryType"><option>RE</option><option>RRE</option></select>
+        <div class="sym-row">
+          <select id="fEntryType"></select>
+          <button type="button" class="tag-add" onclick="addEntryTypePrompt()">+ add</button>
+        </div>
       </div>
       <div class="field">
         <label>Entry timeframe</label>
@@ -1862,8 +1876,8 @@
       </div>
 
       <div class="field">
-        <label>Risk grade</label>
-        <select id="fRiskGrade"><option>Low risk</option><option>High risk</option><option>Invalid</option></select>
+        <label>Setup quality</label>
+        <div class="star-pick" id="fSetupStars"></div>
       </div>
       <div class="field">
         <label>Win in R</label>
@@ -1874,14 +1888,6 @@
         <input type="number" id="fSLpips" step="0.1" placeholder="e.g. 18">
       </div>
 
-      <div class="field full">
-        <label>P · S · E grades</label>
-        <div class="pse-grid">
-          <div class="pse-cell"><span>Positioning</span><select id="fP"><option>A</option><option>B</option><option>C</option></select></div>
-          <div class="pse-cell"><span>Sequence</span><select id="fS"><option>A</option><option>B</option><option>C</option></select></div>
-          <div class="pse-cell"><span>Entry</span><select id="fE"><option>A</option><option>B</option><option>C</option></select></div>
-        </div>
-      </div>
 
       <div class="field full">
         <label>Accounts &amp; risk used <span style="color:var(--muted-2);font-weight:400">· P&amp;L = R × risk × size, combined</span></label>
@@ -2120,9 +2126,57 @@ function tradeDollar(t){
 let PAIRS = [];
 /* The datalist suggests what this trader has used before; typing anything new
    is allowed and joins the list on save. */
-function fillSymbolList(){
-  const dl=document.getElementById('symbolList');
-  if(dl) dl.innerHTML=PAIRS.map(p=>'<option value="'+esc(p)+'"></option>').join('');
+/* Entry types and the setup rating. Nothing is shipped: the trader names their
+   own entry types, and rates each setup out of five instead of picking from a
+   fixed risk-grade list. */
+function fillEntryTypes(keep){
+  const sel=document.getElementById('fEntryType');
+  if(!sel) return;
+  const list=[...new Set([...(keep?[keep]:[]), ...ENTRY_TYPES])];
+  sel.innerHTML = list.length
+    ? list.map(v=>'<option'+(v===keep?' selected':'')+'>'+esc(v)+'</option>').join('')
+    : '<option value="">Add an entry type…</option>';
+}
+async function addEntryTypePrompt(){
+  const v=(prompt('Add an entry type')||'').trim();
+  if(!v) return;
+  if(!ENTRY_TYPES.includes(v)){ ENTRY_TYPES.push(v); await saveJSON('falcon:entryTypes',ENTRY_TYPES); }
+  fillEntryTypes(v);
+}
+async function setTradeStars(id,n){
+  const t=trades.find(x=>x.id===id); if(!t) return;
+  t.setupStars = (Number(t.setupStars)===n) ? 0 : n;
+  await persist();
+  openTradeDetail(id);
+}
+function renderSetupStars(){
+  const el=document.getElementById('fSetupStars');
+  if(!el) return;
+  el.innerHTML=[1,2,3,4,5].map(n=>
+    `<span class="sp-star ${n<=SETUP_STARS?'on':''}" title="${n} of 5" onclick="setSetupStars(${n})">★</span>`).join('')
+    + `<span class="sp-note">${SETUP_STARS? SETUP_STARS+'/5' : 'not rated'}</span>`;
+}
+function setSetupStars(n){
+  SETUP_STARS = (SETUP_STARS===n) ? 0 : n;   // clicking the current rating clears it
+  renderSetupStars();
+  markModalDirty();
+}
+
+function fillSymbolList(keep){
+  const sel=document.getElementById('fSymbol');
+  if(!sel) return;
+  const list=[...new Set([...(keep?[keep]:[]), ...PAIRS])];
+  sel.innerHTML = list.length
+    ? list.map(p=>'<option'+(p===keep?' selected':'')+'>'+esc(p)+'</option>').join('')
+    : '<option value="">Add an instrument…</option>';
+}
+async function addSymbolPrompt(){
+  const raw=prompt('Add an instrument (or several, separated by spaces or commas)');
+  if(!raw) return;
+  const added=[];
+  raw.split(/[,\s]+/).forEach(x=>{ const v=(x||'').trim().toUpperCase(); if(v && !PAIRS.includes(v)){ added.push(v); } rememberSymbol(x); });
+  await saveJSON('falcon:symbols',PAIRS);
+  fillSymbolList(added[0]||document.getElementById('fSymbol').value);
 }
 function rememberSymbol(sym){
   sym=(sym||'').trim().toUpperCase();
@@ -2168,6 +2222,8 @@ const MISTAKE_SEVERITY_DEFAULT={
   'Post-loss / comparison-triggered activity spike':'small'
 };
 let MISTAKE_SEVERITY={...MISTAKE_SEVERITY_DEFAULT};
+let ENTRY_TYPES=[];      // the trader's own entry types; nothing is shipped
+let SETUP_STARS=0;       // 1-5 rating held while the log-trade modal is open
 let MISTAKE_CUSTOM=[];   // names the trader added
 let MISTAKE_HIDDEN=[];   // starter names the trader removed
 let MISTAKE_TAGS=Object.keys(MISTAKE_SEVERITY_DEFAULT);
@@ -2345,6 +2401,7 @@ function migrate(list){
       mistakes: Array.isArray(t.mistakes)&&t.mistakes.length ? t.mistakes : leaksFromNotes(t.notes),
       focus: Array.isArray(t.focus)? t.focus : [],
       confluences: Array.isArray(t.confluences)? t.confluences : [],
+      setupStars: Number(t.setupStars)||0,
       rating: t.rating || 0,
       hadMistake: (t.hadMistake!==undefined) ? t.hadMistake : ((Array.isArray(t.mistakes)&&t.mistakes.length)?true:null),
       mistakeWhy: t.mistakeWhy || '',
@@ -3999,9 +4056,16 @@ function ringSVG(pct, opts){
     +`</svg>`;
 }
 function gradeScore(g){ return g==='A'?100:(g==='B'?75:(g==='C'?50:null)); }
-function tradeGradeAvg(t){ const gs=[t.pGrade,t.sGrade,t.eGrade].map(gradeScore).filter(x=>x!=null); return gs.length?Math.round(gs.reduce((a,b)=>a+b,0)/gs.length):null; }
+/* Quality out of 100. The star rating is the current measure; the old P/S/E
+   grades are still read so imported and previously graded trades keep their
+   score instead of silently dropping out of every average. */
+function tradeGradeAvg(t){
+  if(t.setupStars) return Math.round(t.setupStars*20);
+  const gs=[t.pGrade,t.sGrade,t.eGrade].map(gradeScore).filter(x=>x!=null);
+  return gs.length?Math.round(gs.reduce((a,b)=>a+b,0)/gs.length):null;
+}
 // A trade counts as genuinely self-graded only if it wasn't a legacy seed row that migrate() back-filled with default 'A' grades.
-function isGraded(t){ if(SEED_IDS.has(t.id) && !SEED_GRADED_IDS.has(t.id)) return false; return tradeGradeAvg(t)!=null; }
+function isGraded(t){ if(t.setupStars) return true; if(SEED_IDS.has(t.id) && !SEED_GRADED_IDS.has(t.id)) return false; return tradeGradeAvg(t)!=null; }
 function disciplineStats(list){
   const scored=list.filter(isGraded).map(t=>({t,sc:tradeGradeAvg(t)}));
   const arr=scored.map(x=>x.sc);
@@ -5251,7 +5315,10 @@ function openTradeDetail(id){
   const accts=(t.accounts||[]);
   const acctRows=accts.length? accts.map(a=>{ const d=(t.r!=null)?(t.r*(a.risk/100)*a.size):0; return `<div class="acct-line"><span>${esc(a.name)} <span class="hl-muted">· ${a.risk}% · $${(a.size/1000)}k</span></span><b class="${pnlClass(d)}">${money(d)}</b></div>`; }).join('') : '<div class="acct-line"><span class="hl-muted">No accounts recorded</span></div>';
   const stat=(l,v,cls)=>`<div class="td-stat"><div class="l">${l}</div><div class="v ${cls||''}">${v}</div></div>`;
-  const grades=`<span class="grade-pill">P <b>${t.pGrade||'—'}</b></span><span class="grade-pill">S <b>${t.sGrade||'—'}</b></span><span class="grade-pill">E <b>${t.eGrade||'—'}</b></span>`;
+  const n=Number(t.setupStars)||0;
+  const grades=`<div class="star-pick">${[1,2,3,4,5].map(i=>
+      `<span class="sp-star ${i<=n?'on':''}" onclick="setTradeStars('${t.id}',${i})">★</span>`).join('')}
+      <span class="sp-note">${n? n+'/5' : 'not rated'}</span></div>`;
   const chipRow=(section,presets)=>{
     const sel=t[section]||[];
     const preset=presets.map(tag=>`<span class="tag-chip ${sel.includes(tag)?('on-'+ (section==='mistakes'?'mistake':'focus')):''}" onclick="toggleTag('${section}','${encQ(tag)}')">${esc(tag)}</span>`).join('');
@@ -5286,7 +5353,7 @@ function openTradeDetail(id){
         </div>
         <div class="td-sec-title">Accounts &amp; P&L</div>
         <div class="acct-breakdown">${acctRows}</div>
-        <div class="td-sec-title">P · S · E grades</div>
+        <div class="td-sec-title">Setup quality</div>
         <div class="td-chips">${grades}</div>
         <div class="td-sec-title">Trade rating</div>
         <div class="stars">${stars}</div>
@@ -6365,8 +6432,7 @@ function renderReviewDetail(){
         const mk=(t.mistakes||[]);
         const strong=[
           ...(t.confluences||[]).map(confluenceName),
-          ...[['pGrade','Positioning'],['sGrade','Sequence'],['eGrade','Entry']]
-             .filter(([g])=>t[g]==='A').map(([,l])=>l+' A')
+          ...(Number(t.setupStars)>=4 ? [t.setupStars+'/5 setup'] : [])
         ];
         return `<div class="wt-card" onclick="openTradeDetail('${t.id}')">
           <div class="wt-top">
@@ -6880,24 +6946,48 @@ function dtToggle(key){
 function dtRenderPanel(key){
   const p=DT_STATE[key]; if(!p)return;
   const panel=document.getElementById('dtPanel-'+key); if(!panel)return;
-  const first=new Date(p.y,p.mo-1,1); const startDow=first.getDay(); const dim=new Date(p.y,p.mo,0).getDate();
-  const dows=['S','M','T','W','T','F','S'];
-  let cells=dows.map(d=>`<div class="dtp-dow">${d}</div>`).join('');
-  const total=Math.ceil((startDow+dim)/7)*7;
-  for(let i=0;i<total;i++){
-    const dn=i-startDow+1;
-    if(dn<1||dn>dim){ cells+='<div class="dtp-cell empty"></div>'; continue; }
-    cells+=`<div class="dtp-cell ${dn===p.d?'sel':''}" onclick="dtSelectDay('${key}',${dn})">${dn}</div>`;
+
+  // A click inside the panel re-renders it, which detaches the clicked node.
+  // The document-level "click outside closes me" handler then sees a target
+  // that is no longer in the panel and shuts it. Stopping propagation here is
+  // what keeps the arrows and the month grid from closing the field.
+  panel.onclick = e => e.stopPropagation();
+
+  let body;
+  if(p.view==='months'){
+    const months=MONTHS_SH.map((m,idx)=>
+      `<div class="dtp-mcell ${idx===p.mo-1?'sel':''}" onclick="dtPickMonth('${key}',${idx+1})">${m}</div>`).join('');
+    body=`
+      <div class="dtp-head">
+        <button type="button" class="rbtn" onclick="dtNudgeYear('${key}',-1)">‹</button>
+        <button type="button" class="dtp-title" onclick="dtSetView('${key}','days')">${p.y}</button>
+        <button type="button" class="rbtn" onclick="dtNudgeYear('${key}',1)">›</button>
+      </div>
+      <div class="dtp-months">${months}</div>`;
+  } else {
+    const first=new Date(p.y,p.mo-1,1); const startDow=first.getDay(); const dim=new Date(p.y,p.mo,0).getDate();
+    const dows=['S','M','T','W','T','F','S'];
+    let cells=dows.map(d=>`<div class="dtp-dow">${d}</div>`).join('');
+    const total=Math.ceil((startDow+dim)/7)*7;
+    for(let i=0;i<total;i++){
+      const dn=i-startDow+1;
+      if(dn<1||dn>dim){ cells+='<div class="dtp-cell empty"></div>'; continue; }
+      cells+=`<div class="dtp-cell ${dn===p.d?'sel':''}" onclick="dtSelectDay('${key}',${dn})">${dn}</div>`;
+    }
+    body=`
+      <div class="dtp-head">
+        <button type="button" class="rbtn" onclick="dtNudgeMonth('${key}',-1)">‹</button>
+        <button type="button" class="dtp-title" onclick="dtSetView('${key}','months')"
+                title="Pick a month">${MONTHS[p.mo-1]} ${p.y}</button>
+        <button type="button" class="rbtn" onclick="dtNudgeMonth('${key}',1)">›</button>
+      </div>
+      <div class="dtp-grid">${cells}</div>`;
   }
+
   const hourOpts=Array.from({length:24},(_,h)=>`<option value="${h}" ${h===p.h?'selected':''}>${pad2(h)}</option>`).join('');
   const minOpts=Array.from({length:60},(_,m)=>`<option value="${m}" ${m===p.mi?'selected':''}>${pad2(m)}</option>`).join('');
   panel.innerHTML=`
-    <div class="dtp-head">
-      <button type="button" class="rbtn" onclick="dtNudgeMonth('${key}',-1)">‹</button>
-      <span>${MONTHS[p.mo-1]} ${p.y}</span>
-      <button type="button" class="rbtn" onclick="dtNudgeMonth('${key}',1)">›</button>
-    </div>
-    <div class="dtp-grid">${cells}</div>
+    ${body}
     <div class="dtp-time">
       <span class="dtp-time-label">Time <span class="hl-muted">· 24h</span></span>
       <div class="dtp-time-row">
@@ -6911,6 +7001,13 @@ function dtRenderPanel(key){
       <button type="button" class="btn primary" onclick="dtDone('${key}')">Done</button>
     </div>`;
 }
+function dtSetView(key,v){ DT_STATE[key].view=v; dtRenderPanel(key); }
+function dtPickMonth(key,mo){
+  const p=DT_STATE[key]; p.mo=mo; p.view='days';
+  const dim=new Date(p.y,p.mo,0).getDate(); if(p.d>dim) p.d=dim;
+  dtRenderPanel(key); dtCommitLive(key);
+}
+function dtNudgeYear(key,dir){ DT_STATE[key].y+=dir; dtRenderPanel(key); }
 function dtNudgeMonth(key,dir){ const p=DT_STATE[key]; let mo=p.mo+dir,y=p.y; if(mo<1){mo=12;y--;} if(mo>12){mo=1;y++;} const dim=new Date(y,mo,0).getDate(); p.mo=mo; p.y=y; if(p.d>dim)p.d=dim; dtRenderPanel(key); }
 function dtSelectDay(key,d){ DT_STATE[key].d=d; dtRenderPanel(key); dtCommitLive(key); }
 function dtSetHour(key,h){ DT_STATE[key].h=parseInt(h,10); dtCommitLive(key); }
@@ -6928,14 +7025,12 @@ function openModal(){
   document.getElementById('modalTitle').textContent='Log trade';
   const nowLocal=toLocalInput(new Date());
   dtSetValue('entry',nowLocal); dtSetValue('close',nowLocal);
-  fillSymbolList();
-  document.getElementById('fSymbol').value='';
-  document.getElementById('fEntryType').value='RRE';
+  fillSymbolList(PAIRS[0]||'');
+  fillEntryTypes(ENTRY_TYPES[0]||'');
   document.getElementById('fTimeframe').value='15m';
   document.getElementById('fSetup').innerHTML=setupOptions(PLAYBOOK[0]?PLAYBOOK[0].name:'');
-  document.getElementById('fRiskGrade').value='Low risk';
+  SETUP_STARS=0; renderSetupStars();
   document.getElementById('fSLpips').value='';
-  document.getElementById('fP').value='A'; document.getElementById('fS').value='A'; document.getElementById('fE').value='A';
   document.getElementById('fR').value='';
   document.getElementById('fNotes').value='';
   buildAcctRows(ACCOUNTS.map(a=>({id:a.id, risk:0.5})));
@@ -6969,12 +7064,11 @@ function editTrade(id){
   editingId=id;
   document.getElementById('modalTitle').textContent='Edit trade';
   dtSetValue('entry',t.entryAt||''); dtSetValue('close',t.closeAt||'');
-  fillSymbolList();
-  document.getElementById('fSymbol').value=t.symbol||'';
-  document.getElementById('fEntryType').value=t.entryType||'RE';
+  fillSymbolList(t.symbol||'');
+  fillEntryTypes(t.entryType||'');
   document.getElementById('fTimeframe').value=t.timeframe||'15m';
   document.getElementById('fSetup').innerHTML=setupOptions(t.setup||'');
-  document.getElementById('fRiskGrade').value=t.riskGrade||'Low risk';
+  SETUP_STARS=Number(t.setupStars)||0; renderSetupStars();
   document.getElementById('fSLpips').value=t.slPips??'';
   document.getElementById('fP').value=t.pGrade||'A';
   document.getElementById('fS').value=t.sGrade||'A';
@@ -7024,7 +7118,7 @@ async function saveTrade(){
     pGrade:document.getElementById('fP').value,
     sGrade:document.getElementById('fS').value,
     eGrade:document.getElementById('fE').value,
-    riskGrade:document.getElementById('fRiskGrade').value,
+    setupStars:SETUP_STARS,
     slPips: (function(){ const v=parseFloat(document.getElementById('fSLpips').value); return isNaN(v)?null:v; })(),
     r:rVal, accounts, pnl,
     forecast:modalForecast,
@@ -7252,6 +7346,7 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
   LESSONS.forEach(l=>{ if(l.active===undefined)l.active=true; if(l.occurrences==null)l.occurrences=1; if(l.why===undefined)l.why=''; if(l.solution===undefined)l.solution=''; if(l.reminder===undefined)l.reminder=''; if(!l.createdAt)l.createdAt=Date.now(); if(!l.lastAt)l.lastAt=l.createdAt; });
   const rd=await loadJSON('falcon:routineDef',null); if(rd&&rd.morning&&rd.pretrade) ROUTINE=rd;
   MISTAKE_SEVERITY=Object.assign({...MISTAKE_SEVERITY_DEFAULT}, await loadJSON('falcon:mistakeSeverity',{}));
+  ENTRY_TYPES=await loadJSON('falcon:entryTypes',[]) || [];
   MISTAKE_CUSTOM=await loadJSON('falcon:mistakeTags',[]) || [];
   MISTAKE_HIDDEN=await loadJSON('falcon:mistakeHidden',[]) || [];
   MISSED_REASONS=await loadJSON('falcon:missedReasons',null) || MISSED_REASONS_DEFAULT.slice();
