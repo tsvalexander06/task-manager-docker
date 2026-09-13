@@ -9,3 +9,6 @@ undefined/
 *.png
 !docs/**/*.png
 dist/
+
+# intermediate build product of test-data/generate.py
+test-data/parts.json

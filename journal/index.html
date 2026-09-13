@@ -2546,7 +2546,12 @@ function rangeLabel(ps,pe){
 }
 
 // ---------- Formatting ----------
-function money(n){ const s=n<0?'-':''; return s+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+// Whole amounts print clean; anything with cents prints both of them. One
+// decimal on a money figure ("$23,887.5") reads as a typo.
+function money(n){
+  const s=n<0?'-':'', a=Math.abs(n), cents=Math.round(a*100)%100!==0;
+  return s+'$'+a.toLocaleString('en-US',{minimumFractionDigits:cents?2:0,maximumFractionDigits:2});
+}
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // encodeURIComponent deliberately leaves ' unescaped, which breaks a single-quoted onclick="fn('...')"
 // JS string whenever the value itself contains an apostrophe (e.g. "Didn't see the setup").
