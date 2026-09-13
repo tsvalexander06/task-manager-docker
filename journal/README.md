@@ -6,6 +6,9 @@
 > **Putting it online for the first time?** **[DEPLOY.md](DEPLOY.md)** covers the
 > same ground in more detail.
 >
+> **Shipping a change?** **[REDEPLOY.md](REDEPLOY.md)** — how to deploy without
+> losing anything, and what to check afterwards.
+>
 > **Charging for it?** **[BILLING.md](BILLING.md)** sets up the subscription —
 > one plan, everything in it, gated in the database rather than the browser.
 >

@@ -7389,9 +7389,6 @@ function editTrade(id){
   document.getElementById('fSetup').innerHTML=setupOptions(t.setup||'');
   SETUP_STARS=Number(t.setupStars)||0; renderSetupStars();
   document.getElementById('fSLpips').value=t.slPips??'';
-  document.getElementById('fP').value=t.pGrade||'A';
-  document.getElementById('fS').value=t.sGrade||'A';
-  document.getElementById('fE').value=t.eGrade||'A';
   document.getElementById('fR').value=t.r??'';
   document.getElementById('fNotes').value=t.notes||'';
   buildAcctRows((t.accounts||[]).map(a=>({id:a.id, risk:a.risk})));
@@ -7424,7 +7421,13 @@ async function saveTrade(){
   const date=((closeAt||entryAt||'').split('T')[0]) || ymd(new Date());
   const r=parseFloat(document.getElementById('fR').value); const rVal=isNaN(r)?null:r;
   const accounts=readAccounts();
-  const pnl = (rVal!=null && accounts.length)? Math.round(accounts.reduce((s,a)=>s+(rVal*(a.risk/100)*a.size),0)*100)/100 : 0;
+  // P&L comes from the linked accounts. With none linked there is nothing to
+  // compute from, so an existing figure is kept rather than zeroed — editing an
+  // imported trade should not silently wipe what it made.
+  const prevTrade = editingId ? trades.find(x=>x.id===editingId) : null;
+  const pnl = (rVal!=null && accounts.length)
+    ? Math.round(accounts.reduce((s,a)=>s+(rVal*(a.risk/100)*a.size),0)*100)/100
+    : (prevTrade ? (prevTrade.pnl ?? 0) : 0);
   const t={
     id: editingId||('t'+Date.now()),
     entryAt, closeAt, date,
@@ -7434,16 +7437,15 @@ async function saveTrade(){
     entryType:document.getElementById('fEntryType').value,
     timeframe:document.getElementById('fTimeframe').value,
     setup:document.getElementById('fSetup').value,
-    pGrade:document.getElementById('fP').value,
-    sGrade:document.getElementById('fS').value,
-    eGrade:document.getElementById('fE').value,
     setupStars:SETUP_STARS,
     slPips: (function(){ const v=parseFloat(document.getElementById('fSLpips').value); return isNaN(v)?null:v; })(),
     r:rVal, accounts, pnl,
     forecast:modalForecast,
     notes:document.getElementById('fNotes').value.trim()
   };
-  if(editingId){ const prev=trades.find(x=>x.id===editingId)||{}; t.mistakes=prev.mistakes||[]; t.focus=prev.focus||[]; t.confluences=prev.confluences||[]; t.rating=prev.rating||0; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
+  if(editingId){ const prev=trades.find(x=>x.id===editingId)||{}; t.mistakes=prev.mistakes||[]; t.focus=prev.focus||[]; t.confluences=prev.confluences||[];
+    // Grades from before the star rating are carried through, not dropped.
+    t.pGrade=prev.pGrade||''; t.sGrade=prev.sGrade||''; t.eGrade=prev.eGrade||''; t.rating=prev.rating||0; t.shots=prev.shots||[]; t.hadMistake=(prev.hadMistake!==undefined)?prev.hadMistake:null; t.mistakeWhy=prev.mistakeWhy||''; t.lessonId=prev.lessonId||null; const i=trades.findIndex(x=>x.id===editingId); trades[i]=t; }
   else { t.mistakes=[]; t.focus=[]; t.confluences=[]; t.rating=0; t.shots=[]; t.hadMistake=null; t.mistakeWhy=''; t.lessonId=null; trades.push(t); }
   const wasEditing=!!editingId;
   const btn=document.getElementById('saveBtn'); if(btn) btn.classList.add('is-loading');
