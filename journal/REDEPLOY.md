@@ -11,7 +11,8 @@ quite the whole story.
 
 ## The 60-second version
 
-1. **Settings → Back up everything.** Save the file somewhere you'll find it.
+1. **Check Settings → Automatic backup** shows a recent restore point. The
+   journal takes one within a minute of every change, so there should be.
 2. Push your change. Netlify rebuilds on its own.
 3. Reload the site with **Ctrl/Cmd + Shift + R**.
 4. Check Settings still says **Synced**.
@@ -71,7 +72,8 @@ and then wonder where everything went.
 
 ## Deploying a change, step by step
 
-1. **Back up.** Settings → Back up everything. Keep the last few files.
+1. **Check the restore points.** Settings → Automatic backup. Twelve are kept,
+   thinned so they cover this afternoon and last week.
 2. **Push to the branch Netlify watches** (`claude/trading-journal-ui-xta92v`).
    Netlify starts the build automatically.
 3. **Watch the deploy log.** You want to see:
@@ -132,9 +134,10 @@ Work down this list. It's almost always the first item.
 3. **Check the data, not the screen.** Supabase → Table editor → `journal_kv`.
    Your trades are the row with key `falcon:trades`. If that row is there, your
    data is fine and the problem is display only.
-4. **Settings → Roll back** restores the automatic snapshot the journal takes
-   before anything that replaces its contents.
-5. **Settings → Restore from a backup** puts back the file from step 1.
+4. **Settings → Automatic backup → Restore** rolls the journal back to any of
+   the kept restore points.
+5. **Settings → Restore from a file…** reads a journal file back in, if you
+   have one from elsewhere.
 
 ---
 

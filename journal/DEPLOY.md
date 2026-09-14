@@ -165,8 +165,11 @@ touch your trades — they are rows in Supabase. Deploy as often as you like.
 
 ### Back up anyway, before each deploy
 
-**Settings → Back up everything** writes one file with your journal and your
-screenshots in it. **Restore from a backup** reads it back. Keep the last few.
+**Settings → Automatic backup** lists the restore points the journal takes by
+itself, and **Restore from a file…** beside them reads a journal file back. The
+restore points hold your journal and your
+screenshots. **Restore from a file…** reads a journal file back in, and a file
+dropped anywhere on the page does the same.
 
 The one thing a backup protects against that Supabase does not: a change to how
 the journal reads its own data. That is the only way a deploy could hurt you,
@@ -178,7 +181,7 @@ and a backup makes it recoverable.
    you are signed out — sign in again, nothing is lost.
 2. If a number looks wrong, hard-refresh (Ctrl/Cmd + Shift + R) to make sure
    you are not on a cached page.
-3. If data really is missing, **Settings → Roll back** restores the automatic
+3. If data really is missing, **Settings → Automatic backup → Restore** rolls back to the
    snapshot, or restore your last backup file.
 
 ### The trap: one journal per origin
@@ -217,4 +220,4 @@ real URL.
 | Published folder | `journal/dist` |
 | Env vars | `SUPABASE_URL`, `SUPABASE_ANON_KEY` |
 | Schema to run | `journal/supabase/schema.sql` |
-| Backup | Settings → Back up everything |
+| Backup | Automatic — Settings → Automatic backup lists the restore points |

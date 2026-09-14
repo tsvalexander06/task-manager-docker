@@ -145,8 +145,10 @@ worrying about it.
 
 ## 7. Before you change anything
 
-**Settings → Back up everything.** One file, journal and screenshots included.
-**Restore from a backup** reads it back. Take one before each deploy until you
+**Settings → Automatic backup.** The journal keeps its own restore points — one
+within a minute of every change — and each restores in a click.
+**Restore from a file…** beside them reads a journal file back in. Check one is
+recent before each deploy until you
 trust the flow.
 
 Your data is not affected by deploys — code and data are completely separate —
@@ -177,4 +179,4 @@ is not real.
 | Env vars now | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_PRICE_DISPLAY` |
 | Schema | `journal/supabase/schema.sql` |
 | Unlock yourself | `journal/supabase/grant-access.sql` |
-| Backup | Settings → Back up everything |
+| Backup | Automatic — Settings → Automatic backup |

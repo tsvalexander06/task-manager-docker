@@ -729,6 +729,7 @@
   .amr-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .amr-avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;letter-spacing:.02em;background:var(--panel-2);border:1.5px solid var(--border);flex:0 0 auto}
   .amr-avatar.ph-funded{background:var(--green-soft);border-color:var(--green-line);color:var(--green)}
+  .amr-avatar.ph-personal{background:rgba(var(--accent-rgb),.16);border-color:var(--accent-line);color:var(--accent-bright)}
   .amr-avatar.ph-two{background:rgba(var(--accent-rgb),.15);border-color:rgba(var(--accent-rgb),.4);color:var(--amber)}
   .amr-avatar.ph-one{background:var(--panel-2);border-color:var(--border);color:var(--muted)}
   .amr-name{display:flex;flex-direction:column;gap:4px;min-width:120px}
@@ -744,6 +745,7 @@
   .ph-one{background:#2A2A2D;color:var(--muted)}
   .ph-two{background:rgba(var(--accent-rgb),.15);color:var(--amber)}
   .ph-funded{background:var(--green-soft);color:var(--green)}
+  .ph-personal{background:rgba(var(--accent-rgb),.16);color:var(--accent-bright)}
   /* Targets & Rules — per-account section beneath the row, shown only when set */
   .tr-panel{margin-top:12px;padding-top:14px;border-top:1px solid var(--border-soft)}
   .tr-head{font-size:10.5px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;font-weight:700}
@@ -2731,12 +2733,15 @@ function toast(msg,type){
 
 // ---- Account filter (All / Live-funded / Challenges / a specific account) ----
 function acctPhase(a){ if(a.phase) return a.phase; const r=ACCOUNTS.find(x=>x.id===a.id); return r?r.phase:'Phase 1'; }
+/* Live money: a funded prop account, or your own. Everything else is a
+   challenge, where the P&L is a score rather than a balance. */
+function isLive(phase){ return phase==='Funded' || phase==='Personal'; }
 function acctMatch(a){
   const f=ui.acctFilter;
   if(f==='all') return true;
   const ph=acctPhase(a);
-  if(f==='live') return ph==='Funded';
-  if(f==='challenge') return ph!=='Funded';
+  if(f==='live') return isLive(ph);
+  if(f==='challenge') return !isLive(ph);
   return a.id===f;
 }
 function tradeIncluded(t){ if(ui.acctFilter==='all') return true; return Array.isArray(t.accounts) && t.accounts.some(acctMatch); }
@@ -2748,13 +2753,13 @@ function tradePnlFiltered(t){
 function VT(){ return ui.acctFilter==='all' ? trades : trades.filter(tradeIncluded); }
 function acctFilterOptions(){
   let o=`<option value="all" ${ui.acctFilter==='all'?'selected':''}>All accounts</option>`;
-  if(ACCOUNTS.some(a=>a.phase==='Funded')) o+=`<option value="live" ${ui.acctFilter==='live'?'selected':''}>Live · funded</option>`;
-  if(ACCOUNTS.some(a=>a.phase!=='Funded')) o+=`<option value="challenge" ${ui.acctFilter==='challenge'?'selected':''}>Challenges · in phase</option>`;
+  if(ACCOUNTS.some(a=>isLive(a.phase))) o+=`<option value="live" ${ui.acctFilter==='live'?'selected':''}>Live · real money</option>`;
+  if(ACCOUNTS.some(a=>!isLive(a.phase))) o+=`<option value="challenge" ${ui.acctFilter==='challenge'?'selected':''}>Challenges · in phase</option>`;
   ACCOUNTS.forEach(a=>{ o+=`<option value="${a.id}" ${ui.acctFilter===a.id?'selected':''}>${esc(a.name)}</option>`; });
   return o;
 }
 function acctFilterHTML(){ return ACCOUNTS.length ? `<select class="acct-filter" onchange="setAcctFilter(this.value)">${acctFilterOptions()}</select>` : ''; }
-function setAcctFilter(v){ const changed=ui.acctFilter!==v; ui.acctFilter=v; if(currentView==='dayview')renderDayView(); else renderDashboard(); if(changed){ const lbl=v==='all'?'All accounts':(v==='live'?'Live · funded':(v==='challenge'?'Challenges':((ACCOUNTS.find(a=>a.id===v)||{}).name||'account'))); toast('Switched to '+lbl,'info'); } }
+function setAcctFilter(v){ const changed=ui.acctFilter!==v; ui.acctFilter=v; if(currentView==='dayview')renderDayView(); else renderDashboard(); if(changed){ const lbl=v==='all'?'All accounts':(v==='live'?'Live · real money':(v==='challenge'?'Challenges':((ACCOUNTS.find(a=>a.id===v)||{}).name||'account'))); toast('Switched to '+lbl,'info'); } }
 
 // ---------- Filtering by active period ----------
 function periodBounds(){
@@ -7039,7 +7044,7 @@ function saveReviewField(field,val){ const k=reviewKey(); REVIEWS[k]=REVIEWS[k]|
 function reviewItemKey(e,kind){ if(e.key!=='Enter')return; const v=e.target.value.trim(); if(!v)return; const k=reviewKey(); REVIEWS[k]=REVIEWS[k]||{}; REVIEWS[k][kind]=REVIEWS[k][kind]||[]; REVIEWS[k][kind].push(v); saveJSON('falcon:reviews',REVIEWS); renderReviewDetail(); }
 function removeReviewItem(kind,i){ const k=reviewKey(); if(!REVIEWS[k]||!REVIEWS[k][kind])return; REVIEWS[k][kind].splice(i,1); saveJSON('falcon:reviews',REVIEWS); renderReviewDetail(); }
 // ---------- Account Hub ----------
-function phaseClass(p){ return p==='Funded'?'ph-funded':(p==='Phase 2'?'ph-two':'ph-one'); }
+function phaseClass(p){ return p==='Personal'?'ph-personal':(p==='Funded'?'ph-funded':(p==='Phase 2'?'ph-two':'ph-one')); }
 function accountStats(accId){
   let pnl=0, r=0, n=0, w=0, l=0;
   trades.forEach(t=>{ if(!Array.isArray(t.accounts))return; const a=t.accounts.find(x=>x.id===accId); if(!a)return;
@@ -7128,14 +7133,14 @@ function renderTargetsRules(a){
   </div>`;
 }
 function renderAccounts(){
-  const liveAccts=ACCOUNTS.filter(a=>a.phase==='Funded'), chalAccts=ACCOUNTS.filter(a=>a.phase!=='Funded');
+  const liveAccts=ACCOUNTS.filter(a=>isLive(a.phase)), chalAccts=ACCOUNTS.filter(a=>!isLive(a.phase));
   const liveTot=liveAccts.reduce((s,a)=>s+accountTotal(a),0);
   const chalTot=chalAccts.reduce((s,a)=>s+accountTotal(a),0);
   const liveR=liveAccts.reduce((s,a)=>s+accountStats(a.id).r,0);
   const chalR=chalAccts.reduce((s,a)=>s+accountStats(a.id).r,0);
   const summary = ACCOUNTS.length ? `
     <div class="bd-2" style="margin-bottom:18px">
-      <div class="card bd-card"><div class="t">Actual P&L · live (funded)</div><div class="v ${pnlClass(liveTot)}">${money(liveTot)}</div><div class="s">${liveAccts.length} account${liveAccts.length!==1?'s':''} · ${(liveR>0?'+':'')+liveR.toFixed(1)}R</div></div>
+      <div class="card bd-card"><div class="t">Actual P&L · live (funded and personal)</div><div class="v ${pnlClass(liveTot)}">${money(liveTot)}</div><div class="s">${liveAccts.length} account${liveAccts.length!==1?'s':''} · ${(liveR>0?'+':'')+liveR.toFixed(1)}R</div></div>
       <div class="card bd-card"><div class="t">Challenges · in phase (no payout yet)</div><div class="v ${pnlClass(chalTot)}">${money(chalTot)}</div><div class="s">${chalAccts.length} account${chalAccts.length!==1?'s':''} · ${(chalR>0?'+':'')+chalR.toFixed(1)}R</div></div>
     </div>` : '';
   // Each account is one row: avatar, name/phase, size/balance/P&L/performance stats, actions —
@@ -7169,7 +7174,7 @@ function renderAccounts(){
       <div class="panel-title" style="margin-bottom:10px">${editing?'Edit account':'Add account'}</div>
       <div class="form-grid">
         <div class="field full"><label>Name</label><input id="accName" placeholder="e.g. Maven OMO 50K" value="${editing?esc(editing.name):''}"></div>
-        <div class="field"><label>Phase</label><select id="accPhase">${['Phase 1','Phase 2','Funded'].map(p=>`<option ${editing&&editing.phase===p?'selected':''}>${p}</option>`).join('')}</select></div>
+        <div class="field"><label>Type</label><select id="accPhase">${['Personal','Phase 1','Phase 2','Funded'].map(p=>`<option ${editing&&editing.phase===p?'selected':''}>${p}</option>`).join('')}</select></div>
         <div class="field"><label>Size $</label><input id="accSize" type="number" placeholder="50000" value="${editing&&editing.size!=null?editing.size:''}"></div>
         <div class="field full"><label>Starting P&amp;L $ <span class="hl-muted" style="font-weight:400">· snapshot at creation, never edited afterward</span></label><input id="accBasePnl" type="number" step="0.01" placeholder="0" value="${editing&&editing.basePnl!=null?editing.basePnl:''}"></div>
         ${ui.acctAddMore ? `
@@ -7213,7 +7218,7 @@ async function saveAccount(){
   const nEl=document.getElementById('accName'), sEl=document.getElementById('accSize');
   if(!nEl||!sEl)return;
   const name=(nEl.value||'').trim();
-  const phase=(document.getElementById('accPhase')||{}).value||'Phase 1';
+  const phase=(document.getElementById('accPhase')||{}).value||'Personal';
   const size=parseFloat(sEl.value);
   const basePnl=parseFloat((document.getElementById('accBasePnl')||{}).value)||0;
   const objective=((document.getElementById('accObjective')||{}).value||'').trim();

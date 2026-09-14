@@ -12,8 +12,8 @@
 > **Charging for it?** **[BILLING.md](BILLING.md)** sets up the subscription —
 > one plan, everything in it, gated in the database rather than the browser.
 >
-> **Getting ready for customers?** **[GOING-LIVE.md](GOING-LIVE.md)** lists what
-> still needs doing, in the order that matters.
+> **Launching?** **[GOING-LIVE.md](GOING-LIVE.md)** is the runbook — domain,
+> publish, Stripe, and what still has to be true before a stranger pays you.
 
 A trading journal that runs as one static page. No build step, no framework,
 no server of its own.
@@ -141,7 +141,7 @@ read. At ~60KB each, the free storage tier holds roughly 16,000 screenshots.
 The bucket is private. The app hands out signed URLs valid for eight hours, so
 nothing is readable by guessing a path.
 
-**Settings → Screenshots** shows how many are stored and how much space they
+Screenshots are resized to 1920px JPEG on the way in, about 60KB each, and they
 take, so a trader can see the one resource they can actually run out of.
 
 ### If you need more room
