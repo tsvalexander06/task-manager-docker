@@ -1441,6 +1441,7 @@
     z-index:200;border:2px dashed var(--accent);border-radius:18px;background:rgba(var(--accent-rgb),.07);
     display:grid;place-items:center;font-size:15px;font-weight:700;color:var(--accent-bright);
     pointer-events:none}
+  .pay-guarantee{margin-top:11px;text-align:center;font-size:12px;font-weight:600;color:var(--accent-bright)}
   .pay-terms{font-size:11.5px;line-height:1.6;color:var(--muted-2);text-align:center;margin-top:14px}
   .pay-terms a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
   .pay-terms a:hover{color:var(--accent-bright)}
@@ -3528,6 +3529,7 @@ function showPaywall(){
       <button class="btn primary pay-cta" onclick="startSubscription(this)">
         ${lapsed? 'Renew subscription' : 'Subscribe'}
       </button>
+      ${lapsed? '' : '<div class="pay-guarantee">14-day money-back guarantee · cancel any time</div>'}
       <div class="pay-terms">
         Subscribing means you accept the
         <a href="/terms" target="_blank" rel="noopener">terms</a>,
