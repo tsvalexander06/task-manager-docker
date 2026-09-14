@@ -110,7 +110,7 @@ Allow a day or two for review, so do not leave this to launch morning.
 The journal works. These are the things around it that do not exist yet, in the
 order that will hurt.
 
-### Terms and a privacy policy — a hard blocker
+### Terms, privacy, refunds and a risk disclaimer — a hard blocker
 
 Stripe asks for both at a public URL as part of approval. You are also storing
 other people's financial records, which in the UK and EU means they have a legal
@@ -125,6 +125,7 @@ regulator all reach them without signing in:
 | `terms.html` | `/terms` |
 | `privacy.html` | `/privacy` |
 | `refunds.html` | `/refunds` |
+| `risk-disclaimer.html` | `/risk-disclaimer` |
 
 They are already linked from the paywall, the sign-in screen and Settings, and
 they are already published by the build.
@@ -134,7 +135,7 @@ shown on the page in an unmissable box, and **counted in the build log every
 time you deploy**:
 
 ```
-[build] LEGAL PAGES INCOMPLETE — 36 placeholders left (terms.html: 13, privacy.html: 14, refunds.html: 9)
+[build] LEGAL PAGES INCOMPLETE — 43 placeholders left (terms.html: 13, privacy.html: 14, refunds.html: 9, risk-disclaimer.html: 7)
 ```
 
 - [ ] Fill every `[[...]]` and delete the `<span class="todo">` around it.
@@ -144,6 +145,9 @@ time you deploy**:
 - [ ] Check the claims match your setup — particularly the Supabase region, your
       email provider, and whether Stripe Checkout really collects the consumer's
       agreement to start immediately.
+- [ ] The **risk disclaimer** is the one that matters most for a trading product.
+      It is what stands between you and a customer who lost money arguing the
+      journal told them to trade. Do not water it down.
 - [ ] Read them once as a customer. They are a structure to work from, not a
       finished document, and if you sell into the UK or EU have someone
       qualified look before you take a payment.

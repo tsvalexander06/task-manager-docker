@@ -17,8 +17,8 @@ const dist = path.join(root, 'dist');
 // Files that make up the deployed site. Anything not listed is not published.
 // The legal pages are deliberately plain HTML outside the app: Stripe's reviewer,
 // a lapsed customer and a regulator all have to reach them without signing in.
-const SITE_FILES = ['index.html', 'terms.html', 'privacy.html', 'refunds.html'];
-const LEGAL_FILES = ['terms.html', 'privacy.html', 'refunds.html'];
+const SITE_FILES = ['index.html', 'terms.html', 'privacy.html', 'refunds.html', 'risk-disclaimer.html'];
+const LEGAL_FILES = ['terms.html', 'privacy.html', 'refunds.html', 'risk-disclaimer.html'];
 
 const url = process.env.SUPABASE_URL || '';
 const key = process.env.SUPABASE_ANON_KEY || '';

@@ -53,6 +53,11 @@
   to = "/refunds.html"
   status = 200
 
+[[redirects]]
+  from = "/risk-disclaimer"
+  to = "/risk-disclaimer.html"
+  status = 200
+
 # Never served stale, for the same reason as index.html: a customer reading an
 # old refund policy is a dispute.
 [[headers]]
