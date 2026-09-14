@@ -35,3 +35,27 @@
   for = "/config.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# Clean URLs for the legal pages. Stripe, and anyone linking to them, gets
+# /terms rather than /terms.html.
+[[redirects]]
+  from = "/terms"
+  to = "/terms.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+[[redirects]]
+  from = "/refunds"
+  to = "/refunds.html"
+  status = 200
+
+# Never served stale, for the same reason as index.html: a customer reading an
+# old refund policy is a dispute.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

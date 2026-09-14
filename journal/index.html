@@ -1441,6 +1441,9 @@
     z-index:200;border:2px dashed var(--accent);border-radius:18px;background:rgba(var(--accent-rgb),.07);
     display:grid;place-items:center;font-size:15px;font-weight:700;color:var(--accent-bright);
     pointer-events:none}
+  .pay-terms{font-size:11.5px;line-height:1.6;color:var(--muted-2);text-align:center;margin-top:14px}
+  .pay-terms a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+  .pay-terms a:hover{color:var(--accent-bright)}
   .layout-note{margin:26px 0 8px;text-align:center;font-size:12px;color:var(--muted-2)}
   .layout-note .link{color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
   .layout-note .link:hover{color:var(--text)}
@@ -3525,6 +3528,13 @@ function showPaywall(){
       <button class="btn primary pay-cta" onclick="startSubscription(this)">
         ${lapsed? 'Renew subscription' : 'Subscribe'}
       </button>
+      <div class="pay-terms">
+        Subscribing means you accept the
+        <a href="/terms" target="_blank" rel="noopener">terms</a>,
+        <a href="/privacy" target="_blank" rel="noopener">privacy policy</a> and
+        <a href="/refunds" target="_blank" rel="noopener">refund policy</a>.
+        It renews automatically and you can cancel at any time.
+      </div>
       <div class="pay-foot">
         <button class="link-btn" onclick="hidePaywall()">Look around read-only</button>
         <span>·</span>
@@ -3578,6 +3588,11 @@ function openSignIn(){
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeMistakeList()">Cancel</button>
       <button class="btn primary" onclick="sendMagicLink()">Email me a link</button>
+    </div>
+    <div class="pay-terms" style="text-align:left;margin-top:14px">
+      By signing in you accept the
+      <a href="/terms" target="_blank" rel="noopener">terms</a> and the
+      <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>.
     </div>`;
   document.getElementById('mistakeListOverlay').classList.add('show');
   setTimeout(()=>{ const i=document.getElementById('authEmail'); if(i)i.focus(); },60);
@@ -7309,9 +7324,20 @@ function renderSettings(){
     </div>
   </div>
 
-  <div class="card" style="max-width:620px">
+  <div class="card" style="max-width:620px;margin-bottom:14px">
     <div class="panel-title">Account</div>
     <div id="acctSettings" class="hl-muted" style="font-size:12.5px">Checking…</div>
+  </div>
+
+  <div class="card" style="max-width:620px">
+    <div class="panel-title">The small print</div>
+    <div class="hl-muted" style="font-size:12.5px;line-height:1.7">
+      <a href="/terms" target="_blank" rel="noopener">Terms of service</a> ·
+      <a href="/privacy" target="_blank" rel="noopener">Privacy policy</a> ·
+      <a href="/refunds" target="_blank" rel="noopener">Refund policy</a><br>
+      Your whole journal, screenshots included, exports from the restore points above —
+      no request needed.
+    </div>
   </div>`;
     showAutoBackups();
   showAccountSettings();

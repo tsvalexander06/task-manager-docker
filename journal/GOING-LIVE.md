@@ -116,21 +116,41 @@ Stripe asks for both at a public URL as part of approval. You are also storing
 other people's financial records, which in the UK and EU means they have a legal
 right to export and deletion.
 
-The export already exists. What is missing is two pages and a link to them.
+**The pages exist and are wired up. The words are not written.** Three plain
+HTML pages sit outside the app, so a Stripe reviewer, a lapsed customer and a
+regulator all reach them without signing in:
 
-- [ ] Write **Terms of service**: what the subscription includes, that it renews
-      monthly, how to cancel, and that the journal is a record-keeping tool and
-      not financial advice. Say the last one plainly — you are selling to
-      traders.
-- [ ] Write a **Privacy policy**: what you store (email, trades, screenshots),
-      where (Supabase, in its region), who else sees it (nobody), how someone
-      exports or deletes theirs.
-- [ ] Add a **refund policy**. Even "no refunds on partial months, cancel any
-      time" is enough; the absence of one is what causes disputes.
-- [ ] Put all three somewhere reachable and link them from the paywall.
+| | |
+|---|---|
+| `terms.html` | `/terms` |
+| `privacy.html` | `/privacy` |
+| `refunds.html` | `/refunds` |
 
-Generators are fine for a first version — Stripe wants them to exist and be
-accurate, not to be beautiful. Have someone read them if you are in the EU.
+They are already linked from the paywall, the sign-in screen and Settings, and
+they are already published by the build.
+
+What is left is the content. Every unwritten piece is marked `[[LIKE THIS]]`,
+shown on the page in an unmissable box, and **counted in the build log every
+time you deploy**:
+
+```
+[build] LEGAL PAGES INCOMPLETE — 36 placeholders left (terms.html: 13, privacy.html: 14, refunds.html: 9)
+```
+
+- [ ] Fill every `[[...]]` and delete the `<span class="todo">` around it.
+- [ ] Delete the grey "this is scaffolding" box at the top of each page.
+- [ ] The refund page asks you to **pick one of three policies**. Pick one. A
+      missing refund policy is what turns a complaint into a chargeback.
+- [ ] Check the claims match your setup — particularly the Supabase region, your
+      email provider, and whether Stripe Checkout really collects the consumer's
+      agreement to start immediately.
+- [ ] Read them once as a customer. They are a structure to work from, not a
+      finished document, and if you sell into the UK or EU have someone
+      qualified look before you take a payment.
+
+The build will not stop you deploying with placeholders left — it tells you and
+lets you carry on, because they are useful to have live while you work on them.
+It is you who has to not apply to Stripe until that line reads zero.
 
 ### Email that actually sends — a hard blocker
 

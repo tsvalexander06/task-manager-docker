@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terms of service · Odyssey Journal</title>
+<meta name="description" content="Terms of service for Odyssey Journal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0B0C; --panel:#141415; --panel-2:#1A1A1C;
+    --border:#2E2E31; --border-soft:#232326;
+    --text:#EDEBE6; --muted:#9B968C; --muted-2:#767068;
+    --accent:#CB7634; --accent-bright:#EDA269;
+    --todo-bg:rgba(203,118,52,.14); --todo-line:rgba(203,118,52,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);line-height:1.65;
+    font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:15px;
+    -webkit-font-smoothing:antialiased;color-scheme:dark;padding:0 20px 80px}
+  .wrap{max-width:720px;margin:0 auto}
+  header{padding:34px 0 26px;border-bottom:1px solid var(--border-soft);margin-bottom:32px}
+  .brand{display:inline-flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.04em;
+    font-size:13px;text-decoration:none;color:var(--text)}
+  .brand .dot{color:var(--accent)}
+  .brand .sub{color:var(--muted-2);font-weight:500}
+  h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:22px 0 6px}
+  .updated{color:var(--muted-2);font-size:12.5px}
+  h2{font-size:17px;font-weight:700;margin:34px 0 10px;letter-spacing:-.01em}
+  p,li{color:var(--muted);margin-bottom:12px}
+  p strong,li strong{color:var(--text)}
+  ul,ol{padding-left:22px}
+  li{margin-bottom:7px}
+  a{color:var(--accent-bright)}
+  table{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border-soft);color:var(--muted);vertical-align:top}
+  th{color:var(--text);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  /* Anything still to be written is impossible to miss, on the page and in the
+     build log. Delete the span along with the placeholder. */
+  .todo{display:inline-block;background:var(--todo-bg);border:1px dashed var(--todo-line);
+    border-radius:6px;padding:1px 7px;color:var(--accent-bright);font-weight:700;
+    font-size:13px;font-family:ui-monospace,monospace}
+  .note{background:var(--panel-2);border:1px dashed var(--todo-line);border-radius:12px;
+    padding:16px 18px;margin:0 0 28px;font-size:13.5px;color:var(--muted)}
+  .note b{color:var(--accent-bright)}
+  footer{margin-top:54px;padding-top:22px;border-top:1px solid var(--border-soft);
+    display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted-2)}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--text)}
+  @media(max-width:520px){ h1{font-size:24px} body{font-size:14.5px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="/"><span class="dot">◆</span> ODYSSEY <span class="sub">/ journal</span></a>
+  <h1>Terms of service</h1>
+  <div class="updated">Last updated <span class="todo">[[DATE]]</span></div>
+</header>
+<div class="note">
+  <b>This is scaffolding, not legal advice.</b> Every <span class="todo">[[PLACEHOLDER]]</span>
+  is yours to fill, and the clauses are a starting structure to check against your own
+  circumstances — not a finished document. If you sell into the UK or EU, have someone
+  qualified read it before you take a payment. The build prints a warning for every
+  placeholder still left in these pages.
+</div>
+
+<h2>1. Who you are dealing with</h2>
+<p>Odyssey Journal ("the journal", "we", "us") is operated by
+<span class="todo">[[LEGAL NAME — your name, or your company and its registration number]]</span>,
+of <span class="todo">[[REGISTERED ADDRESS]]</span>, <span class="todo">[[COUNTRY]]</span>.
+You can reach us at <span class="todo">[[SUPPORT EMAIL]]</span>.</p>
+
+<h2>2. What the journal is — and is not</h2>
+<p>The journal is a record-keeping and review tool for your own trading. It stores what
+you enter, calculates statistics from it, and shows those back to you.</p>
+<p><strong>It is not financial advice, and nothing in it is a recommendation to enter,
+hold or exit any position.</strong> No figure, score or chart it produces is a
+prediction. Trading carries risk and you can lose more than you deposit. You are solely
+responsible for your own decisions and for any losses arising from them.</p>
+<p>We are not a broker, not a prop firm, not regulated as a financial services provider,
+and we hold no client money.</p>
+
+<h2>3. Your account</h2>
+<p>You need an account to use the journal. You are responsible for the email address you
+sign in with and for anything done through your account. Sign-in is by emailed link —
+keep access to that inbox secure.</p>
+<p>One account is for one person. Sharing credentials, or reselling access, ends the
+subscription without a refund.</p>
+
+<h2>4. Subscription, price and renewal</h2>
+<p>Access costs <span class="todo">[[PRICE AND PERIOD — e.g. $20 per month]]</span>,
+billed in advance and <strong>renewing automatically</strong> each period until you
+cancel. Payment is taken by Stripe; we never see or store your card details.</p>
+<p>Prices may change. We will give you at least
+<span class="todo">[[NOTICE PERIOD — e.g. 30 days]]</span> notice by email before a
+change applies to you, and you may cancel before it takes effect.</p>
+
+<h2>5. Cancelling</h2>
+<p>Cancel at any time from the billing portal inside the journal. Cancellation takes
+effect at the end of the period you have already paid for — you keep access until then,
+and you are not billed again.</p>
+<p>Refunds are covered by the <a href="/refunds">refund policy</a>, which forms part of
+these terms.</p>
+
+<h2>6. What happens if you stop paying</h2>
+<p>If a payment fails or you cancel, your journal is <strong>not deleted and not
+locked</strong>. You keep the ability to read every trade you have entered and to export
+all of it. Writing new entries stops until the subscription is active again.</p>
+<p>We hold the data of lapsed accounts for
+<span class="todo">[[RETENTION PERIOD — e.g. 12 months]]</span>, after which it may be
+deleted. We will email you before that happens.</p>
+
+<h2>7. Your content</h2>
+<p>Your trades, notes and screenshots are yours. You grant us only the permission needed
+to store and display them back to you. We do not sell them, publish them, use them to
+train anything, or share them with anyone except the infrastructure providers named in
+the <a href="/privacy">privacy policy</a>.</p>
+<p>You must not upload anything unlawful, or anything you do not have the right to
+upload.</p>
+
+<h2>8. Availability</h2>
+<p>We aim to keep the journal available, but we do not guarantee uninterrupted service.
+Maintenance, provider outages and faults happen. We are not liable for losses arising
+from the journal being unavailable — including trades you did or did not take while it
+was down.</p>
+<p>Keep your own copy of anything you cannot afford to lose. The journal takes automatic
+restore points and lets you export everything at any time.</p>
+
+<h2>9. Limits on our liability</h2>
+<p>Nothing here limits liability for death or personal injury caused by negligence, for
+fraud, or for anything else that cannot lawfully be limited.</p>
+<p>Subject to that, our total liability to you in any twelve-month period is limited to
+the amount you paid us in that period. We are not liable for trading losses, lost
+profits, or loss of data beyond restoring the most recent backup we hold.</p>
+
+<h2>10. Ending your access</h2>
+<p>We may suspend or end an account that breaches these terms, that is used to attack or
+abuse the service, or where required by law. Where we end an account without cause, we
+refund the unused part of the current period.</p>
+
+<h2>11. Changes to these terms</h2>
+<p>We may update these terms. Material changes will be emailed to you at least
+<span class="todo">[[NOTICE PERIOD]]</span> before they apply. Continuing to use the
+journal after that means you accept them.</p>
+
+<h2>12. Law and disputes</h2>
+<p>These terms are governed by the law of
+<span class="todo">[[JURISDICTION — e.g. England and Wales]]</span>, and its courts have
+exclusive jurisdiction. If you are a consumer, this does not remove rights you have
+under the law of the country you live in.</p>
+
+<footer>
+  <a href="/">The journal</a>
+  <a href="/terms">Terms of service</a>
+  <a href="/privacy">Privacy policy</a>
+  <a href="/refunds">Refunds</a>
+  <span>© <span class="todo">[[YEAR]]</span> <span class="todo">[[LEGAL NAME]]</span></span>
+</footer>
+</div>
+</body>
+</html>
