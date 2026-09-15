@@ -3561,7 +3561,7 @@ function renderReadOnlyBar(){
   if(show){
     el.innerHTML=`<span>Read-only — changes will not save.</span>
       <button class="btn primary" onclick="startSubscription(this)">Subscribe</button>
-      <button class="link-btn" onclick="exportAll(true)">Export everything</button>`;
+      <button class="link-btn" onclick="exportBundle()">Export everything</button>`;
   }
 }
 
@@ -7414,7 +7414,13 @@ async function showFileBackupRow(){
         : 'Keep it somewhere that is not this machine.'}
     </div>
     <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn ${stale?'primary':'ghost'}" onclick="exportAll(true)">Download a backup file</button>
+      <button class="btn ${stale?'primary':'ghost'}" onclick="exportBundle()">Download everything (.zip)</button>
+      <button class="btn ghost" onclick="exportAll(true)">Just the .json</button>
+    </div>
+    <div class="hl-muted" style="font-size:11.5px;margin-top:10px;line-height:1.6">
+      The zip holds the journal file, your screenshots as images, and a CSV per
+      table for Notion. Drop it back on this page to restore — it reads the zip
+      as it is.
     </div>`;
 }
 
@@ -7773,24 +7779,47 @@ async function journalKeys(){
   return keys.filter(k=>k.indexOf('falcon:')===0);
 }
 
+/* Every screenshot the journal still owns. referencedShotIds() only sees
+   today's market prep, because PREPDAY holds one day at a time — so previous
+   days' forecast charts were being left out of backups. This reads every
+   stored prep day as well. */
+async function allShotIds(){
+  const ids=referencedShotIds();
+  for(const k of await journalKeys()){
+    if(k.indexOf('falcon:prepday:')!==0) continue;
+    try{
+      const r=await Store.get(k); if(!r||!r.value) continue;
+      const d=JSON.parse(r.value);
+      [...(d.pairs||[]),...(d.eveningPairs||[])].forEach(p=>{ if(p&&p.shot) ids.add(p.shot); });
+    }catch(e){}
+  }
+  return ids;
+}
+
+/* The one payload shape importAll reads. Both the plain .json export and the
+   .zip bundle carry exactly this, so either restores the same journal. */
+async function buildBackupPayload(withShots){
+  const kv={};
+  for(const k of await journalKeys()){
+    if(k.indexOf('falcon:shot:')===0) continue;   // images travel in shots, not kv
+    try{ const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value; }catch(e){}
+  }
+  const payload={format:BACKUP_FORMAT, exportedAt:new Date().toISOString(),
+                 trader:PROFILE.name||'', counts:{trades:trades.length}, kv, shots:{}};
+  if(withShots){
+    for(const id of await allShotIds()){
+      try{ const d=await Shots.raw(id); if(d) payload.shots[id]=d; }catch(e){}
+    }
+    payload.counts.shots=Object.keys(payload.shots).length;
+  }
+  return payload;
+}
+
 async function exportAll(withShots){
   const btn=document.activeElement;
   if(btn&&btn.classList) btn.classList.add('is-loading');
   try{
-    const kv={};
-    for(const k of await journalKeys()){
-      if(k.indexOf('falcon:shot:')===0) continue;   // images travel in shots, not kv
-      try{ const v=await Store.get(k); if(v&&v.value!=null) kv[k]=v.value; }catch(e){}
-    }
-    const payload={format:BACKUP_FORMAT, exportedAt:new Date().toISOString(),
-                   trader:PROFILE.name||'', counts:{trades:trades.length}, kv, shots:{}};
-    if(withShots){
-      const ids=[...referencedShotIds()];
-      for(const id of ids){
-        try{ const d=await Shots.raw(id); if(d) payload.shots[id]=d; }catch(e){}
-      }
-      payload.counts.shots=Object.keys(payload.shots).length;
-    }
+    const payload=await buildBackupPayload(withShots);
     const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
@@ -7814,6 +7843,122 @@ const FILE_BACKUP_STALE_DAYS=7;
 
 function cloudBacked(){ return Store.backend==='supabase' || Store.backend==='artifact'; }
 
+/* ---------- ZIP ----------
+   Written by hand, stored (uncompressed), because the bundle is mostly JPEG
+   that would not compress anyway and a CDN dependency would break the offline
+   local mode. Reading handles deflate too, so a zip that has been opened and
+   re-saved by a desktop tool still imports. */
+const CRC_TABLE=(()=>{
+  const t=new Uint32Array(256);
+  for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[i]=c>>>0; }
+  return t;
+})();
+function crc32(buf){
+  let c=0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) c=CRC_TABLE[(c^buf[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+function dosTime(d){ return ((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()/2))&0xFFFF; }
+function dosDate(d){ return (((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF; }
+
+/* entries: [{name, data:Uint8Array}] -> Blob */
+function zipStore(entries){
+  const enc=new TextEncoder(), now=new Date();
+  const time=dosTime(now), date=dosDate(now);
+  const chunks=[], central=[];
+  let offset=0;
+  for(const e of entries){
+    const name=enc.encode(e.name), crc=crc32(e.data), len=e.data.length;
+    const h=new Uint8Array(30+name.length), v=new DataView(h.buffer);
+    v.setUint32(0,0x04034b50,true); v.setUint16(4,20,true);
+    v.setUint16(6,0x0800,true);            // UTF-8 names
+    v.setUint16(8,0,true);                 // stored
+    v.setUint16(10,time,true); v.setUint16(12,date,true);
+    v.setUint32(14,crc,true); v.setUint32(18,len,true); v.setUint32(22,len,true);
+    v.setUint16(26,name.length,true); v.setUint16(28,0,true);
+    h.set(name,30);
+    chunks.push(h,e.data);
+
+    const c=new Uint8Array(46+name.length), cv=new DataView(c.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true);
+    cv.setUint16(8,0x0800,true); cv.setUint16(10,0,true);
+    cv.setUint16(12,time,true); cv.setUint16(14,date,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,len,true); cv.setUint32(24,len,true);
+    cv.setUint16(28,name.length,true);
+    cv.setUint32(42,offset,true);
+    c.set(name,46);
+    central.push(c);
+    offset+=h.length+len;
+  }
+  const cdSize=central.reduce((a,b)=>a+b.length,0);
+  const end=new Uint8Array(22), ev=new DataView(end.buffer);
+  ev.setUint32(0,0x06054b50,true);
+  ev.setUint16(8,entries.length,true); ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cdSize,true); ev.setUint32(16,offset,true);
+  return new Blob([...chunks,...central,end],{type:'application/zip'});
+}
+
+/* Read a zip far enough to pull a named file out of it. Central directory
+   only — that is the authoritative index, and it survives tools that rewrite
+   the local headers. */
+async function zipRead(buffer){
+  const u=new Uint8Array(buffer), v=new DataView(buffer), dec=new TextDecoder();
+  let eocd=-1;
+  for(let i=u.length-22;i>=0 && i>u.length-65558;i--){ if(v.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error('Not a zip file');
+  const count=v.getUint16(eocd+10,true);
+  let p=v.getUint32(eocd+16,true);
+  const out=new Map();
+  for(let n=0;n<count;n++){
+    if(v.getUint32(p,true)!==0x02014b50) break;
+    const method=v.getUint16(p+10,true);
+    const csize=v.getUint32(p+20,true);
+    const nameLen=v.getUint16(p+28,true), extraLen=v.getUint16(p+30,true), cmtLen=v.getUint16(p+32,true);
+    const lho=v.getUint32(p+42,true);
+    const name=dec.decode(u.subarray(p+46,p+46+nameLen));
+    // The local header's own name/extra lengths decide where the bytes start.
+    const lNameLen=v.getUint16(lho+26,true), lExtraLen=v.getUint16(lho+28,true);
+    const start=lho+30+lNameLen+lExtraLen;
+    let data=u.subarray(start,start+csize);
+    if(method===8){
+      if(typeof DecompressionStream!=='function') throw new Error('This browser cannot read compressed zips — unzip it and import the .json');
+      const ds=new DecompressionStream('deflate-raw');
+      data=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
+    } else if(method!==0){
+      throw new Error('Unsupported compression in zip');
+    }
+    out.set(name,data);
+    p+=46+nameLen+extraLen+cmtLen;
+  }
+  return out;
+}
+
+/* ---------- CSV ---------- */
+function csvCell(v){
+  if(v==null) return '';
+  const s=String(v);
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function csvFile(header,rows){
+  return [header.map(csvCell).join(','), ...rows.map(r=>r.map(csvCell).join(','))].join('\r\n');
+}
+const yn=b=>b?'Yes':'No';
+const capitalise=s=>s? String(s).charAt(0).toUpperCase()+String(s).slice(1) : '';
+const timeOf=s=>{ const m=/T(\d{2}:\d{2})/.exec(s||''); return m? m[1] : ''; };
+function confluenceNames(ids){
+  if(!ids||!ids.length) return '';
+  return ids.map(id=>{
+    const c=(CONFLUENCES||[]).find(x=>x.id===id||x.name===id);
+    return c? c.name : id;
+  }).join(', ');
+}
+function shotFileName(id,dataUrl){
+  const m=/^data:image\/([a-z0-9+.-]+);/i.exec(dataUrl||'');
+  let ext=(m? m[1] : 'jpeg').toLowerCase();
+  if(ext==='jpeg') ext='jpg';
+  return id+'.'+ext;
+}
+
 async function lastExportAt(){
   try{ const r=await Store.get('falcon:lastExport'); return r&&r.value? new Date(r.value) : null; }
   catch(e){ return null; }
@@ -7824,17 +7969,267 @@ async function fileBackupAgeDays(){
   return (Date.now()-at.getTime())/86400000;
 }
 
+/* ---------- The bundle ----------
+   One file that answers both questions: a lossless .json that this journal can
+   restore exactly, and a set of CSVs plus real image files that Notion can
+   actually take. Notion cannot attach local images on CSV import, so the
+   screenshots ship as files and every row names the ones that belong to it. */
+function notionTables(){
+  const setupName=t=>t.setup||'';
+  const acctNames=t=>((t.accounts||[]).map(a=>a.name).filter(Boolean).join(', '));
+  const shotNames=(arr,map)=>((arr||[]).map(id=>map.get(id)).filter(Boolean).join(', '));
+  return function build(shotMap){
+    const tables={};
+
+    tables['trades.csv']=csvFile(
+      ['Trade','Date','Symbol','Side','Session','Timeframe','Setup','Confluences','Accounts',
+       'R multiple','Risk %','Setup quality','SL (pips)','In forecast','Mistake','What went wrong',
+       'Why it happened','Entry time','Exit time','Notes','P&L (journal)','Screenshots'],
+      (trades||[]).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).map(t=>[
+        [t.symbol||'', capitalise(t.side||''), setupName(t)? '— '+setupName(t):''].filter(Boolean).join(' ').trim() || 'Trade',
+        t.date||'', t.symbol||'', capitalise(t.side||''), t.session||'', t.timeframe||'',
+        setupName(t), confluenceNames(t.confluences), acctNames(t),
+        t.r==null?'':t.r,
+        (t.accounts&&t.accounts[0]&&t.accounts[0].risk!=null)? t.accounts[0].risk : '',
+        t.setupStars||'', t.slPips==null?'':t.slPips,
+        yn(t.forecast), yn(t.hadMistake), (t.mistakes||[]).join(', '),
+        t.mistakeWhy||'', timeOf(t.entryAt), timeOf(t.closeAt), t.notes||'',
+        t.pnl==null?'':t.pnl, shotNames(t.shots,shotMap)
+      ]));
+
+    tables['missed-trades.csv']=csvFile(
+      ['Missed trade','Date','Symbol','Side','Setup','Timeframe','R missed','Why I missed it','Notes','Screenshots'],
+      (MISSED||[]).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))).map(m=>[
+        [m.symbol||'', capitalise(m.direction||''), m.setup? '— '+m.setup:''].filter(Boolean).join(' ').trim() || 'Missed trade',
+        m.date||'', m.symbol||'', capitalise(m.direction||''), m.setup||'', m.timeframe||'',
+        m.r==null?'':m.r, (m.reasons||[]).join(', '), m.whatHappened||'', shotNames(m.shots,shotMap)
+      ]));
+
+    // Risk is chosen per trade in this journal, not stored on the account, so
+    // the figure here is the one most recently used on that account.
+    const lastRisk=id=>{
+      for(let i=(trades||[]).length-1;i>=0;i--){
+        const a=(trades[i].accounts||[]).find(x=>x.id===id);
+        if(a&&a.risk!=null) return a.risk;
+      }
+      return '';
+    };
+    tables['accounts.csv']=csvFile(
+      ['Account','Size','Type','Risk % per trade','Max drawdown','Profit target','Min days',
+       'Starting P&L','Objective','Rules'],
+      (ACCOUNTS||[]).map(a=>[
+        a.name||'', a.size==null?'':a.size, a.phase||'', lastRisk(a.id),
+        a.maxDD==null?'':a.maxDD, a.profitTarget==null?'':a.profitTarget,
+        a.minDays==null?'':a.minDays, a.basePnl||0, a.objective||'', a.rules||''
+      ]));
+
+    tables['setups.csv']=csvFile(
+      ['Setup','About','Plan','Screenshots'],
+      (PLAYBOOK||[]).map(p=>[
+        p.name||'', p.about||p.desc||'', p.plan||'', shotNames(p.shots,shotMap)
+      ]));
+
+    tables['confluences.csv']=csvFile(
+      ['Confluence','Crucial','What it means'],
+      (CONFLUENCES||[]).map(c=>[ c.name||'', yn(c.crucial), c.desc||'' ]));
+
+    tables['key-observations.csv']=csvFile(
+      ['Observation','Active','Why it happens','What I do instead','Problem','Times seen'],
+      (LESSONS||[]).map(l=>[
+        l.reminder||l.problem||'', yn(l.active), l.why||'', l.solution||'', l.problem||'', l.occurrences||0
+      ]));
+
+    return tables;
+  };
+}
+
+async function marketPrepCsv(shotMap){
+  // Two stores hold a prep day: falcon:prepday:<date> has the detail, PREPLOG
+  // has the score. A day can be in either, so export the union rather than
+  // silently dropping the history PREPLOG is keeping on its own.
+  const detail=new Map();
+  for(const k of (await journalKeys()).filter(k=>k.indexOf('falcon:prepday:')===0)){
+    const date=k.slice('falcon:prepday:'.length);
+    try{ const r=await Store.get(k); if(r&&r.value) detail.set(date,JSON.parse(r.value)); }catch(e){}
+  }
+  const dates=[...new Set([...detail.keys(),...Object.keys(PREPLOG||{})])].sort();
+  const rows=[];
+  for(const date of dates){
+    const d=detail.get(date)||{};
+    const log=PREPLOG[date]||{};
+    const morning=(d.pairs||[]).map(p=>p.symbol).filter(Boolean);
+    const evening=(d.eveningPairs||[]).map(p=>p.symbol).filter(Boolean);
+    const shots=[...(d.pairs||[]),...(d.eveningPairs||[])]
+      .map(p=>p&&p.shot? shotMap.get(p.shot):null).filter(Boolean);
+    rows.push([
+      new Date(date+'T12:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}),
+      date,
+      morning.join(', '), evening.join(', '),
+      // The detail record is authoritative when it exists; PREPLOG keeps the
+      // same three flags for days whose detail has since been pruned.
+      yn(d.forecastChecked!=null? d.forecastChecked : log.forecast),
+      yn(d.newsChecked!=null? d.newsChecked : log.news),
+      yn(d.planChecked!=null? d.planChecked : log.plan),
+      log.mT? (log.m||0)+'/'+log.mT : '',
+      log.eT? (log.e||0)+'/'+log.eT : '',
+      log.score==null?'':log.score,
+      shots.join(', ')
+    ]);
+  }
+  return csvFile(
+    ['Day','Date','Pairs watched','Evening pairs','Marked HTF levels','Checked the news calendar',
+     'Wrote the plan before the open','Morning routine','Evening routine',
+     'Processes Score (journal)','Screenshots'], rows);
+}
+
+function weeklyReviewsCsv(){
+  const rows=Object.keys(REVIEWS||{}).sort().map(key=>{
+    const r=REVIEWS[key]||{};
+    const start=/^W-(\d{4}-\d{2}-\d{2})$/.exec(key);
+    const when=start? start[1] : '';
+    return [
+      when? 'Week of '+new Date(when+'T12:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : key,
+      when, (r.plan||[]).join(' · '), r.signature||'',
+      yn(r.reviewed), r.completedAt? r.completedAt.slice(0,10) : ''
+    ];
+  });
+  return csvFile(['Week','Week of','Rules for the week','What worked','Reviewed','Completed'],rows);
+}
+
+function bundleReadme(counts){
+  return [
+'ODYSSEY JOURNAL — EXPORT BUNDLE',
+'Exported '+new Date().toLocaleString(),
+'',
+'Trades: '+counts.trades+'   Screenshots: '+counts.shots+'   Missed: '+counts.missed,
+'',
+'--------------------------------------------------------------------',
+'TO PUT IT BACK IN THE JOURNAL',
+'--------------------------------------------------------------------',
+'Drag this .zip onto the journal page, or Settings -> Restore from a file.',
+'It reads the zip directly; you do not need to unzip it first.',
+'',
+'Everything is restored, screenshots included, from:',
+'   '+counts.jsonName,
+'That one file is the complete journal. The CSVs and images below are',
+'copies of the same data in a shape Notion can read — the journal ignores',
+'them on import.',
+'',
+'--------------------------------------------------------------------',
+'TO PUT IT IN NOTION',
+'--------------------------------------------------------------------',
+'For each CSV in notion/ :',
+'',
+'  Into a database you already have (keeps your column types):',
+'    open the database -> ... menu -> Merge with CSV -> pick the file.',
+'',
+'  As a brand new database:',
+'    Notion sidebar -> Import -> CSV -> pick the file.',
+'',
+'Columns are named to match the Odyssey Journal Notion template, so a',
+'merge lands in the right place.',
+'',
+'Two things Notion will not do on its own:',
+'',
+'  1. IMAGES. Notion cannot attach local files during a CSV import. The',
+'     screenshots are in screenshots/ as ordinary image files, and every',
+'     row lists the filenames that belong to it in its Screenshots column.',
+'     Drag the images onto the rows you care about, or upload the folder',
+'     somewhere and paste the links.',
+'',
+'  2. RELATIONS. A CSV cannot fill a Notion relation property. Columns',
+'     that are relations in the template (Setup) arrive as plain text.',
+'     Either link them by hand, or change that property to a Select first',
+'     and the import will fill it.',
+'',
+'Columns ending in "(journal)" are this journal\'s own numbers. Notion',
+'recalculates its own from formulas, so they are there to check against,',
+'not to import over the top.',
+'',
+'--------------------------------------------------------------------',
+'WHAT IS NOT IN THE CSVs',
+'--------------------------------------------------------------------',
+'The improvement workshop, trading DNA, saved symbols and your profile',
+'have no Notion table in the template. They are all inside the .json and',
+'restore with it.',
+''].join('\n');
+}
+
+async function exportBundle(){
+  const btn=document.activeElement;
+  if(btn&&btn.classList) btn.classList.add('is-loading');
+  try{
+    toast('Building the bundle…','info');
+    const payload=await buildBackupPayload(true);
+    const stamp=ymd(new Date());
+    const jsonName='odyssey-backup-'+stamp+'-full.json';
+
+    // Screenshots become real files; the map lets every CSV row name its own.
+    const enc=new TextEncoder();
+    const entries=[];
+    const shotMap=new Map();
+    for(const [id,dataUrl] of Object.entries(payload.shots||{})){
+      const name=shotFileName(id,dataUrl);
+      shotMap.set(id,name);
+      const b64=String(dataUrl).split(',')[1]||'';
+      const bin=atob(b64);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      entries.push({name:'screenshots/'+name, data:bytes});
+    }
+
+    const tables=notionTables()(shotMap);
+    tables['market-prep.csv']=await marketPrepCsv(shotMap);
+    tables['weekly-reviews.csv']=weeklyReviewsCsv();
+    for(const [name,text] of Object.entries(tables)){
+      entries.push({name:'notion/'+name, data:enc.encode(text)});
+    }
+
+    entries.unshift({name:jsonName, data:enc.encode(JSON.stringify(payload))});
+    entries.push({name:'README.txt', data:enc.encode(bundleReadme({
+      trades:(trades||[]).length, shots:shotMap.size, missed:(MISSED||[]).length, jsonName
+    }))});
+
+    const blob=zipStore(entries);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='odyssey-journal-'+stamp+'.zip';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 30000);
+
+    try{ await Store.set('falcon:lastExport', new Date().toISOString()); }catch(e){}
+    if(document.getElementById('fileBackupRow')) showFileBackupRow();
+    toast('Bundle downloaded — '+(trades||[]).length+' trades, '+shotMap.size+' screenshots','ok');
+  }catch(e){
+    console.error(e);
+    toast('Export failed: '+e.message,'err');
+  } finally { if(btn&&btn.classList) btn.classList.remove('is-loading'); }
+}
+
 function pickBackupFile(){
   const inp=document.createElement('input');
-  inp.type='file'; inp.accept='application/json,.json';
+  inp.type='file'; inp.accept='application/json,.json,application/zip,.zip';
   inp.onchange=()=>{ if(inp.files&&inp.files[0]) importAll(inp.files[0]); };
   inp.click();
 }
 
+/* A bundle is a zip with the backup json inside it. Taking the zip directly
+   saves unzipping it first, and means the file you were told to keep safe is
+   the same file you hand back. */
+async function readBackupFile(file){
+  const isZip = /\.zip$/i.test(file.name) || file.type==='application/zip';
+  if(!isZip) return JSON.parse(await file.text());
+  const files=await zipRead(await file.arrayBuffer());
+  let name=[...files.keys()].find(n=>!n.includes('/') && /\.json$/i.test(n));
+  if(!name) name=[...files.keys()].find(n=>/\.json$/i.test(n));
+  if(!name) throw new Error('No journal backup inside that zip');
+  return JSON.parse(new TextDecoder().decode(files.get(name)));
+}
+
 async function importAll(file){
   let payload;
-  try{ payload=JSON.parse(await file.text()); }
-  catch(e){ toast('That file is not readable JSON','err'); return; }
+  try{ payload=await readBackupFile(file); }
+  catch(e){ toast(/zip/i.test(e.message)? e.message : 'That file is not a readable backup','err'); return; }
   if(!payload || typeof payload!=='object' || !payload.kv){
     toast('That does not look like an Odyssey backup','err'); return;
   }
@@ -7948,13 +8343,14 @@ async function autoBackupOnOpen(){
 /* A backup file dropped on the window restores it. The same guardrails as the
    picker: it says what it holds and takes a restore point before replacing. */
 function armBackupDrop(){
-  const isJson=e=>[...((e.dataTransfer&&e.dataTransfer.items)||[])]
-    .some(i=>i.kind==='file' && /json/.test(i.type||''));
-  window.addEventListener('dragover',e=>{ if(isJson(e)){ e.preventDefault(); document.body.classList.add('file-over'); } });
+  const looksLikeBackup=(type,name)=>/json|zip/.test(type||'')||/\.(json|zip)$/i.test(name||'');
+  const isBackup=e=>[...((e.dataTransfer&&e.dataTransfer.items)||[])]
+    .some(i=>i.kind==='file' && /json|zip/.test(i.type||''));
+  window.addEventListener('dragover',e=>{ if(isBackup(e)){ e.preventDefault(); document.body.classList.add('file-over'); } });
   window.addEventListener('dragleave',e=>{ if(e.clientX<=0&&e.clientY<=0) document.body.classList.remove('file-over'); });
   window.addEventListener('drop',e=>{
     document.body.classList.remove('file-over');
-    const f=[...((e.dataTransfer&&e.dataTransfer.files)||[])].find(x=>/json/.test(x.type||'')||/\.json$/i.test(x.name||''));
+    const f=[...((e.dataTransfer&&e.dataTransfer.files)||[])].find(x=>looksLikeBackup(x.type,x.name));
     if(!f) return;
     e.preventDefault();
     importAll(f);
