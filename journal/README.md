@@ -1,6 +1,9 @@
 # Odyssey Journal
 
-> **Just want it running for yourself?** **[LAUNCH.md](LAUNCH.md)** is the
+> **Just want to use it yourself, for nothing?** **[SOLO.md](SOLO.md)** — no
+> Supabase, no Stripe, no email, no sign-in. Runs as it is.
+>
+> **Want it online with your own account?** **[LAUNCH.md](LAUNCH.md)** is the
 > shortest path — no Stripe, no customers, about 20 minutes.
 >
 > **Putting it online for the first time?** **[DEPLOY.md](DEPLOY.md)** covers the

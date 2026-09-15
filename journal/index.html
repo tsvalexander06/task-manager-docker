@@ -1020,7 +1020,7 @@
   .toast.leaving{animation:toastOut var(--dur-base) var(--ease-in-out) both}
   .toast .tk{width:20px;height:20px;flex:0 0 20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800}
   .toast.ok .tk{background:var(--green-soft);color:var(--green)}
-  .toast.info .tk{background:var(--accent-soft);color:var(--accent)}
+  .toast.info .tk,.toast.warn .tk{background:var(--accent-soft);color:var(--accent)}
   .toast.err .tk{background:var(--danger-soft);color:var(--danger)}
 
   /* Skeleton shimmer (reusable utility for future async data) */
@@ -2726,13 +2726,15 @@ function animateCounts(){
 function toast(msg,type){
   const host=document.getElementById('toastHost'); if(!host) return;
   const kind=type||'ok';
-  const icon=kind==='err'?'!':(kind==='info'?'○':'✓');
+  const icon=(kind==='err'||kind==='warn')?'!':(kind==='info'?'○':'✓');
   const el=document.createElement('div');
   el.className='toast '+kind;
   const k=document.createElement('span'); k.className='tk'; k.textContent=icon;
   const m=document.createElement('span'); m.textContent=msg;
   el.appendChild(k); el.appendChild(m); host.appendChild(el);
-  setTimeout(()=>{ el.classList.add('leaving'); setTimeout(()=>el.remove(), 260); }, kind==='err'?4200:2600);
+  // A warning you have to act on needs long enough to read and locate.
+  setTimeout(()=>{ el.classList.add('leaving'); setTimeout(()=>el.remove(), 260); },
+             kind==='err'?4200:(kind==='warn'?6500:2600));
 }
 
 // ---- Account filter (All / Live-funded / Challenges / a specific account) ----
@@ -7321,6 +7323,7 @@ function renderSettings(){
       a day, so the ${AUTO_BACKUP_KEEP} kept cover this afternoon and last week.
     </div>
     <div id="autoBackupRows" class="set-rows">Checking…</div>
+    <div id="fileBackupRow" style="margin-top:16px"></div>
     <div class="hl-muted" style="font-size:11.5px;margin-top:14px;line-height:1.6">
       Have a journal file from somewhere else?
       <span class="link" onclick="pickBackupFile()">Restore from a file…</span>
@@ -7345,6 +7348,7 @@ function renderSettings(){
     </div>
   </div>`;
     showAutoBackups();
+  showFileBackupRow();
   showAccountSettings();
   showSubscription();
 }
@@ -7386,6 +7390,54 @@ async function showSubscription(){
         : '<button class="btn primary" onclick="startSubscription(this)">Subscribe</button>'}
     </div>`;
 }
+/* Stated plainly in Settings whether a copy of the journal exists anywhere but
+   this browser, and how old it is. With an account this is someone else's
+   problem; without one it is the only thing standing between a cleared cache
+   and an empty journal. */
+async function showFileBackupRow(){
+  const el=document.getElementById('fileBackupRow'); if(!el) return;
+  if(cloudBacked()){ el.innerHTML=''; return; }
+  const age=await fileBackupAgeDays();
+  const stale = age===null || age>FILE_BACKUP_STALE_DAYS;
+  const when = age===null ? 'Never'
+             : age<1      ? 'Today'
+             : Math.round(age)===1 ? 'Yesterday'
+             : Math.round(age)+' days ago';
+  el.innerHTML=`
+    <div class="set-row">
+      <span>Copy saved off this device</span>
+      <b style="${stale?'color:var(--accent)':''}">${when}</b>
+    </div>
+    <div class="hl-muted" style="font-size:11.5px;margin-top:10px;line-height:1.6">
+      ${stale
+        ? 'The restore points above live in this browser, so clearing site data takes them with the journal. A downloaded file is the only copy that would survive it.'
+        : 'Keep it somewhere that is not this machine.'}
+    </div>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn ${stale?'primary':'ghost'}" onclick="exportAll(true)">Download a backup file</button>
+    </div>`;
+}
+
+/* At most one nudge a day, and only when there is something to lose. A reminder
+   that fires on every reload gets dismissed without being read. The mark is
+   kept with the journal rather than in the tab, so opening a second tab does
+   not repeat it. */
+async function remindFileBackup(){
+  if(cloudBacked()) return;
+  if(!trades.length) return;
+  const age=await fileBackupAgeDays();
+  if(age!==null && age<=FILE_BACKUP_STALE_DAYS) return;
+  const today=ymd(new Date());
+  try{
+    const r=await Store.get('falcon:lastBackupNudge');
+    if(r && r.value===today) return;
+    await Store.set('falcon:lastBackupNudge', today);
+  }catch(e){}
+  toast(age===null
+    ? 'This journal exists only in this browser. Settings → Download a backup file.'
+    : 'Last backup file was '+Math.round(age)+' days ago. Settings → Download a backup file.','warn');
+}
+
 async function showStoreFacts(){
   const el=document.getElementById('storeFacts'); if(!el) return;
   const b=Store.backend;
@@ -7744,8 +7796,32 @@ async function exportAll(withShots){
     a.href=URL.createObjectURL(blob);
     a.download='odyssey-backup-'+ymd(new Date())+(withShots?'-full':'')+'.json';
     a.click();
+    // Recorded so the journal can tell you how long it has been since the last
+    // copy left this device. The restore points cannot answer that: they live
+    // in the same storage as the journal and share its fate.
+    try{ await Store.set('falcon:lastExport', new Date().toISOString()); }catch(e){}
+    if(document.getElementById('fileBackupRow')) showFileBackupRow();
     toast('Backup downloaded'+(withShots?' with screenshots':''),'ok');
   } finally { if(btn&&btn.classList) btn.classList.remove('is-loading'); }
+}
+
+/* ---------- Off-device backup ----------
+   Automatic restore points protect against a bad edit. They do not protect
+   against losing the browser profile, because they are stored inside it.
+   Without an account syncing to a server, a file you have actually downloaded
+   is the only copy that survives clearing site data or changing machine. */
+const FILE_BACKUP_STALE_DAYS=7;
+
+function cloudBacked(){ return Store.backend==='supabase' || Store.backend==='artifact'; }
+
+async function lastExportAt(){
+  try{ const r=await Store.get('falcon:lastExport'); return r&&r.value? new Date(r.value) : null; }
+  catch(e){ return null; }
+}
+async function fileBackupAgeDays(){
+  const at=await lastExportAt();
+  if(!at) return null;                       // never exported
+  return (Date.now()-at.getTime())/86400000;
 }
 
 function pickBackupFile(){
@@ -8098,6 +8174,9 @@ function calNudge(dir){ ui.calM+=dir; if(ui.calM<0){ui.calM=11;ui.calY--;} if(ui
     setTimeout(showPaywall, prefersReduced()?0:1500);
   }
   if(!PROFILE.onboarded && !trades.length) setTimeout(openOnboarding, prefersReduced()?0:1500);
+  // Only with no account behind it, and never on top of the paywall or the
+  // first-run setup — both of those are already asking for attention.
+  if(!billingApplies() && PROFILE.onboarded) setTimeout(remindFileBackup, 2600);
   // nav wiring + icons
   document.querySelectorAll('.nav-item').forEach(n=>{
     if(n.dataset.icon){ n.insertAdjacentHTML('afterbegin', ic(n.dataset.icon)); }
