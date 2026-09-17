@@ -7336,6 +7336,29 @@ function renderSettings(){
     <div id="acctSettings" class="hl-muted" style="font-size:12.5px">Checking…</div>
   </div>
 
+  <div class="card" style="max-width:620px;margin-bottom:14px">
+    <div class="panel-title">Starting fresh</div>
+    <div class="hl-muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">
+      For when you have been testing and want to begin for real. Both take a
+      restore point first, and Settings can roll it back — but if this journal
+      matters, download a backup file before either.
+    </div>
+    <div class="set-rows">
+      <div class="set-row">
+        <span>Clear the trading record<br>
+          <span class="hl-muted" style="font-size:11.5px">Trades, missed trades, prep days, reviews. Keeps accounts, setups and confluences.</span>
+        </span>
+        <button class="btn ghost" style="padding:6px 12px;font-size:11.5px" onclick="clearRecord()">Clear</button>
+      </div>
+      <div class="set-row">
+        <span>Delete everything<br>
+          <span class="hl-muted" style="font-size:11.5px">Back to first-run setup, screenshots included.</span>
+        </span>
+        <button class="btn ghost" style="padding:6px 12px;font-size:11.5px" onclick="clearEverything()">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div class="card" style="max-width:620px">
     <div class="panel-title">The small print</div>
     <div class="hl-muted" style="font-size:12.5px;line-height:1.7">
@@ -7732,6 +7755,78 @@ async function delTrade(id){
   await removeShots(shots);
   renderGreeting(); renderJournal();
 }
+/* ---------- Starting fresh ----------
+   The journal separates the record (what happened) from the reference (how you
+   trade). Coming off test data you usually want the first gone and the second
+   kept, so they are two actions rather than one. Both take a restore point
+   first, so neither is the end of the world. */
+async function clearRecord(){
+  const prepKeys=(await journalKeys()).filter(k=>k.indexOf('falcon:prepday:')===0);
+  const nPrep=Object.keys(PREPLOG||{}).length || prepKeys.length;
+  if(!trades.length && !(MISSED||[]).length && !nPrep && !Object.keys(REVIEWS||{}).length){
+    toast('Nothing logged to clear','info'); return;
+  }
+  if(!confirm(
+      'Clear the trading record?\n\n'+
+      'Deletes: '+trades.length+' trades, '+(MISSED||[]).length+' missed trades, '+
+      nPrep+' prep days, '+Object.keys(REVIEWS||{}).length+' weekly reviews, and their screenshots.\n\n'+
+      'Keeps: your accounts, setups, confluences and key observations.\n\n'+
+      'A restore point is taken first.')) return;
+
+  await snapshotNow('before clearing the record');
+  await autoBackupNow('before clearing the record');
+
+  const shots=[];
+  trades.forEach(t=>(t.shots||[]).forEach(x=>shots.push(x)));
+  (MISSED||[]).forEach(m=>(m.shots||[]).forEach(x=>shots.push(x)));
+  for(const k of prepKeys){
+    try{
+      const r=await Store.get(k); if(!r||!r.value) continue;
+      const d=JSON.parse(r.value);
+      [...(d.pairs||[]),...(d.eveningPairs||[])].forEach(p=>{ if(p&&p.shot) shots.push(p.shot); });
+    }catch(e){}
+    try{ await Store.delete(k); }catch(e){}
+  }
+
+  trades=[]; MISSED=[]; REVIEWS={}; PREPLOG={}; WORKSHOP=[];
+  PREPDAY={planChecked:false,newsChecked:false,forecastChecked:false,pairs:[],eveningForecastChecked:false,eveningPairs:[]};
+  await persist();
+  await saveJSON('falcon:missed',MISSED);
+  await saveJSON('falcon:reviews',REVIEWS);
+  await saveJSON('falcon:preplog',PREPLOG);
+  await saveJSON('falcon:workshop',WORKSHOP);
+  await removeShots(shots);
+  toast('Record cleared — your playbook is untouched','ok');
+  setTimeout(()=>location.reload(),900);
+}
+
+async function clearEverything(){
+  if(!confirm(
+      'Delete the entire journal?\n\n'+
+      'Everything goes: trades, missed trades, prep, reviews, accounts, setups, '+
+      'confluences, key observations and every screenshot. The journal returns to '+
+      'first-run setup.\n\n'+
+      'A restore point is taken first, but export a backup file if this journal matters.')) return;
+  if(!confirm('Last check — delete all '+trades.length+' trades and everything else?')) return;
+
+  await snapshotNow('before deleting everything');
+  await autoBackupNow('before deleting everything');
+  const snap=await readSnapshot();          // keep the way back
+
+  try{
+    const all=await Shots.list();
+    if(all) await removeShots(all);
+  }catch(e){}
+  for(const k of await journalKeys()){
+    if(k==='falcon:snapshot') continue;      // the restore point survives
+    if(k.indexOf('falcon:autobackup')===0) continue;
+    try{ await Store.delete(k); }catch(e){}
+  }
+  if(snap){ try{ await Store.set('falcon:snapshot', JSON.stringify(snap)); }catch(e){} }
+  toast('Journal deleted','ok');
+  setTimeout(()=>location.reload(),900);
+}
+
 async function resetAll(){
   if(!trades.length){ toast('No trades to clear','info'); return; }
   if(!confirm('Delete all '+trades.length+' trades?\n\n'+
