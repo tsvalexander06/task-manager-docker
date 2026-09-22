@@ -14,6 +14,17 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
 
+  instagram-dm:
+    build: ./instagram-dm
+    image: izabela/instagram-dm:latest
+    container_name: instagram-dm
+    ports:
+      - "8000:8000"
+    environment:
+      SESSION_FILE: /data/session.json
+    volumes:
+      - instagram_session:/data
+
   db:
     image: postgres:16
     container_name: task-manager-db
@@ -26,3 +37,4 @@ services:
 
 volumes:
   postgres_data:
+  instagram_session:

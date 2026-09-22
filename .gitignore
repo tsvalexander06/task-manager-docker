@@ -1,2 +1,4 @@
 backend/node_modules
 .env
+instagram-dm/**/__pycache__/
+instagram-dm/data/

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instagram DMs</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- Login view -->
+  <div id="login-view" class="view">
+    <form id="login-form" class="login-card">
+      <h1>Instagram DMs</h1>
+      <p class="hint">Log in to your Instagram account to read and send DMs.</p>
+      <input id="username" type="text" placeholder="Username" autocomplete="username" required />
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
+      <input id="verification_code" type="text" placeholder="2FA code (only if asked)" class="hidden" />
+      <button type="submit" id="login-btn">Log in</button>
+      <div id="login-error" class="error"></div>
+      <p class="warn">⚠️ Uses the unofficial Instagram API — against Instagram's ToS.
+        Prefer a secondary account.</p>
+    </form>
+  </div>
+
+  <!-- Chat view -->
+  <div id="chat-view" class="view hidden">
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <span id="me-label">DMs</span>
+        <div>
+          <button id="refresh-btn" title="Refresh">⟳</button>
+          <button id="logout-btn" title="Log out">⏻</button>
+        </div>
+      </header>
+      <div id="thread-list" class="thread-list"></div>
+    </aside>
+    <main class="chat">
+      <header id="chat-header" class="chat-header">Select a conversation</header>
+      <div id="messages" class="messages"></div>
+      <form id="send-form" class="send-form hidden">
+        <input id="message-input" type="text" placeholder="Message…" autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
