@@ -225,6 +225,9 @@
     padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:700;cursor:pointer;}
   .cchip.active{background:var(--blue);border-color:var(--blue);color:#fff;}
   .cal-status{padding:8px 20px;color:var(--muted);font-size:0.8rem;}
+  .show-past{width:100%;background:#0b1220;border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    color:var(--blue-l);font-size:0.9rem;font-weight:700;padding:14px;cursor:pointer;text-align:center;}
+  .show-past:active{background:#0e1626;}
   .cal-day{padding:11px 20px 7px;font-size:0.82rem;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;
     color:var(--ink-soft);background:#0b1220;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
   .cal-day.today{color:var(--blue-l);}
@@ -648,7 +651,7 @@ fetchRates();
 const CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const CAL_CURS = ["All","USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","CNY"];
 let calData=null, calStatus="idle", calTs=0;
-let calImpacts=new Set(["High","Medium","Low"]), calCur="All", prevScreen="screenInputs";
+let calImpacts=new Set(["High","Medium","Low"]), calCur="All", prevScreen="screenInputs", showPast=false;
 
 function openNews(){
   prevScreen = ["screenInputs","screenPair","screenResult"].find(s=>!$(s).classList.contains("hidden")) || "screenInputs";
@@ -721,27 +724,45 @@ function renderCalendar(){
     + (calTs?("Updated "+new Date(calTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})):"");
   const vis = e => (calCur==="All"||e.cur===calCur) && (e.impact==="Holiday"?calImpacts.has("Low"):calImpacts.has(e.impact));
   const items=(calData||[]).filter(vis);
-  if(!items.length){ body.innerHTML='<div class="cal-empty">No events match your filters.</div>'; return; }
+  const startToday=new Date(); startToday.setHours(0,0,0,0);
+  const past=items.filter(e=>e.date < startToday);
+  const upcoming=items.filter(e=>e.date >= startToday);
   const todayKey=new Date().toDateString();
-  let html="", curDay="";
-  items.forEach(e=>{
-    const dk=e.date.toDateString();
-    if(dk!==curDay){ curDay=dk;
-      const lbl=e.date.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
-      html+='<div class="cal-day'+(dk===todayKey?' today':'')+'">'+lbl+(dk===todayKey?' · Today':'')+'</div>';
-    }
-    const time = e.impact==="Holiday" ? "All day" : e.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    const impCls = e.impact==="High"?"high":e.impact==="Medium"?"med":e.impact==="Holiday"?"hol":"low";
-    const vals=[];
-    if(e.actual!=="")   vals.push('<b>A</b>'+escapeHtml(e.actual));
-    if(e.forecast!=="") vals.push('<b>F</b>'+escapeHtml(e.forecast));
-    if(e.previous!=="") vals.push('<b>P</b>'+escapeHtml(e.previous));
-    html+='<div class="cal-row"><div class="c-time">'+time+'</div>'
-      +'<div class="c-cur">'+escapeHtml(e.cur)+'</div>'
-      +'<div><span class="idot '+impCls+'"></span></div>'
-      +'<div class="c-title">'+escapeHtml(e.title)+(vals.length?'<div class="c-vals">'+vals.join(' &middot; ')+'</div>':'')+'</div></div>';
-  });
+
+  function rowsHtml(list){
+    let html="", curDay="";
+    list.forEach(e=>{
+      const dk=e.date.toDateString();
+      if(dk!==curDay){ curDay=dk;
+        const lbl=e.date.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
+        html+='<div class="cal-day'+(dk===todayKey?' today':'')+'">'+lbl+(dk===todayKey?' · Today':'')+'</div>';
+      }
+      const time = e.impact==="Holiday" ? "All day" : e.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      const impCls = e.impact==="High"?"high":e.impact==="Medium"?"med":e.impact==="Holiday"?"hol":"low";
+      const vals=[];
+      if(e.actual!=="")   vals.push('<b>A</b>'+escapeHtml(e.actual));
+      if(e.forecast!=="") vals.push('<b>F</b>'+escapeHtml(e.forecast));
+      if(e.previous!=="") vals.push('<b>P</b>'+escapeHtml(e.previous));
+      html+='<div class="cal-row"><div class="c-time">'+time+'</div>'
+        +'<div class="c-cur">'+escapeHtml(e.cur)+'</div>'
+        +'<div><span class="idot '+impCls+'"></span></div>'
+        +'<div class="c-title">'+escapeHtml(e.title)+(vals.length?'<div class="c-vals">'+vals.join(' &middot; ')+'</div>':'')+'</div></div>';
+    });
+    return html;
+  }
+
+  let html="";
+  if(past.length){
+    html += '<button class="show-past" id="showPastBtn">'
+      + (showPast ? '▴ Hide earlier events'
+                  : '▾ Show ' + past.length + ' earlier event' + (past.length>1?'s':'') + ' this week')
+      + '</button>';
+    if(showPast) html += rowsHtml(past);
+  }
+  html += upcoming.length ? rowsHtml(upcoming)
+                          : '<div class="cal-empty">No upcoming events match your filters.</div>';
   body.innerHTML=html;
+  const spb=$("showPastBtn"); if(spb) spb.onclick=()=>{ showPast=!showPast; renderCalendar(); };
 }
 document.querySelectorAll("#impChips .ichip").forEach(b=>b.onclick=()=>{
   const imp=b.dataset.imp;

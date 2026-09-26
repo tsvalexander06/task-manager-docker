@@ -2,7 +2,7 @@
    Network-first for the app code (HTML / JS / calendar.json) so updates reach
    users immediately when online; cache-first only for static assets (icons,
    manifest). Cache is the offline fallback. */
-const CACHE = "lot-calc-v10";
+const CACHE = "lot-calc-v11";
 const ASSETS = [
   "./",
   "./index.html",

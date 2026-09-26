@@ -37,12 +37,21 @@ jobs:
         with:
           enablement: true
 
-      - name: Snapshot economic calendar (server-side, avoids browser CORS)
+      - name: Snapshot economic calendar (this week + next week, server-side)
         run: |
-          curl -fsS --max-time 30 -A "Mozilla/5.0 (compatible; PagesBot)" \
-            "https://nfs.faireconomy.media/ff_calendar_thisweek.json" \
-            -o lot-size-calculator/calendar.json || echo "[]" > lot-size-calculator/calendar.json
-          echo "calendar.json: $(wc -c < lot-size-calculator/calendar.json) bytes"
+          UA="Mozilla/5.0 (compatible; PagesBot)"
+          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_thisweek.json" -o tw.json || echo "" > tw.json
+          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_nextweek.json" -o nw.json || echo "" > nw.json
+          if jq -e 'type=="array"' tw.json >/dev/null 2>&1 && jq -e 'type=="array"' nw.json >/dev/null 2>&1; then
+            jq -s 'add' tw.json nw.json > lot-size-calculator/calendar.json
+          elif jq -e 'type=="array"' tw.json >/dev/null 2>&1; then
+            cp tw.json lot-size-calculator/calendar.json
+          elif jq -e 'type=="array"' nw.json >/dev/null 2>&1; then
+            cp nw.json lot-size-calculator/calendar.json
+          else
+            echo "[]" > lot-size-calculator/calendar.json
+          fi
+          echo "calendar.json: $(wc -c < lot-size-calculator/calendar.json) bytes, events: $(jq 'length' lot-size-calculator/calendar.json 2>/dev/null || echo '?')"
 
       - name: Upload app as Pages artifact
         uses: actions/upload-pages-artifact@v3
