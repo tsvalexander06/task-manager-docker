@@ -1,0 +1,45 @@
+name: Deploy Lot Size Calculator to Pages
+
+# Publishes the lot-size-calculator/ folder as the site root, so the app is
+# served at https://<owner>.github.io/<repo>/ and installable on mobile.
+
+on:
+  push:
+    branches:
+      - main
+      - claude/lot-size-calculator-mobile-5fjeb5
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages (auto-enable if needed)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload app as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./lot-size-calculator
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
