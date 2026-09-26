@@ -37,21 +37,35 @@ jobs:
         with:
           enablement: true
 
-      - name: Snapshot economic calendar (this week + next week, server-side)
+      - name: Snapshot economic calendar (next 2 weeks, server-side)
         run: |
           UA="Mozilla/5.0 (compatible; PagesBot)"
-          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_thisweek.json" -o tw.json || echo "" > tw.json
-          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_nextweek.json" -o nw.json || echo "" > nw.json
-          if jq -e 'type=="array"' tw.json >/dev/null 2>&1 && jq -e 'type=="array"' nw.json >/dev/null 2>&1; then
-            jq -s 'add' tw.json nw.json > lot-size-calculator/calendar.json
-          elif jq -e 'type=="array"' tw.json >/dev/null 2>&1; then
-            cp tw.json lot-size-calculator/calendar.json
-          elif jq -e 'type=="array"' nw.json >/dev/null 2>&1; then
-            cp nw.json lot-size-calculator/calendar.json
+          FROM=$(date -u +%Y-%m-%dT00:00:00.000Z)
+          TO=$(date -u -d "+14 days" +%Y-%m-%dT00:00:00.000Z)
+          # Primary: TradingView economic calendar — supports a date range, so this covers this week + next week.
+          curl -fsS --max-time 40 -A "$UA" \
+            -H "Origin: https://www.tradingview.com" -H "Referer: https://www.tradingview.com/" \
+            "https://economic-calendar.tradingview.com/events?from=${FROM}&to=${TO}&countries=US,EU,GB,JP,AU,CA,CH,NZ,CN" \
+            -o tv.json || echo "" > tv.json
+          jq -c '
+            def toccy(c): {"US":"USD","EU":"EUR","GB":"GBP","JP":"JPY","AU":"AUD","CA":"CAD","CH":"CHF","NZ":"NZD","CN":"CNY","DE":"EUR","FR":"EUR","IT":"EUR","ES":"EUR"}[c] // c;
+            [ .result[]? | {
+              title:(.title // ""), country:(.currency // toccy(.country) // ""), date:(.date // ""),
+              impact:( if (.importance // 0) >= 1 then "High" elif (.importance // 0) == 0 then "Medium" else "Low" end ),
+              forecast:( if .forecast==null then "" else (.forecast|tostring) end ),
+              previous:( if .previous==null then "" else (.previous|tostring) end ),
+              actual:( if .actual==null then "" else (.actual|tostring) end )
+            } | select(.title!="" and .date!="") ]' tv.json > tv_norm.json 2>/dev/null || echo "" > tv_norm.json
+          # Fallback: Forex Factory this-week feed
+          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_thisweek.json" -o ff.json || echo "" > ff.json
+          if jq -e 'type=="array" and length>0' tv_norm.json >/dev/null 2>&1; then
+            cp tv_norm.json lot-size-calculator/calendar.json; SRC="tradingview"
+          elif jq -e 'type=="array" and length>0' ff.json >/dev/null 2>&1; then
+            cp ff.json lot-size-calculator/calendar.json; SRC="forexfactory(this week only)"
           else
-            echo "[]" > lot-size-calculator/calendar.json
+            echo "[]" > lot-size-calculator/calendar.json; SRC="none"
           fi
-          echo "calendar.json: $(wc -c < lot-size-calculator/calendar.json) bytes, events: $(jq 'length' lot-size-calculator/calendar.json 2>/dev/null || echo '?')"
+          echo "source=$SRC | events: $(jq 'length' lot-size-calculator/calendar.json 2>/dev/null || echo '?') | bytes: $(wc -c < lot-size-calculator/calendar.json)"
 
       - name: Upload app as Pages artifact
         uses: actions/upload-pages-artifact@v3
