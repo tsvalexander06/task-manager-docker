@@ -1,5 +1,8 @@
-/* Position Sizer — offline service worker */
-const CACHE = "lot-calc-v9";
+/* Lot Size Calculator — service worker
+   Network-first for the app code (HTML / JS / calendar.json) so updates reach
+   users immediately when online; cache-first only for static assets (icons,
+   manifest). Cache is the offline fallback. */
+const CACHE = "lot-calc-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,43 +20,45 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Cache-first for app shell; fall back to network, then to cached index for navigations.
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // Never intercept cross-origin requests (e.g. the live FX-rates API) — let them
-  // hit the network directly so rates stay fresh.
+  // Let cross-origin requests (FX-rates API, calendar proxies) hit the network directly.
   if (url.origin !== self.location.origin) return;
-  // The economic-calendar snapshot must stay fresh: network-first, cache as fallback.
-  if (url.pathname.endsWith("calendar.json")) {
+
+  const isDoc  = req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
+  const isCode = url.pathname.endsWith(".js") || url.pathname.endsWith("calendar.json") || url.pathname.endsWith(".webmanifest");
+
+  if (isDoc || isCode) {
+    // Network-first: always try fresh, fall back to cache when offline.
     e.respondWith(
-      fetch(req).then((resp) => {
-        const copy = resp.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-        return resp;
-      }).catch(() => caches.match(req))
-    );
-    return;
-  }
-  e.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req)
+      fetch(req)
         .then((resp) => {
           const copy = resp.clone();
           caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           return resp;
         })
-        .catch(() => {
-          if (req.mode === "navigate") return caches.match("./index.html");
-        });
-    })
+        .catch(() => caches.match(req).then((r) => r || (isDoc ? caches.match("./index.html") : undefined)))
+    );
+    return;
+  }
+
+  // Cache-first for static assets (icons, images).
+  e.respondWith(
+    caches.match(req).then((cached) =>
+      cached ||
+      fetch(req).then((resp) => {
+        const copy = resp.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        return resp;
+      })
+    )
   );
 });
