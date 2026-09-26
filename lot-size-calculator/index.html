@@ -8,7 +8,7 @@
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#070b12" />
+<meta name="theme-color" content="#131722" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,21 +18,21 @@
 
 <style>
   :root{
-    --bg:#070b12;
-    --card:#0f1626;
-    --card-2:#0b1120;
-    --field:#0c1322;
-    --line:#1a2436;
-    --ink:#eaf1fb;
-    --ink-soft:#a7b4c8;
-    --muted:#6f7d93;
-    --blue:#2f6bff;
-    --blue-l:#4d82ff;
-    --blue-hi:#3f74ff;
-    --blue-deep:#0b1a3a;
-    --on-accent:#ffffff;
-    --green:#39c07a;
-    --red:#ff6a52;
+    --bg:#131722;
+    --card:#1e222d;
+    --card-2:#171b26;
+    --field:#1b1f2a;
+    --line:#2a2e39;
+    --ink:#d1d4dc;
+    --ink-soft:#b2b5be;
+    --muted:#787b86;
+    --blue:#089981;        /* accent = TradingView "up" green */
+    --blue-l:#0fb98e;
+    --blue-hi:#089981;
+    --blue-deep:#072e28;
+    --on-accent:#ffffff;   /* white text on green accents, like TV buy/sell buttons */
+    --green:#089981;
+    --red:#f23645;
     --radius:20px;
     --radius-sm:14px;
     font-size:16px;
@@ -52,9 +52,10 @@
   /* ---- Diagonal header ---- */
   .hd{
     position:relative;color:#fff;
-    background:#101a30;
+    background:#1e222d;
     padding:calc(env(safe-area-inset-top) + 22px) 24px 54px;
     clip-path:polygon(0 0, 100% 0, 100% 100%, 0 82%);
+    border-bottom:1px solid #2a2e39;
   }
   .hd .menu-btn{
     background:rgba(255,255,255,0.12);border:none;color:#fff;width:42px;height:42px;border-radius:12px;
@@ -81,7 +82,7 @@
   }
   .panel .big-field{margin-top:0;}
   .panel-risk{
-    background:#1b3a80;color:#fff;z-index:2;
+    background:#1a1e28;color:#fff;z-index:2;
     padding-top:44px;
   }
   .panel-sl{
@@ -97,7 +98,7 @@
     background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.25);color:#fff;
     padding:7px 15px;border-radius:11px;font-size:0.9rem;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums;
   }
-  .chip.active{background:#fff;color:var(--blue);border-color:#fff;}
+  .chip.active{background:var(--green);color:var(--on-accent);border-color:var(--green);}
   .chip:active{transform:scale(0.95);}
 
   .hint-line{color:var(--muted);font-size:0.86rem;margin:22px 24px 0;}
@@ -109,7 +110,7 @@
     width:60px;height:60px;border-radius:50%;border:none;cursor:pointer;font-size:1.5rem;
     display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,0.5);
   }
-  .fab.primary{background:var(--blue);color:#fff;}
+  .fab.primary{background:#ffffff;color:#131722;}
   .fab.ghost{background:var(--card);color:var(--ink-soft);border:1.5px solid var(--line);width:52px;height:52px;font-size:1.2rem;align-self:flex-end;}
   .fab:active{transform:scale(0.94);}
   .fab:disabled{opacity:0.4;}
@@ -129,7 +130,7 @@
     flex:1;background:var(--card);border:1.5px solid var(--line);color:var(--ink-soft);
     padding:12px 6px;border-radius:24px;font-size:0.98rem;font-weight:700;cursor:pointer;transition:all .13s;
   }
-  .tab.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .tab.active{background:var(--blue);border-color:var(--blue);color:var(--on-accent);}
 
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .gitem{
@@ -139,7 +140,7 @@
   }
   .gitem .sub{font-size:0.72rem;font-weight:600;color:var(--muted);}
   .gitem:active{transform:scale(0.96);}
-  .gitem.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .gitem.sel{background:var(--blue);border-color:var(--blue);color:var(--on-accent);}
   .gitem.sel .sub{color:rgba(255,255,255,0.85);}
   .gitem.dim{opacity:0.3;pointer-events:none;}
   .gitem.more{color:var(--blue-l);border-style:dashed;font-size:1.6rem;letter-spacing:2px;}
@@ -157,11 +158,11 @@
   .icon-btn{background:transparent;border:none;color:var(--ink-soft);font-size:1.6rem;cursor:pointer;padding:6px;}
   .icon-btn:active{transform:scale(0.9);}
   .calc-btn{
-    flex:1;background:var(--blue);
-    color:#fff;border:none;font-size:1.1rem;font-weight:800;letter-spacing:0.06em;
+    flex:1;background:#ffffff;
+    color:#131722;border:none;font-size:1.1rem;font-weight:800;letter-spacing:0.06em;
     padding:17px;border-radius:32px;cursor:pointer;
   }
-  .calc-btn:disabled{background:var(--card);color:var(--muted);box-shadow:none;cursor:not-allowed;}
+  .calc-btn:disabled{background:#2a2e39;color:var(--muted);box-shadow:none;cursor:not-allowed;}
   .calc-btn:active:not(:disabled){transform:scale(0.99);}
 
   /* ---- Screen C: results ---- */
@@ -173,7 +174,7 @@
   .hd-result .right .v{font-size:1.9rem;}
   .hd-result .right .v .sep{color:var(--blue-l);margin:0 3px;}
   .hd-result .amt{margin-top:20px;}
-  .hd-result .amt .v{color:#fff;}
+  .hd-result .amt .v{color:var(--red);}
 
   .table{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:110px;}
   .thead{display:flex;border-bottom:1.5px solid var(--line);position:sticky;top:0;background:var(--bg);}
@@ -182,7 +183,7 @@
   .trow{display:flex;cursor:pointer;}
   .trow div{flex:1;text-align:center;padding:17px;font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;color:#5d6a80;}
   .trow div:first-child{color:var(--ink);border-right:1px solid var(--line);}
-  .trow:nth-child(even){background:#0a1020;}
+  .trow:nth-child(even){background:#171b26;}
   .trow.cur{background:var(--blue-hi) !important;}
   .trow.cur div{color:#fff !important;font-weight:700;}
   .trow.zero div:last-child{color:var(--red);font-size:1rem;}
@@ -200,13 +201,13 @@
     background:transparent;border:none;color:var(--ink-soft);font-size:1rem;font-weight:700;
     padding:11px 22px;border-radius:22px;cursor:pointer;font-variant-numeric:tabular-nums;transition:all .13s;
   }
-  .pill button.active{background:var(--blue);color:#fff;}
+  .pill button.active{background:var(--blue);color:var(--on-accent);}
 
   .disclaimer{color:var(--muted);font-size:0.78rem;line-height:1.55;padding:0 22px 20px;}
 
   /* Install */
   .install-wrap{padding:0 18px;margin-top:8px;}
-  .install-btn{width:100%;background:var(--blue);color:#fff;border:none;font-size:1rem;font-weight:700;padding:14px;border-radius:var(--radius-sm);cursor:pointer;}
+  .install-btn{width:100%;background:#ffffff;color:#131722;border:none;font-size:1rem;font-weight:700;padding:14px;border-radius:var(--radius-sm);cursor:pointer;}
   .ios-tip{color:var(--ink-soft);font-size:0.88rem;line-height:1.5;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-top:10px;}
   .ios-tip b{color:var(--ink);}
 
@@ -217,26 +218,26 @@
   .ichip{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);color:var(--ink);
     padding:8px 13px;border-radius:11px;font-size:0.85rem;font-weight:700;cursor:pointer;transition:opacity .12s;}
   .ichip .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
-  .ichip.high .dot{background:#e5484d;} .ichip.med .dot{background:#f2a742;} .ichip.low .dot{background:#e8c948;}
+  .ichip.high .dot{background:var(--red);} .ichip.med .dot{background:#f2a742;} .ichip.low .dot{background:#e8c948;}
   .ichip:not(.active){opacity:0.4;}
   .cur-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .cur-chips::-webkit-scrollbar{display:none;}
   .cchip{flex:0 0 auto;background:var(--card);border:1.5px solid var(--line);color:var(--ink-soft);
     padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:700;cursor:pointer;}
-  .cchip.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .cchip.active{background:var(--blue);border-color:var(--blue);color:var(--on-accent);}
   .cal-status{padding:8px 20px;color:var(--muted);font-size:0.8rem;}
-  .show-past{width:100%;background:#0b1220;border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  .show-past{width:100%;background:#171b26;border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
     color:var(--blue-l);font-size:0.9rem;font-weight:700;padding:14px;cursor:pointer;text-align:center;}
   .show-past:active{background:#0e1626;}
   .cal-day{padding:11px 20px 7px;font-size:0.82rem;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;
-    color:var(--ink-soft);background:#0b1220;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
-  .cal-day.today{color:var(--blue-l);}
+    color:var(--ink-soft);background:#171b26;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .cal-day.today{color:var(--green);}
   .cal-row{display:grid;grid-template-columns:56px 38px 14px 1fr;gap:10px;align-items:start;
     padding:13px 18px;border-bottom:1px solid #10192b;}
   .cal-row .c-time{font-size:0.85rem;color:var(--ink-soft);font-variant-numeric:tabular-nums;font-weight:600;}
   .cal-row .c-cur{font-size:0.85rem;font-weight:800;color:var(--ink);}
   .idot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-top:3px;}
-  .idot.high{background:#e5484d;} .idot.med{background:#f2a742;} .idot.low{background:#e8c948;} .idot.hol{background:var(--muted);}
+  .idot.high{background:var(--red);} .idot.med{background:#f2a742;} .idot.low{background:#e8c948;} .idot.hol{background:var(--muted);}
   .c-title{font-size:0.95rem;color:var(--ink);line-height:1.32;}
   .c-vals{margin-top:4px;font-size:0.78rem;color:var(--muted);font-variant-numeric:tabular-nums;}
   .c-vals b{color:var(--ink-soft);font-weight:700;margin-right:2px;}
@@ -392,7 +393,7 @@
       <div class="cal-status" id="calStatus"></div>
       <div id="calBody"></div>
       <p class="disclaimer" style="padding:16px 20px 44px;">
-        Times shown in your local timezone. Live data via Forex Factory (faireconomy.media).
+        Times shown in your local timezone. Live data via TradingView (Forex Factory fallback).
         For reference only — not financial advice.
       </p>
     </div>
