@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<title>Position Sizer</title>
+<meta name="description" content="Forex, indices &amp; commodities lot size / position size calculator. Works offline, installable on your phone." />
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0a0d12" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Position Sizer" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+
+<style>
+  :root{
+    --bg:#0a0d12;
+    --bg2:#0c1016;
+    --card:#111621;
+    --card-2:#0e131c;
+    --field:#0f1420;
+    --border:#1c2431;
+    --border-strong:#28323f;
+    --text:#e9eef5;
+    --muted:#828d9c;
+    --muted-dim:#5c6673;
+    --accent:#eba43a;
+    --accent-soft:rgba(235,164,58,0.12);
+    --accent-border:rgba(235,164,58,0.55);
+    --green:#3fb56a;
+    --red:#e5674f;
+    --radius:16px;
+    --radius-sm:12px;
+    font-size:16px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.4;
+    min-height:100vh;
+    min-height:100dvh;
+  }
+
+  .wrap{
+    max-width:520px;
+    margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 26px) 16px calc(env(safe-area-inset-bottom) + 40px);
+  }
+
+  /* Header */
+  .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .header h1{font-size:1.9rem;font-weight:700;margin:0;letter-spacing:-0.02em;}
+  .subtitle{color:var(--muted);font-size:0.92rem;margin-top:4px;}
+  .risk-box{text-align:right;flex-shrink:0;}
+  .risk-box .lbl{color:var(--muted);font-size:0.92rem;}
+  .risk-box .val{
+    color:var(--accent);
+    font-size:1.85rem;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:-0.01em;
+    margin-top:2px;
+    white-space:nowrap;
+  }
+
+  .divider{height:1px;background:var(--border);margin:22px 0;border:0;}
+
+  /* Fields */
+  .row{display:flex;gap:14px;}
+  .row > *{flex:1;min-width:0;}
+  label.field-label{display:block;color:var(--muted);font-size:0.95rem;margin:0 0 8px 2px;}
+  label.field-label .opt{color:var(--muted-dim);font-weight:400;}
+
+  .field{margin-bottom:18px;}
+
+  input, select{
+    width:100%;
+    background:var(--field);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:1.25rem;
+    font-weight:500;
+    padding:15px 16px;
+    border-radius:var(--radius-sm);
+    outline:none;
+    font-variant-numeric:tabular-nums;
+    transition:border-color .15s ease, background .15s ease;
+    appearance:none;-webkit-appearance:none;
+  }
+  input::placeholder{color:var(--muted-dim);font-weight:400;}
+  input:focus, select:focus{border-color:var(--accent-border);background:#101724;}
+
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23828d9c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:44px;
+    cursor:pointer;
+  }
+
+  /* Quick risk chips */
+  .chips{display:flex;gap:10px;justify-content:flex-end;margin-top:10px;}
+  .chip{
+    background:transparent;
+    border:1px solid var(--border-strong);
+    color:var(--muted);
+    padding:8px 16px;
+    border-radius:10px;
+    font-size:0.95rem;
+    font-weight:600;
+    cursor:pointer;
+    font-variant-numeric:tabular-nums;
+    transition:all .12s ease;
+  }
+  .chip:active{transform:scale(0.96);}
+  .chip.active{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft);}
+
+  /* Segmented toggle */
+  .seg{
+    display:flex;
+    background:var(--field);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:5px;
+    margin:20px 0 22px;
+  }
+  .seg button{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-size:1.05rem;
+    font-weight:600;
+    padding:12px 8px;
+    border-radius:9px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .seg button.active{background:#1b2432;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.3);}
+
+  .note{color:var(--muted);font-size:0.9rem;margin:-8px 0 0 2px;}
+  .note.exact{color:var(--muted);}
+  .note.approx{color:var(--accent);}
+
+  /* Result */
+  .result{
+    background:var(--card-2);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:26px 22px;
+    margin-top:24px;
+    min-height:150px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .result.empty{align-items:center;justify-content:center;color:var(--muted);text-align:center;font-size:1.05rem;}
+  .result.error{border-color:rgba(229,103,79,0.4);}
+
+  .lots-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .lots{font-size:3.1rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;}
+  .lots small{font-size:1.1rem;font-weight:600;color:var(--muted);margin-left:8px;letter-spacing:0;}
+  .badge{
+    font-size:0.82rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
+    padding:6px 12px;border-radius:8px;
+  }
+  .badge.long{color:var(--green);background:rgba(63,181,106,0.13);}
+  .badge.short{color:var(--red);background:rgba(229,103,79,0.13);}
+
+  .stat-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    margin-top:22px;
+  }
+  .stat{background:var(--card);padding:14px 16px;}
+  .stat .k{color:var(--muted);font-size:0.82rem;margin-bottom:4px;}
+  .stat .v{font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat .v.accent{color:var(--accent);}
+  .stat .v.green{color:var(--green);}
+
+  .warn{
+    margin-top:16px;color:var(--accent);font-size:0.9rem;
+    background:var(--accent-soft);border:1px solid var(--accent-border);
+    border-radius:10px;padding:10px 12px;
+  }
+
+  .disclaimer{color:var(--muted-dim);font-size:0.82rem;line-height:1.55;margin-top:26px;}
+
+  /* Install button */
+  .install-bar{margin-top:22px;}
+  .install-btn{
+    width:100%;background:var(--accent);color:#1a1204;border:none;
+    font-size:1.05rem;font-weight:700;padding:15px;border-radius:var(--radius-sm);
+    cursor:pointer;
+  }
+  .install-btn:active{transform:scale(0.99);}
+  .ios-tip{
+    margin-top:14px;color:var(--muted);font-size:0.9rem;line-height:1.55;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+  }
+  .ios-tip b{color:var(--text);}
+  .hidden{display:none !important;}
+
+  @media (max-width:360px){
+    .header h1{font-size:1.65rem;}
+    .risk-box .val{font-size:1.6rem;}
+    .lots{font-size:2.7rem;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1>Position Sizer</h1>
+      <div class="subtitle">Forex · Indices · Commodities</div>
+    </div>
+    <div class="risk-box">
+      <div class="lbl">Risk this trade</div>
+      <div class="val" id="riskAmount">$0.00</div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Balance + Risk % -->
+  <div class="row">
+    <div class="field" style="margin-bottom:8px;">
+      <label class="field-label" for="balance">Account balance ($)</label>
+      <input id="balance" type="text" inputmode="decimal" value="50000" autocomplete="off" />
+    </div>
+    <div class="field" style="margin-bottom:8px;">
+      <label class="field-label" for="riskPct">Risk %</label>
+      <input id="riskPct" type="text" inputmode="decimal" value="0.5" autocomplete="off" />
+    </div>
+  </div>
+  <div class="chips">
+    <button class="chip" data-risk="0.5">0.5%</button>
+    <button class="chip" data-risk="1">1%</button>
+    <button class="chip" data-risk="2">2%</button>
+  </div>
+
+  <!-- Instrument -->
+  <div class="field" style="margin-top:22px;">
+    <label class="field-label" for="instrument">Instrument</label>
+    <select id="instrument"></select>
+  </div>
+
+  <!-- Mode -->
+  <div class="seg" id="modeSeg">
+    <button data-mode="price" class="active">By price</button>
+    <button data-mode="distance">By stop distance</button>
+  </div>
+
+  <!-- By price inputs -->
+  <div id="priceInputs">
+    <div class="row">
+      <div class="field">
+        <label class="field-label" for="entry">Entry</label>
+        <input id="entry" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="stop">Stop</label>
+        <input id="stop" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="target">Target <span class="opt">opt</span></label>
+        <input id="target" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+
+  <!-- By distance inputs -->
+  <div id="distanceInputs" class="hidden">
+    <div class="row">
+      <div class="field">
+        <label class="field-label" for="stopPipsIn">Stop distance (pips)</label>
+        <input id="stopPipsIn" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="targetPipsIn">Target (pips) <span class="opt">opt</span></label>
+        <input id="targetPipsIn" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Value per pip -->
+  <div class="field">
+    <label class="field-label" for="pipValue">Value per pip · per lot ($)</label>
+    <input id="pipValue" type="text" inputmode="decimal" value="10" autocomplete="off" />
+  </div>
+  <div class="note exact" id="pipNote">USD-quoted — this value is exact.</div>
+
+  <!-- Result -->
+  <div class="result empty" id="result">Enter entry and stop prices.</div>
+
+  <!-- Install -->
+  <div class="install-bar">
+    <button class="install-btn hidden" id="installBtn">Install app on this device</button>
+    <div class="ios-tip hidden" id="iosTip">
+      <b>Add to Home Screen:</b> tap the Share icon <b>⎋</b> in your browser toolbar, then choose
+      <b>“Add to Home Screen.”</b> It then opens full-screen and works offline.
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    Contract and point values differ between brokers — confirm the per-pip value against your own
+    platform before sizing live. Lots are always rounded <b>down</b> to 0.01 so the calculated risk is
+    never exceeded. This tool is for education only and is not financial advice.
+  </p>
+
+</div>
+
+<script>
+/* ---------------- Instrument presets ----------------
+   pip      = price change of one "pip" for this symbol
+   value    = default $ value of one pip, per 1.00 standard lot
+   exact    = true when the per-pip value is fixed (USD-quoted); false = confirm on your platform
+   The money math stays correct for any broker because money = (priceDistance / pip) * value,
+   and the user can override `value` to match their platform exactly.                          */
+const INSTRUMENTS = [
+  {g:"Forex — majors", items:[
+    {s:"EURUSD", pip:0.0001, value:10,   exact:true},
+    {s:"GBPUSD", pip:0.0001, value:10,   exact:true},
+    {s:"AUDUSD", pip:0.0001, value:10,   exact:true},
+    {s:"NZDUSD", pip:0.0001, value:10,   exact:true},
+    {s:"USDCAD", pip:0.0001, value:7.3,  exact:false},
+    {s:"USDCHF", pip:0.0001, value:11.2, exact:false},
+    {s:"USDJPY", pip:0.01,   value:6.7,  exact:false},
+  ]},
+  {g:"Forex — crosses", items:[
+    {s:"EURGBP", pip:0.0001, value:12.7, exact:false},
+    {s:"EURJPY", pip:0.01,   value:6.7,  exact:false},
+    {s:"GBPJPY", pip:0.01,   value:6.7,  exact:false},
+    {s:"AUDJPY", pip:0.01,   value:6.7,  exact:false},
+  ]},
+  {g:"Metals", items:[
+    {s:"XAUUSD", pip:0.1,  value:10, exact:true},   // Gold, 100 oz
+    {s:"XAGUSD", pip:0.01, value:50, exact:true},   // Silver, 5000 oz
+  ]},
+  {g:"Energy", items:[
+    {s:"USOIL (WTI)", pip:0.01, value:10, exact:true},   // 1000 barrels
+    {s:"UKOIL (Brent)", pip:0.01, value:10, exact:true},
+  ]},
+  {g:"Indices (per point)", items:[
+    {s:"US30 (Dow)",  pip:1, value:1, exact:false},
+    {s:"NAS100",      pip:1, value:1, exact:false},
+    {s:"SPX500",      pip:1, value:1, exact:false},
+    {s:"GER40 (DAX)", pip:1, value:1, exact:false},
+    {s:"UK100",       pip:1, value:1, exact:false},
+    {s:"JP225",       pip:1, value:1, exact:false},
+  ]},
+  {g:"Crypto (per $1)", items:[
+    {s:"BTCUSD", pip:1, value:1, exact:false},
+    {s:"ETHUSD", pip:1, value:1, exact:false},
+  ]},
+  {g:"Other", items:[
+    {s:"Custom", pip:0.0001, value:10, exact:true},
+  ]},
+];
+
+const flat = {};
+const sel = document.getElementById("instrument");
+INSTRUMENTS.forEach(group=>{
+  const og = document.createElement("optgroup");
+  og.label = group.g;
+  group.items.forEach(it=>{
+    flat[it.s] = it;
+    const o = document.createElement("option");
+    o.value = it.s; o.textContent = it.s;
+    og.appendChild(o);
+  });
+  sel.appendChild(og);
+});
+sel.value = "XAUUSD";
+
+/* ---------------- Helpers ---------------- */
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(String(v).replace(/,/g,"").trim()); return isFinite(n) ? n : NaN; };
+const money = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+const money0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const fmt = (n,d=2) => n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+
+let mode = "price";
+const LOT_STEP = 0.01;
+
+/* Decimal places sensible for a symbol's price display */
+function pipDecimals(pip){
+  if (pip >= 1) return 0;
+  return Math.max(0, Math.round(-Math.log10(pip)) );
+}
+
+/* ---------------- Instrument change ---------------- */
+function applyInstrument(){
+  const it = flat[sel.value];
+  if(!it) return;
+  $("pipValue").value = it.value;
+  const note = $("pipNote");
+  if(it.exact){
+    note.className = "note exact";
+    note.textContent = "USD-quoted — this value is exact.";
+  }else{
+    note.className = "note approx";
+    note.textContent = "Approximate — confirm the per-pip value on your platform.";
+  }
+  calc();
+}
+sel.addEventListener("change", applyInstrument);
+
+/* ---------------- Mode switch ---------------- */
+document.querySelectorAll("#modeSeg button").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    mode = b.dataset.mode;
+    $("priceInputs").classList.toggle("hidden", mode!=="price");
+    $("distanceInputs").classList.toggle("hidden", mode!=="distance");
+    calc();
+  });
+});
+
+/* ---------------- Risk chips ---------------- */
+document.querySelectorAll(".chip").forEach(c=>{
+  c.addEventListener("click", ()=>{
+    $("riskPct").value = c.dataset.risk;
+    calc();
+  });
+});
+function syncChips(){
+  const v = $("riskPct").value.trim();
+  document.querySelectorAll(".chip").forEach(c=>{
+    c.classList.toggle("active", c.dataset.risk === v);
+  });
+}
+
+/* ---------------- Core calculation ---------------- */
+function calc(){
+  syncChips();
+  const res = $("result");
+  const balance = num($("balance").value);
+  const riskPct = num($("riskPct").value);
+  const pipValue = num($("pipValue").value);
+  const it = flat[sel.value] || {pip:0.0001};
+  const pip = it.pip;
+
+  // Live risk amount in header
+  const riskAmount = (isFinite(balance) && isFinite(riskPct)) ? balance * riskPct/100 : NaN;
+  $("riskAmount").textContent = isFinite(riskAmount) ? money.format(riskAmount) : "$0.00";
+
+  // Determine stop distance (in pips) and direction
+  let stopPips = NaN, rewardPips = NaN, dir = null, wrongTarget = false;
+
+  if(mode === "price"){
+    const entry = num($("entry").value);
+    const stop  = num($("stop").value);
+    const target= num($("target").value);
+    if(!isFinite(entry) || !isFinite(stop) || entry === 0 && stop === 0){
+      return showEmpty(res, "Enter entry and stop prices.");
+    }
+    if(entry === stop) return showError(res, "Entry and stop can’t be the same price.");
+    stopPips = Math.abs(entry - stop) / pip;
+    dir = stop < entry ? "long" : "short";
+    if(isFinite(target) && target !== 0){
+      rewardPips = Math.abs(target - entry) / pip;
+      // target should be on the profit side
+      if(dir === "long" && target <= entry) wrongTarget = true;
+      if(dir === "short" && target >= entry) wrongTarget = true;
+    }
+  } else {
+    stopPips = num($("stopPipsIn").value);
+    const tp = num($("targetPipsIn").value);
+    if(!isFinite(stopPips) || stopPips <= 0){
+      return showEmpty(res, "Enter your stop distance in pips.");
+    }
+    if(isFinite(tp) && tp > 0) rewardPips = tp;
+  }
+
+  if(!isFinite(riskAmount) || riskAmount <= 0) return showError(res, "Enter a balance and risk %.");
+  if(!isFinite(pipValue) || pipValue <= 0)     return showError(res, "Enter the value per pip.");
+  if(!isFinite(stopPips) || stopPips <= 0)      return showError(res, "Stop distance must be greater than zero.");
+
+  // Position size. Round DOWN to the lot step, but nudge by a tiny epsilon first so that
+  // clean inputs (e.g. a 50-pip stop that floats to 50.00000000004) don't lose a whole step.
+  const rawLots = riskAmount / (stopPips * pipValue);
+  const lots = Math.floor(rawLots / LOT_STEP + 1e-9) * LOT_STEP;
+
+  if(lots < LOT_STEP){
+    return showError(res,
+      "Risk is too small for this stop — the smallest tradeable size (0.01 lot) would risk " +
+      money.format(LOT_STEP * stopPips * pipValue) + ".");
+  }
+
+  const actualRisk   = lots * stopPips * pipValue;
+  const moneyPerPip  = lots * pipValue;
+  const units        = lots * (pipValue / pip);         // contract units / ounces / points
+  const pd           = pipDecimals(pip);
+
+  // Build result
+  let html = `
+    <div class="lots-line">
+      <div><span class="lots">${fmt(lots,2)}</span><small>lots</small></div>
+      ${dir ? `<span class="badge ${dir}">${dir}</span>` : ``}
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">Risk on trade</div><div class="v accent">${money.format(actualRisk)}</div></div>
+      <div class="stat"><div class="k">Stop distance</div><div class="v">${fmt(stopPips, stopPips<10?1:0)} pips</div></div>
+      <div class="stat"><div class="k">Value / pip</div><div class="v">${money.format(moneyPerPip)}</div></div>
+      <div class="stat"><div class="k">Units</div><div class="v">${units.toLocaleString("en-US",{maximumFractionDigits:2})}</div></div>`;
+
+  if(isFinite(rewardPips) && rewardPips > 0 && !wrongTarget){
+    const profit = lots * rewardPips * pipValue;
+    const rr = rewardPips / stopPips;
+    html += `
+      <div class="stat"><div class="k">Potential profit</div><div class="v green">${money.format(profit)}</div></div>
+      <div class="stat"><div class="k">Reward : Risk</div><div class="v">${fmt(rr,2)} : 1</div></div>`;
+  }
+  html += `</div>`;
+
+  if(wrongTarget){
+    html += `<div class="warn">Target is on the losing side of your entry — check the target price.</div>`;
+  }
+  if(rawLots - lots > 1e-4){
+    html += `<div class="warn">Rounded down from ${fmt(rawLots,3)} lots so your risk stays within ${money.format(riskAmount)}.</div>`;
+  }
+
+  res.className = "result";
+  res.innerHTML = html;
+}
+
+function showEmpty(res, msg){ res.className="result empty"; res.textContent=msg; }
+function showError(res, msg){ res.className="result empty error"; res.textContent=msg; }
+
+/* ---------------- Wire up + persistence ---------------- */
+const PERSIST = ["balance","riskPct","instrument","entry","stop","target","stopPipsIn","targetPipsIn","pipValue"];
+function save(){
+  try{
+    const d={mode};
+    PERSIST.forEach(id=>d[id]=$(id).value);
+    localStorage.setItem("positionSizer", JSON.stringify(d));
+  }catch(e){}
+}
+function restore(){
+  try{
+    const d = JSON.parse(localStorage.getItem("positionSizer")||"{}");
+    if(d.instrument && flat[d.instrument]) sel.value = d.instrument;
+    PERSIST.forEach(id=>{ if(id!=="instrument" && d[id]!==undefined && d[id]!=="") $(id).value = d[id]; });
+    if(d.mode){
+      const btn = document.querySelector(`#modeSeg button[data-mode="${d.mode}"]`);
+      if(btn) btn.click();
+    }
+  }catch(e){}
+}
+
+["balance","riskPct","entry","stop","target","stopPipsIn","targetPipsIn","pipValue"].forEach(id=>{
+  $(id).addEventListener("input", ()=>{ calc(); save(); });
+});
+sel.addEventListener("change", save);
+document.querySelectorAll("#modeSeg button").forEach(b=>b.addEventListener("click", save));
+
+restore();
+// If nothing restored the pip value, seed it from the current instrument
+if(!localStorage.getItem("positionSizer")) applyInstrument();
+calc();
+
+/* ---------------- PWA install ---------------- */
+let deferredPrompt = null;
+const installBtn = $("installBtn");
+const iosTip = $("iosTip");
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+
+window.addEventListener("beforeinstallprompt", (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  if(!standalone) installBtn.classList.remove("hidden");
+});
+installBtn.addEventListener("click", async ()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  installBtn.classList.add("hidden");
+});
+window.addEventListener("appinstalled", ()=> installBtn.classList.add("hidden"));
+
+// iOS has no beforeinstallprompt — show the manual tip instead
+if(isIOS && !standalone) iosTip.classList.remove("hidden");
+
+/* ---------------- Service worker ---------------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
