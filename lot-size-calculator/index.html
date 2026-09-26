@@ -3,607 +3,580 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-<title>Position Sizer</title>
-<meta name="description" content="Forex, indices &amp; commodities lot size / position size calculator. Works offline, installable on your phone." />
+<title>Lot Size Calculator</title>
+<meta name="description" content="Forex, crypto & commodity lot size / position size calculator with a stop-loss → lots table. Works offline, installable on your phone." />
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#0a0d12" />
+<meta name="theme-color" content="#123c47" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Position Sizer" />
+<meta name="apple-mobile-web-app-title" content="Lot Size" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 
 <style>
   :root{
-    --bg:#0a0d12;
-    --bg2:#0c1016;
-    --card:#111621;
-    --card-2:#0e131c;
-    --field:#0f1420;
-    --border:#1c2431;
-    --border-strong:#28323f;
-    --text:#e9eef5;
-    --muted:#828d9c;
-    --muted-dim:#5c6673;
-    --accent:#eba43a;
-    --accent-soft:rgba(235,164,58,0.12);
-    --accent-border:rgba(235,164,58,0.55);
-    --green:#3fb56a;
-    --red:#e5674f;
-    --radius:16px;
-    --radius-sm:12px;
+    --bg:#eef1f4;
+    --card:#ffffff;
+    --ink:#26333b;
+    --ink-soft:#54636c;
+    --muted:#95a2aa;
+    --line:#e5eaed;
+    --teal:#2b8ca2;
+    --teal-d:#103b47;
+    --teal-mid:#2f93a8;
+    --teal-hi:#57a6bb;
+    --teal-soft:#e7f1f4;
+    --green:#2f9e6a;
+    --red:#d9634c;
+    --radius:20px;
+    --radius-sm:14px;
+    --shadow:0 6px 20px rgba(20,50,60,0.07);
     font-size:16px;
   }
-
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Rounded","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;
     line-height:1.4;
-    min-height:100vh;
-    min-height:100dvh;
+    min-height:100vh;min-height:100dvh;
   }
+  .app{max-width:540px;margin:0 auto;padding-bottom:calc(env(safe-area-inset-bottom) + 34px);}
 
-  .wrap{
-    max-width:520px;
-    margin:0 auto;
-    padding:calc(env(safe-area-inset-top) + 26px) 16px calc(env(safe-area-inset-bottom) + 40px);
+  /* ---------- Header ---------- */
+  .hd{
+    background:linear-gradient(125deg,#0e3743 0%, #1c6577 52%, #2f93a8 100%);
+    color:#fff;
+    padding:calc(env(safe-area-inset-top) + 20px) 22px 30px;
+    border-radius:0 0 30px 30px;
+    box-shadow:0 8px 24px rgba(16,59,71,0.25);
   }
-
-  /* Header */
-  .header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
-  .header h1{font-size:1.9rem;font-weight:700;margin:0;letter-spacing:-0.02em;}
-  .subtitle{color:var(--muted);font-size:0.92rem;margin-top:4px;}
-  .risk-box{text-align:right;flex-shrink:0;}
-  .risk-box .lbl{color:var(--muted);font-size:0.92rem;}
-  .risk-box .val{
-    color:var(--accent);
-    font-size:1.85rem;
-    font-weight:700;
-    font-variant-numeric:tabular-nums;
-    letter-spacing:-0.01em;
-    margin-top:2px;
-    white-space:nowrap;
+  .hd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .menu-btn{
+    background:rgba(255,255,255,0.14);border:none;color:#fff;width:40px;height:40px;
+    border-radius:12px;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
   }
+  .menu-btn:active{transform:scale(0.94);}
+  .pair-head{text-align:right;}
+  .pair-head .lbl{font-size:0.9rem;opacity:0.82;}
+  .pair-head .val{font-size:2rem;font-weight:700;letter-spacing:0.01em;line-height:1.1;margin-top:2px;}
+  .pair-head .val .sep{opacity:0.6;font-weight:400;margin:0 2px;}
+  .pair-head .val .ph{opacity:0.45;}
 
-  .divider{height:1px;background:var(--border);margin:22px 0;border:0;}
+  .hd-stats{display:flex;gap:34px;margin-top:22px;}
+  .hd-stats .k{font-size:0.92rem;opacity:0.82;}
+  .hd-stats .v{font-size:1.7rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:2px;}
 
-  /* Fields */
-  .row{display:flex;gap:14px;}
-  .row > *{flex:1;min-width:0;}
-  label.field-label{display:block;color:var(--muted);font-size:0.95rem;margin:0 0 8px 2px;}
-  label.field-label .opt{color:var(--muted-dim);font-weight:400;}
+  /* ---------- Content ---------- */
+  .content{padding:20px 16px 0;}
+  .card{
+    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:18px;margin-bottom:16px;
+  }
+  .card-title{font-size:0.82rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin:0 0 14px 2px;}
 
-  .field{margin-bottom:18px;}
+  .row{display:flex;gap:12px;}
+  .row>*{flex:1;min-width:0;}
+  label.fl{display:block;color:var(--ink-soft);font-size:0.9rem;margin:0 0 7px 2px;}
+  .field{margin-bottom:2px;}
 
-  input, select{
-    width:100%;
-    background:var(--field);
-    border:1px solid var(--border);
-    color:var(--text);
-    font-size:1.25rem;
-    font-weight:500;
-    padding:15px 16px;
-    border-radius:var(--radius-sm);
-    outline:none;
-    font-variant-numeric:tabular-nums;
-    transition:border-color .15s ease, background .15s ease;
+  input{
+    width:100%;background:#f4f7f8;border:1.5px solid var(--line);color:var(--ink);
+    font-size:1.2rem;font-weight:600;padding:13px 14px;border-radius:var(--radius-sm);
+    outline:none;font-variant-numeric:tabular-nums;transition:border-color .15s, background .15s;
     appearance:none;-webkit-appearance:none;
   }
-  input::placeholder{color:var(--muted-dim);font-weight:400;}
-  input:focus, select:focus{border-color:var(--accent-border);background:#101724;}
+  input:focus{border-color:var(--teal);background:#fff;}
 
-  select{
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23828d9c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-    background-repeat:no-repeat;
-    background-position:right 14px center;
-    padding-right:44px;
-    cursor:pointer;
-  }
-
-  /* Quick risk chips */
-  .chips{display:flex;gap:10px;justify-content:flex-end;margin-top:10px;}
+  .chips{display:flex;gap:9px;justify-content:flex-end;margin-top:12px;}
   .chip{
-    background:transparent;
-    border:1px solid var(--border-strong);
-    color:var(--muted);
-    padding:8px 16px;
-    border-radius:10px;
-    font-size:0.95rem;
-    font-weight:600;
-    cursor:pointer;
-    font-variant-numeric:tabular-nums;
-    transition:all .12s ease;
+    background:#f2f5f6;border:1.5px solid var(--line);color:var(--ink-soft);
+    padding:7px 15px;border-radius:11px;font-size:0.92rem;font-weight:700;cursor:pointer;
+    font-variant-numeric:tabular-nums;transition:all .12s;
   }
-  .chip:active{transform:scale(0.96);}
-  .chip.active{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft);}
+  .chip:active{transform:scale(0.95);}
+  .chip.active{color:#fff;background:var(--teal);border-color:var(--teal);}
 
-  /* Segmented toggle */
-  .seg{
-    display:flex;
-    background:var(--field);
-    border:1px solid var(--border);
-    border-radius:var(--radius-sm);
-    padding:5px;
-    margin:20px 0 22px;
+  /* Tabs */
+  .tabs{display:flex;gap:10px;margin-bottom:16px;}
+  .tab{
+    flex:1;background:#fff;border:1.5px solid var(--line);color:var(--ink-soft);
+    padding:11px 6px;border-radius:22px;font-size:0.95rem;font-weight:700;cursor:pointer;
+    transition:all .13s;letter-spacing:0.02em;
   }
+  .tab.active{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 4px 12px rgba(43,140,162,0.3);}
+
+  /* Pair builder */
+  .build-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;
+    background:var(--teal-soft);border-radius:var(--radius-sm);padding:11px 14px;
+  }
+  .build-bar .pv{font-size:1.35rem;font-weight:700;color:var(--teal-d);}
+  .build-bar .pv .sep{color:var(--teal);margin:0 3px;}
+  .build-bar .pv .ph{color:#9dc4ce;}
+  .build-bar .hint{font-size:0.82rem;color:var(--teal);font-weight:600;}
+  .reset-btn{
+    background:#fff;border:1.5px solid var(--line);color:var(--teal-d);width:38px;height:38px;border-radius:11px;
+    font-size:1.1rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  }
+  .reset-btn:active{transform:scale(0.94);}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;}
+  .gitem{
+    background:#fff;border:1.5px solid var(--line);border-radius:16px;
+    min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:1.15rem;font-weight:700;color:var(--ink);cursor:pointer;transition:all .12s;padding:8px;
+  }
+  .gitem .sub{font-size:0.72rem;font-weight:600;color:var(--muted);}
+  .gitem:active{transform:scale(0.96);}
+  .gitem.sel{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 4px 12px rgba(43,140,162,0.3);}
+  .gitem.sel .sub{color:rgba(255,255,255,0.85);}
+  .gitem.dim{opacity:0.35;pointer-events:none;}
+  .gitem.more{color:var(--teal);border-style:dashed;font-size:1.4rem;}
+
+  .note{font-size:0.85rem;margin:10px 2px 0;}
+  .note.exact{color:var(--ink-soft);}
+  .note.approx{color:#c0791f;}
+
+  .seg{display:flex;background:#f2f5f6;border-radius:13px;padding:5px;gap:4px;}
   .seg button{
-    flex:1;
-    background:transparent;
-    border:none;
-    color:var(--muted);
-    font-size:1.05rem;
-    font-weight:600;
-    padding:12px 8px;
-    border-radius:9px;
-    cursor:pointer;
-    transition:all .15s ease;
+    flex:1;background:transparent;border:none;color:var(--ink-soft);font-size:0.98rem;font-weight:700;
+    padding:9px 4px;border-radius:9px;cursor:pointer;transition:all .13s;font-variant-numeric:tabular-nums;
   }
-  .seg button.active{background:#1b2432;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.3);}
+  .seg button.active{background:#fff;color:var(--teal-d);box-shadow:0 2px 6px rgba(20,50,60,0.12);}
 
-  .note{color:var(--muted);font-size:0.9rem;margin:-8px 0 0 2px;}
-  .note.exact{color:var(--muted);}
-  .note.approx{color:var(--accent);}
+  /* Table */
+  .tbl-card{padding:0;overflow:hidden;}
+  .thead{display:flex;border-bottom:1.5px solid var(--line);}
+  .thead div{flex:1;text-align:center;padding:15px;font-size:0.82rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-soft);}
+  .thead div:first-child{border-right:1.5px solid var(--line);}
+  .trow{display:flex;cursor:pointer;transition:background .1s;}
+  .trow div{flex:1;text-align:center;padding:16px;font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums;color:#b3bec4;}
+  .trow div:first-child{color:var(--ink);border-right:1px solid var(--line);}
+  .trow:nth-child(even){background:#f7f9fa;}
+  .trow.cur{background:var(--teal-hi) !important;}
+  .trow.cur div{color:#fff !important;font-weight:700;font-size:1.45rem;}
+  .trow.zero div:last-child{color:var(--red);font-size:1rem;}
 
-  /* Result */
-  .result{
-    background:var(--card-2);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:26px 22px;
-    margin-top:24px;
-    min-height:150px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-  }
-  .result.empty{align-items:center;justify-content:center;color:var(--muted);text-align:center;font-size:1.05rem;}
-  .result.error{border-color:rgba(229,103,79,0.4);}
+  .warn{margin:14px 0 2px;color:#8a5a12;font-size:0.88rem;background:#fdf3e0;border:1px solid #f2dcae;border-radius:12px;padding:11px 13px;}
 
-  .lots-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-  .lots{font-size:3.1rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;}
-  .lots small{font-size:1.1rem;font-weight:600;color:var(--muted);margin-left:8px;letter-spacing:0;}
-  .badge{
-    font-size:0.82rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;
-    padding:6px 12px;border-radius:8px;
-  }
-  .badge.long{color:var(--green);background:rgba(63,181,106,0.13);}
-  .badge.short{color:var(--red);background:rgba(229,103,79,0.13);}
+  .disclaimer{color:var(--muted);font-size:0.8rem;line-height:1.55;margin:8px 6px 0;}
 
-  .stat-grid{
-    display:grid;grid-template-columns:1fr 1fr;gap:1px;
-    background:var(--border);
-    border:1px solid var(--border);
-    border-radius:var(--radius-sm);
-    overflow:hidden;
-    margin-top:22px;
-  }
-  .stat{background:var(--card);padding:14px 16px;}
-  .stat .k{color:var(--muted);font-size:0.82rem;margin-bottom:4px;}
-  .stat .v{font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums;}
-  .stat .v.accent{color:var(--accent);}
-  .stat .v.green{color:var(--green);}
-
-  .warn{
-    margin-top:16px;color:var(--accent);font-size:0.9rem;
-    background:var(--accent-soft);border:1px solid var(--accent-border);
-    border-radius:10px;padding:10px 12px;
-  }
-
-  .disclaimer{color:var(--muted-dim);font-size:0.82rem;line-height:1.55;margin-top:26px;}
-
-  /* Install button */
-  .install-bar{margin-top:22px;}
   .install-btn{
-    width:100%;background:var(--accent);color:#1a1204;border:none;
-    font-size:1.05rem;font-weight:700;padding:15px;border-radius:var(--radius-sm);
-    cursor:pointer;
+    width:100%;background:var(--teal);color:#fff;border:none;font-size:1.02rem;font-weight:700;
+    padding:15px;border-radius:var(--radius-sm);cursor:pointer;box-shadow:0 4px 14px rgba(43,140,162,0.3);margin-top:2px;
   }
   .install-btn:active{transform:scale(0.99);}
-  .ios-tip{
-    margin-top:14px;color:var(--muted);font-size:0.9rem;line-height:1.55;
-    background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
-  }
-  .ios-tip b{color:var(--text);}
+  .ios-tip{color:var(--ink-soft);font-size:0.9rem;line-height:1.55;}
+  .ios-tip b{color:var(--ink);}
   .hidden{display:none !important;}
 
   @media (max-width:360px){
-    .header h1{font-size:1.65rem;}
-    .risk-box .val{font-size:1.6rem;}
-    .lots{font-size:2.7rem;}
+    .pair-head .val{font-size:1.7rem;}
+    .hd-stats .v{font-size:1.45rem;}
+    .grid{gap:9px;}
+    .gitem{min-height:66px;font-size:1.05rem;}
   }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 
-  <div class="header">
-    <div>
-      <h1>Position Sizer</h1>
-      <div class="subtitle">Forex · Indices · Commodities</div>
-    </div>
-    <div class="risk-box">
-      <div class="lbl">Risk this trade</div>
-      <div class="val" id="riskAmount">$0.00</div>
-    </div>
-  </div>
-
-  <hr class="divider" />
-
-  <!-- Balance + Risk % -->
-  <div class="row">
-    <div class="field" style="margin-bottom:8px;">
-      <label class="field-label" for="balance">Account balance ($)</label>
-      <input id="balance" type="text" inputmode="decimal" value="50000" autocomplete="off" />
-    </div>
-    <div class="field" style="margin-bottom:8px;">
-      <label class="field-label" for="riskPct">Risk %</label>
-      <input id="riskPct" type="text" inputmode="decimal" value="0.5" autocomplete="off" />
-    </div>
-  </div>
-  <div class="chips">
-    <button class="chip" data-risk="0.5">0.5%</button>
-    <button class="chip" data-risk="1">1%</button>
-    <button class="chip" data-risk="2">2%</button>
-  </div>
-
-  <!-- Instrument -->
-  <div class="field" style="margin-top:22px;">
-    <label class="field-label" for="instrument">Instrument</label>
-    <select id="instrument"></select>
-  </div>
-
-  <!-- Mode -->
-  <div class="seg" id="modeSeg">
-    <button data-mode="price" class="active">By price</button>
-    <button data-mode="distance">By stop distance</button>
-  </div>
-
-  <!-- By price inputs -->
-  <div id="priceInputs">
-    <div class="row">
-      <div class="field">
-        <label class="field-label" for="entry">Entry</label>
-        <input id="entry" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="stop">Stop</label>
-        <input id="stop" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="target">Target <span class="opt">opt</span></label>
-        <input id="target" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+  <!-- Header -->
+  <header class="hd">
+    <div class="hd-top">
+      <button class="menu-btn" id="resetAll" title="Reset">↺</button>
+      <div class="pair-head">
+        <div class="lbl">Currency Pair</div>
+        <div class="val" id="pairHead">EUR<span class="sep">/</span>USD</div>
       </div>
     </div>
-  </div>
-
-  <!-- By distance inputs -->
-  <div id="distanceInputs" class="hidden">
-    <div class="row">
-      <div class="field">
-        <label class="field-label" for="stopPipsIn">Stop distance (pips)</label>
-        <input id="stopPipsIn" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+    <div class="hd-stats">
+      <div>
+        <div class="k">Risk</div>
+        <div class="v" id="riskPctHead">1%</div>
       </div>
-      <div class="field">
-        <label class="field-label" for="targetPipsIn">Target (pips) <span class="opt">opt</span></label>
-        <input id="targetPipsIn" type="text" inputmode="decimal" placeholder="0" autocomplete="off" />
+      <div>
+        <div class="k">Risk amount</div>
+        <div class="v" id="riskAmtHead">$100</div>
       </div>
     </div>
-  </div>
+  </header>
 
-  <!-- Value per pip -->
-  <div class="field">
-    <label class="field-label" for="pipValue">Value per pip · per lot ($)</label>
-    <input id="pipValue" type="text" inputmode="decimal" value="10" autocomplete="off" />
-  </div>
-  <div class="note exact" id="pipNote">USD-quoted — this value is exact.</div>
+  <main class="content">
 
-  <!-- Result -->
-  <div class="result empty" id="result">Enter entry and stop prices.</div>
-
-  <!-- Install -->
-  <div class="install-bar">
-    <button class="install-btn hidden" id="installBtn">Install app on this device</button>
-    <div class="ios-tip hidden" id="iosTip">
-      <b>Add to Home Screen:</b> tap the Share icon <b>⎋</b> in your browser toolbar, then choose
-      <b>“Add to Home Screen.”</b> It then opens full-screen and works offline.
+    <!-- Account + risk -->
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label class="fl" for="balance">Account balance ($)</label>
+          <input id="balance" type="text" inputmode="decimal" value="10000" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="fl" for="riskPct">Risk %</label>
+          <input id="riskPct" type="text" inputmode="decimal" value="1" autocomplete="off" />
+        </div>
+      </div>
+      <div class="chips">
+        <button class="chip" data-risk="0.5">0.5%</button>
+        <button class="chip" data-risk="1">1%</button>
+        <button class="chip" data-risk="2">2%</button>
+      </div>
     </div>
-  </div>
 
-  <p class="disclaimer">
-    Contract and point values differ between brokers — confirm the per-pip value against your own
-    platform before sizing live. Lots are always rounded <b>down</b> to 0.01 so the calculated risk is
-    never exceeded. This tool is for education only and is not financial advice.
-  </p>
+    <!-- Pair builder -->
+    <div class="card">
+      <p class="card-title">Currency Pair</p>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="FX">FX</button>
+        <button class="tab" data-tab="CRYPTO">Crypto</button>
+        <button class="tab" data-tab="COMMODITY">Commodity</button>
+      </div>
+      <div class="build-bar">
+        <div class="pv" id="buildPair">EUR<span class="sep">/</span>USD</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="hint" id="buildHint"></span>
+          <button class="reset-btn" id="resetPair" title="New pair">↺</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
 
+    <!-- Pip value -->
+    <div class="card">
+      <label class="fl" for="pipValue">Value per pip · per lot ($)</label>
+      <input id="pipValue" type="text" inputmode="decimal" value="10" autocomplete="off" />
+      <div class="note exact" id="pipNote">USD-quoted — this value is exact.</div>
+    </div>
+
+    <!-- Stop loss + step -->
+    <div class="card">
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="flex:1.1;">
+          <label class="fl" for="stopLoss">Stop loss (pips)</label>
+          <input id="stopLoss" type="text" inputmode="decimal" value="20" autocomplete="off" />
+        </div>
+        <div class="field" style="flex:1.4;">
+          <label class="fl">Row step (pips)</label>
+          <div class="seg" id="stepSeg">
+            <button data-step="1" class="active">1</button>
+            <button data-step="5">5</button>
+            <button data-step="10">10</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card tbl-card">
+      <div class="thead"><div>Stop loss</div><div>Lots</div></div>
+      <div id="tbody"></div>
+    </div>
+    <div id="tableWarn"></div>
+
+    <!-- Install -->
+    <div class="card hidden" id="installCard">
+      <button class="install-btn hidden" id="installBtn">Install app on this device</button>
+      <div class="ios-tip hidden" id="iosTip">
+        <b>Add to Home Screen:</b> tap the Share icon in Safari, then <b>“Add to Home Screen.”</b>
+        It opens full-screen and works offline.
+      </div>
+    </div>
+
+    <p class="disclaimer">
+      Contract and pip values differ between brokers — confirm the per-pip value against your own platform
+      before sizing live. Lots are rounded <b>down</b> to 0.01 so your risk is never exceeded. Non-USD-quoted
+      pairs use approximate default rates; tap a table row to make it the current stop loss.
+      Education only, not financial advice.
+    </p>
+
+  </main>
 </div>
 
 <script>
-/* ---------------- Instrument presets ----------------
-   pip      = price change of one "pip" for this symbol
-   value    = default $ value of one pip, per 1.00 standard lot
-   exact    = true when the per-pip value is fixed (USD-quoted); false = confirm on your platform
-   The money math stays correct for any broker because money = (priceDistance / pip) * value,
-   and the user can override `value` to match their platform exactly.                          */
-const INSTRUMENTS = [
-  {g:"Forex — majors", items:[
-    {s:"EURUSD", pip:0.0001, value:10,   exact:true},
-    {s:"GBPUSD", pip:0.0001, value:10,   exact:true},
-    {s:"AUDUSD", pip:0.0001, value:10,   exact:true},
-    {s:"NZDUSD", pip:0.0001, value:10,   exact:true},
-    {s:"USDCAD", pip:0.0001, value:7.3,  exact:false},
-    {s:"USDCHF", pip:0.0001, value:11.2, exact:false},
-    {s:"USDJPY", pip:0.01,   value:6.7,  exact:false},
-  ]},
-  {g:"Forex — crosses", items:[
-    {s:"EURGBP", pip:0.0001, value:12.7, exact:false},
-    {s:"EURJPY", pip:0.01,   value:6.7,  exact:false},
-    {s:"GBPJPY", pip:0.01,   value:6.7,  exact:false},
-    {s:"AUDJPY", pip:0.01,   value:6.7,  exact:false},
-  ]},
-  {g:"Metals", items:[
-    {s:"XAUUSD", pip:0.1,  value:10, exact:true},   // Gold, 100 oz
-    {s:"XAGUSD", pip:0.01, value:50, exact:true},   // Silver, 5000 oz
-  ]},
-  {g:"Energy", items:[
-    {s:"USOIL (WTI)", pip:0.01, value:10, exact:true},   // 1000 barrels
-    {s:"UKOIL (Brent)", pip:0.01, value:10, exact:true},
-  ]},
-  {g:"Indices (per point)", items:[
-    {s:"US30 (Dow)",  pip:1, value:1, exact:false},
-    {s:"NAS100",      pip:1, value:1, exact:false},
-    {s:"SPX500",      pip:1, value:1, exact:false},
-    {s:"GER40 (DAX)", pip:1, value:1, exact:false},
-    {s:"UK100",       pip:1, value:1, exact:false},
-    {s:"JP225",       pip:1, value:1, exact:false},
-  ]},
-  {g:"Crypto (per $1)", items:[
-    {s:"BTCUSD", pip:1, value:1, exact:false},
-    {s:"ETHUSD", pip:1, value:1, exact:false},
-  ]},
-  {g:"Other", items:[
-    {s:"Custom", pip:0.0001, value:10, exact:true},
-  ]},
+/* ---------------- Data ---------------- */
+const FX_MAIN = ["AUD","CAD","CHF","EUR","GBP","JPY","NZD","USD"];
+const FX_MORE = ["SGD","HKD","NOK","SEK","MXN","ZAR","TRY"];
+const CRYPTO  = ["BTC","ETH","XRP","SOL","ADA","DOGE","LTC","BNB"];
+const COMMODITY = [
+  {code:"XAU",name:"Gold"},{code:"XAG",name:"Silver"},{code:"WTI",name:"Oil"},
+  {code:"BRENT",name:"Brent"},{code:"NGAS",name:"NatGas"},{code:"COPPER",name:"Copper"}
 ];
 
-const flat = {};
-const sel = document.getElementById("instrument");
-INSTRUMENTS.forEach(group=>{
-  const og = document.createElement("optgroup");
-  og.label = group.g;
-  group.items.forEach(it=>{
-    flat[it.s] = it;
-    const o = document.createElement("option");
-    o.value = it.s; o.textContent = it.s;
-    og.appendChild(o);
-  });
-  sel.appendChild(og);
-});
-sel.value = "XAUUSD";
+// USD value of one pip per standard lot, keyed by the QUOTE currency (approx except USD).
+const QUOTE_PIPVAL = {USD:10, JPY:6.7, CAD:7.1, CHF:11.3, AUD:6.6, NZD:6.0, GBP:12.7, EUR:10.8,
+                      SGD:7.6, HKD:1.3, NOK:0.95, SEK:1.0, MXN:0.5, ZAR:0.55, TRY:0.3};
+
+const COMMODITY_SPEC = {
+  XAU:{pip:0.1,  value:10, exact:true},
+  XAG:{pip:0.01, value:50, exact:true},
+  WTI:{pip:0.01, value:10, exact:true},
+  BRENT:{pip:0.01, value:10, exact:true},
+  NGAS:{pip:0.001, value:10, exact:false},
+  COPPER:{pip:0.0001, value:12.5, exact:false}
+};
+
+/* ---------------- State ---------------- */
+const DEFAULT = {
+  balance:"10000", riskPct:"1", tab:"FX",
+  base:"EUR", quote:"USD", type:"FX",
+  pipValue:"10", stopLoss:"20", step:1
+};
+let S = Object.assign({}, DEFAULT);
+let stage = "base";      // FX two-step: "base" -> pick base, "quote" -> pick quote
+let moreOpen = false;
+let pipSize = 0.0001, exact = true;
 
 /* ---------------- Helpers ---------------- */
 const $ = id => document.getElementById(id);
-const num = v => { const n = parseFloat(String(v).replace(/,/g,"").trim()); return isFinite(n) ? n : NaN; };
-const money = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
-const money0 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
-const fmt = (n,d=2) => n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
-
-let mode = "price";
+const num = v => { const n = parseFloat(String(v).replace(/,/g,"").trim()); return isFinite(n)?n:NaN; };
+const money  = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const money2 = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt = (n,d=2)=>n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const LOT_STEP = 0.01;
 
-/* Decimal places sensible for a symbol's price display */
-function pipDecimals(pip){
-  if (pip >= 1) return 0;
-  return Math.max(0, Math.round(-Math.log10(pip)) );
+function isPairComplete(){ return S.base && S.quote; }
+function pairText(base, quote){
+  const q = quote ? quote : '<span class="ph">—</span>';
+  return (base||'<span class="ph">—</span>') + '<span class="sep">/</span>' + q;
 }
 
-/* ---------------- Instrument change ---------------- */
-function applyInstrument(){
-  const it = flat[sel.value];
-  if(!it) return;
-  $("pipValue").value = it.value;
+/* ---------------- Derive pip size / value ---------------- */
+function deriveInstrument(){
+  if(S.type==="FX"){
+    pipSize = (S.quote==="JPY") ? 0.01 : 0.0001;
+    exact = (S.quote==="USD");
+    return QUOTE_PIPVAL[S.quote] ?? 10;
+  }
+  if(S.type==="CRYPTO"){ pipSize=1; exact=false; return 1; }
+  if(S.type==="COMMODITY"){
+    const sp = COMMODITY_SPEC[S.base] || {pip:0.1,value:10,exact:false};
+    pipSize = sp.pip; exact = sp.exact; return sp.value;
+  }
+  pipSize=0.0001; exact=true; return 10;
+}
+function applyPipDefault(){
+  const v = deriveInstrument();
+  S.pipValue = String(v);
+  $("pipValue").value = v;
   const note = $("pipNote");
-  if(it.exact){
-    note.className = "note exact";
-    note.textContent = "USD-quoted — this value is exact.";
-  }else{
-    note.className = "note approx";
-    note.textContent = "Approximate — confirm the per-pip value on your platform.";
+  if(exact){ note.className="note exact"; note.textContent="USD-quoted — this value is exact."; }
+  else { note.className="note approx"; note.textContent="Approximate default — confirm the per-pip value on your platform."; }
+}
+
+/* ---------------- Render pair display ---------------- */
+function renderPair(){
+  const disp = isPairComplete() ? pairText(S.base,S.quote)
+             : pairText(S.base, null);
+  $("pairHead").innerHTML = disp;
+  $("buildPair").innerHTML = disp;
+  $("buildHint").textContent =
+    (S.type==="FX" && stage==="quote" && S.base && !S.quote) ? "pick quote" : "";
+}
+
+/* ---------------- Render currency grid ---------------- */
+function renderGrid(){
+  const g = $("grid");
+  g.innerHTML = "";
+  if(S.tab==="FX"){
+    const list = FX_MAIN.slice();
+    if(moreOpen) FX_MORE.forEach(c=>list.push(c));
+    list.forEach(code=>{
+      const el = document.createElement("div");
+      el.className = "gitem";
+      el.textContent = code;
+      // selection highlight
+      if(S.type==="FX" && (code===S.base || code===S.quote)) el.classList.add("sel");
+      // dim the base while choosing the quote
+      if(S.type==="FX" && stage==="quote" && S.base && !S.quote && code===S.base) {
+        el.classList.remove("sel"); el.classList.add("dim");
+      }
+      el.addEventListener("click", ()=>pickFX(code));
+      g.appendChild(el);
+    });
+    if(!moreOpen){
+      const more = document.createElement("div");
+      more.className = "gitem more";
+      more.textContent = "•••";
+      more.addEventListener("click", ()=>{ moreOpen=true; renderGrid(); });
+      g.appendChild(more);
+    }
+  } else if(S.tab==="CRYPTO"){
+    CRYPTO.forEach(code=>{
+      const el=document.createElement("div");
+      el.className="gitem"+(S.type==="CRYPTO"&&S.base===code?" sel":"");
+      el.innerHTML = code + '<span class="sub">/ USD</span>';
+      el.addEventListener("click", ()=>pickSingle(code,"CRYPTO"));
+      g.appendChild(el);
+    });
+  } else { // COMMODITY
+    COMMODITY.forEach(o=>{
+      const el=document.createElement("div");
+      el.className="gitem"+(S.type==="COMMODITY"&&S.base===o.code?" sel":"");
+      el.innerHTML = o.code + '<span class="sub">'+o.name+'</span>';
+      el.addEventListener("click", ()=>pickSingle(o.code,"COMMODITY"));
+      g.appendChild(el);
+    });
   }
-  calc();
-}
-sel.addEventListener("change", applyInstrument);
-
-/* ---------------- Mode switch ---------------- */
-document.querySelectorAll("#modeSeg button").forEach(b=>{
-  b.addEventListener("click", ()=>{
-    document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");
-    mode = b.dataset.mode;
-    $("priceInputs").classList.toggle("hidden", mode!=="price");
-    $("distanceInputs").classList.toggle("hidden", mode!=="distance");
-    calc();
-  });
-});
-
-/* ---------------- Risk chips ---------------- */
-document.querySelectorAll(".chip").forEach(c=>{
-  c.addEventListener("click", ()=>{
-    $("riskPct").value = c.dataset.risk;
-    calc();
-  });
-});
-function syncChips(){
-  const v = $("riskPct").value.trim();
-  document.querySelectorAll(".chip").forEach(c=>{
-    c.classList.toggle("active", c.dataset.risk === v);
-  });
 }
 
-/* ---------------- Core calculation ---------------- */
-function calc(){
+/* ---------------- Selection handlers ---------------- */
+function pickFX(code){
+  if(!S.base || isPairComplete()){          // start a new pair
+    S.type="FX"; S.base=code; S.quote=null; stage="quote";
+  } else if(code!==S.base){                  // choose quote
+    S.quote=code; stage="base";
+    applyPipDefault();
+  } else { return; }
+  renderPair(); renderGrid(); recalc(); save();
+}
+function pickSingle(code, type){
+  S.type=type; S.base=code; S.quote="USD"; stage="base";
+  applyPipDefault(); renderPair(); renderGrid(); recalc(); save();
+}
+function resetPair(){
+  S.base=null; S.quote=null; stage="base";
+  renderPair(); renderGrid(); recalc(); save();
+}
+
+/* ---------------- Tabs ---------------- */
+function setTab(t){
+  S.tab=t; moreOpen=false;
+  document.querySelectorAll("#tabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
+  // reset in-progress FX selection when leaving/returning
+  if(t==="FX") stage = isPairComplete()&&S.type==="FX" ? "base" : (S.base&&!S.quote?"quote":"base");
+  renderGrid(); save();
+}
+
+/* ---------------- Table ---------------- */
+function lotsFor(riskAmount, slPips, pipValue){
+  if(!(slPips>0) || !(pipValue>0) || !(riskAmount>0)) return 0;
+  const raw = riskAmount/(slPips*pipValue);
+  return Math.floor(raw/LOT_STEP + 1e-9)*LOT_STEP;
+}
+function recalc(){
   syncChips();
-  const res = $("result");
   const balance = num($("balance").value);
-  const riskPct = num($("riskPct").value);
+  const risk = num($("riskPct").value);
   const pipValue = num($("pipValue").value);
-  const it = flat[sel.value] || {pip:0.0001};
-  const pip = it.pip;
+  const cur = num($("stopLoss").value);
+  const step = S.step;
 
-  // Live risk amount in header
-  const riskAmount = (isFinite(balance) && isFinite(riskPct)) ? balance * riskPct/100 : NaN;
-  $("riskAmount").textContent = isFinite(riskAmount) ? money.format(riskAmount) : "$0.00";
+  const riskAmount = (isFinite(balance)&&isFinite(risk)) ? balance*risk/100 : NaN;
+  $("riskPctHead").textContent = isFinite(risk) ? (fmtPct(risk)+"%") : "—";
+  $("riskAmtHead").textContent = isFinite(riskAmount) ? money.format(riskAmount) : "$0";
 
-  // Determine stop distance (in pips) and direction
-  let stopPips = NaN, rewardPips = NaN, dir = null, wrongTarget = false;
+  const tb = $("tbody");
+  const warn = $("tableWarn");
+  warn.innerHTML = "";
 
-  if(mode === "price"){
-    const entry = num($("entry").value);
-    const stop  = num($("stop").value);
-    const target= num($("target").value);
-    if(!isFinite(entry) || !isFinite(stop) || entry === 0 && stop === 0){
-      return showEmpty(res, "Enter entry and stop prices.");
-    }
-    if(entry === stop) return showError(res, "Entry and stop can’t be the same price.");
-    stopPips = Math.abs(entry - stop) / pip;
-    dir = stop < entry ? "long" : "short";
-    if(isFinite(target) && target !== 0){
-      rewardPips = Math.abs(target - entry) / pip;
-      // target should be on the profit side
-      if(dir === "long" && target <= entry) wrongTarget = true;
-      if(dir === "short" && target >= entry) wrongTarget = true;
-    }
-  } else {
-    stopPips = num($("stopPipsIn").value);
-    const tp = num($("targetPipsIn").value);
-    if(!isFinite(stopPips) || stopPips <= 0){
-      return showEmpty(res, "Enter your stop distance in pips.");
-    }
-    if(isFinite(tp) && tp > 0) rewardPips = tp;
+  if(!isFinite(riskAmount)||riskAmount<=0){ tb.innerHTML=emptyRow("Enter a balance and risk %."); return; }
+  if(!isFinite(pipValue)||pipValue<=0){ tb.innerHTML=emptyRow("Enter the value per pip."); return; }
+  if(!isFinite(cur)||cur<=0){ tb.innerHTML=emptyRow("Enter your stop loss in pips."); return; }
+
+  // Build rows centred on the current stop loss
+  const rows=[];
+  for(let k=-4;k<=5;k++){
+    const sl = +(cur + k*step).toFixed(4);
+    if(sl>0) rows.push(sl);
   }
+  const slDec = step<1 ? String(step).split(".")[1].length : 0;
 
-  if(!isFinite(riskAmount) || riskAmount <= 0) return showError(res, "Enter a balance and risk %.");
-  if(!isFinite(pipValue) || pipValue <= 0)     return showError(res, "Enter the value per pip.");
-  if(!isFinite(stopPips) || stopPips <= 0)      return showError(res, "Stop distance must be greater than zero.");
+  let html="";
+  rows.forEach(sl=>{
+    const lots = lotsFor(riskAmount, sl, pipValue);
+    const isCur = Math.abs(sl-cur)<1e-9;
+    const zero = lots < LOT_STEP;
+    html += `<div class="trow${isCur?' cur':''}${zero?' zero':''}" data-sl="${sl}">
+      <div>${fmt(sl,slDec)}</div>
+      <div>${zero?'too small':fmt(lots,2)}</div>
+    </div>`;
+  });
+  tb.innerHTML = html;
+  tb.querySelectorAll(".trow").forEach(r=>{
+    r.addEventListener("click", ()=>{ $("stopLoss").value=r.dataset.sl; recalc(); save(); });
+  });
 
-  // Position size. Round DOWN to the lot step, but nudge by a tiny epsilon first so that
-  // clean inputs (e.g. a 50-pip stop that floats to 50.00000000004) don't lose a whole step.
-  const rawLots = riskAmount / (stopPips * pipValue);
-  const lots = Math.floor(rawLots / LOT_STEP + 1e-9) * LOT_STEP;
-
-  if(lots < LOT_STEP){
-    return showError(res,
-      "Risk is too small for this stop — the smallest tradeable size (0.01 lot) would risk " +
-      money.format(LOT_STEP * stopPips * pipValue) + ".");
+  // Warn if current stop loss can't be traded
+  const curLots = lotsFor(riskAmount, cur, pipValue);
+  if(curLots < LOT_STEP){
+    warn.innerHTML = `<div class="warn">A ${fmt(cur,slDec)}-pip stop needs less than the minimum 0.01 lot — reduce the stop, or raise your risk.</div>`;
   }
-
-  const actualRisk   = lots * stopPips * pipValue;
-  const moneyPerPip  = lots * pipValue;
-  const units        = lots * (pipValue / pip);         // contract units / ounces / points
-  const pd           = pipDecimals(pip);
-
-  // Build result
-  let html = `
-    <div class="lots-line">
-      <div><span class="lots">${fmt(lots,2)}</span><small>lots</small></div>
-      ${dir ? `<span class="badge ${dir}">${dir}</span>` : ``}
-    </div>
-    <div class="stat-grid">
-      <div class="stat"><div class="k">Risk on trade</div><div class="v accent">${money.format(actualRisk)}</div></div>
-      <div class="stat"><div class="k">Stop distance</div><div class="v">${fmt(stopPips, stopPips<10?1:0)} pips</div></div>
-      <div class="stat"><div class="k">Value / pip</div><div class="v">${money.format(moneyPerPip)}</div></div>
-      <div class="stat"><div class="k">Units</div><div class="v">${units.toLocaleString("en-US",{maximumFractionDigits:2})}</div></div>`;
-
-  if(isFinite(rewardPips) && rewardPips > 0 && !wrongTarget){
-    const profit = lots * rewardPips * pipValue;
-    const rr = rewardPips / stopPips;
-    html += `
-      <div class="stat"><div class="k">Potential profit</div><div class="v green">${money.format(profit)}</div></div>
-      <div class="stat"><div class="k">Reward : Risk</div><div class="v">${fmt(rr,2)} : 1</div></div>`;
-  }
-  html += `</div>`;
-
-  if(wrongTarget){
-    html += `<div class="warn">Target is on the losing side of your entry — check the target price.</div>`;
-  }
-  if(rawLots - lots > 1e-4){
-    html += `<div class="warn">Rounded down from ${fmt(rawLots,3)} lots so your risk stays within ${money.format(riskAmount)}.</div>`;
-  }
-
-  res.className = "result";
-  res.innerHTML = html;
 }
+function emptyRow(msg){ return `<div class="trow" style="cursor:default"><div style="flex:2;color:var(--muted);font-size:1rem;font-weight:500;text-align:center;">${msg}</div></div>`; }
+function fmtPct(n){ return (Math.round(n*100)/100).toString(); }
 
-function showEmpty(res, msg){ res.className="result empty"; res.textContent=msg; }
-function showError(res, msg){ res.className="result empty error"; res.textContent=msg; }
+/* ---------------- Chips / step ---------------- */
+function syncChips(){
+  const v = ($("riskPct").value||"").trim();
+  document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("active", c.dataset.risk===v));
+}
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click", ()=>{
+  $("riskPct").value=c.dataset.risk; recalc(); save();
+}));
+document.querySelectorAll("#stepSeg button").forEach(b=>b.addEventListener("click", ()=>{
+  document.querySelectorAll("#stepSeg button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active"); S.step=parseFloat(b.dataset.step); recalc(); save();
+}));
+document.querySelectorAll("#tabs .tab").forEach(b=>b.addEventListener("click", ()=>setTab(b.dataset.tab)));
+$("resetPair").addEventListener("click", resetPair);
+$("resetAll").addEventListener("click", ()=>{
+  if(!confirm("Reset all inputs to defaults?")) return;
+  try{ localStorage.removeItem("lotCalc"); }catch(e){}
+  location.reload();
+});
+["balance","riskPct","pipValue","stopLoss"].forEach(id=>$(id).addEventListener("input", ()=>{ recalc(); save(); }));
 
-/* ---------------- Wire up + persistence ---------------- */
-const PERSIST = ["balance","riskPct","instrument","entry","stop","target","stopPipsIn","targetPipsIn","pipValue"];
+/* ---------------- Persistence ---------------- */
 function save(){
   try{
-    const d={mode};
-    PERSIST.forEach(id=>d[id]=$(id).value);
-    localStorage.setItem("positionSizer", JSON.stringify(d));
+    S.balance=$("balance").value; S.riskPct=$("riskPct").value;
+    S.pipValue=$("pipValue").value; S.stopLoss=$("stopLoss").value;
+    localStorage.setItem("lotCalc", JSON.stringify(S));
   }catch(e){}
 }
 function restore(){
   try{
-    const d = JSON.parse(localStorage.getItem("positionSizer")||"{}");
-    if(d.instrument && flat[d.instrument]) sel.value = d.instrument;
-    PERSIST.forEach(id=>{ if(id!=="instrument" && d[id]!==undefined && d[id]!=="") $(id).value = d[id]; });
-    if(d.mode){
-      const btn = document.querySelector(`#modeSeg button[data-mode="${d.mode}"]`);
-      if(btn) btn.click();
-    }
+    const d=JSON.parse(localStorage.getItem("lotCalc")||"null");
+    if(d) S=Object.assign({}, DEFAULT, d);
   }catch(e){}
+  $("balance").value=S.balance; $("riskPct").value=S.riskPct;
+  $("stopLoss").value=S.stopLoss;
+  // step buttons
+  document.querySelectorAll("#stepSeg button").forEach(b=>b.classList.toggle("active", parseFloat(b.dataset.step)===S.step));
+  // tab
+  document.querySelectorAll("#tabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.tab===S.tab));
+  moreOpen=false;
+  stage = (S.type==="FX" && S.base && !S.quote) ? "quote" : "base";
+  // pip value: use stored if present else derive
+  applyPipDefault();
+  if(S.pipValue){ $("pipValue").value=S.pipValue; }
 }
 
-["balance","riskPct","entry","stop","target","stopPipsIn","targetPipsIn","pipValue"].forEach(id=>{
-  $(id).addEventListener("input", ()=>{ calc(); save(); });
-});
-sel.addEventListener("change", save);
-document.querySelectorAll("#modeSeg button").forEach(b=>b.addEventListener("click", save));
-
+/* ---------------- Init ---------------- */
 restore();
-// If nothing restored the pip value, seed it from the current instrument
-if(!localStorage.getItem("positionSizer")) applyInstrument();
-calc();
+renderPair();
+renderGrid();
+recalc();
 
 /* ---------------- PWA install ---------------- */
-let deferredPrompt = null;
-const installBtn = $("installBtn");
-const iosTip = $("iosTip");
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-
-window.addEventListener("beforeinstallprompt", (e)=>{
-  e.preventDefault();
-  deferredPrompt = e;
-  if(!standalone) installBtn.classList.remove("hidden");
-});
-installBtn.addEventListener("click", async ()=>{
-  if(!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  installBtn.classList.add("hidden");
-});
-window.addEventListener("appinstalled", ()=> installBtn.classList.add("hidden"));
-
-// iOS has no beforeinstallprompt — show the manual tip instead
-if(isIOS && !standalone) iosTip.classList.remove("hidden");
+let deferred=null;
+const installBtn=$("installBtn"), iosTip=$("iosTip"), installCard=$("installCard");
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferred=e; if(!standalone){ installBtn.classList.remove("hidden"); installCard.classList.remove("hidden"); } });
+installBtn.addEventListener("click", async ()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; installBtn.classList.add("hidden"); });
+window.addEventListener("appinstalled",()=>installBtn.classList.add("hidden"));
+if(isIOS && !standalone){ iosTip.classList.remove("hidden"); installCard.classList.remove("hidden"); }
 
 /* ---------------- Service worker ---------------- */
 if("serviceWorker" in navigator){
-  window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("sw.js").catch(()=>{});
-  });
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 </script>
 </body>

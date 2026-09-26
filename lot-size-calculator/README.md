@@ -1,17 +1,20 @@
-# Position Sizer — Lot Size Calculator (PWA)
+# Lot Size Calculator (PWA)
 
-A mobile-installable lot size / position size calculator for **Forex, indices and commodities**,
-inspired by the [Myfxbook position size calculator](https://www.myfxbook.com/forex-calculators/position-size).
-Dark, amber-accented theme. Works fully **offline** once installed.
+A mobile-installable lot size / position size calculator for **Forex, crypto and commodities**.
+Light, teal-accented theme with a **currency-pair builder** and a **stop-loss → lots table**.
+Works fully **offline** once installed.
 
 ## What it does
 
-- Risk-based position sizing: `lots = (balance × risk%) / (stop distance in pips × value per pip)`
-- **Two input modes:** by entry/stop **price**, or by **stop distance in pips**
-- Optional **target** → shows potential profit and reward:risk ratio
-- Live **risk amount**, direction badge (long/short), value per pip, and contract units
+- Risk-based position sizing: `lots = (balance × risk%) / (stop loss in pips × value per pip)`
+- **Currency-pair builder:** FX (tap base then quote, e.g. AUD → CAD), Crypto and Commodity tabs
+- **Stop-loss → lots table:** see the lot size across a range of stop losses at once; the current
+  row is highlighted, and tapping any row makes it the current stop loss
+- **Row step** control (1 / 5 / 10 pips) to widen or tighten the table
+- Live **risk amount** in the header
 - Lots are **rounded down** to 0.01 so the calculated risk is never exceeded
-- Per-instrument defaults for pip size & value per pip, all **editable** to match your broker
+- Per-pair defaults for pip size & value per pip, all **editable** to match your broker
+  (non-USD-quoted pairs use approximate default rates — confirm on your platform)
 - Remembers your last inputs (localStorage)
 
 ## Install on your phone
