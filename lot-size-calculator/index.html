@@ -52,7 +52,7 @@
   /* ---- Diagonal header ---- */
   .hd{
     position:relative;color:#fff;
-    background:linear-gradient(125deg,#070b12 0%, #10244d 52%, #1b50c9 100%);
+    background:#101a30;
     padding:calc(env(safe-area-inset-top) + 22px) 24px 54px;
     clip-path:polygon(0 0, 100% 0, 100% 100%, 0 82%);
   }
@@ -81,7 +81,7 @@
   }
   .panel .big-field{margin-top:0;}
   .panel-risk{
-    background:linear-gradient(120deg,#12336f 0%, #1e57cf 100%);color:#fff;z-index:2;
+    background:#1b3a80;color:#fff;z-index:2;
     padding-top:44px;
   }
   .panel-sl{
@@ -129,7 +129,7 @@
     flex:1;background:var(--card);border:1.5px solid var(--line);color:var(--ink-soft);
     padding:12px 6px;border-radius:24px;font-size:0.98rem;font-weight:700;cursor:pointer;transition:all .13s;
   }
-  .tab.active{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 6px 16px rgba(47,107,255,0.35);}
+  .tab.active{background:var(--blue);border-color:var(--blue);color:#fff;}
 
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .gitem{
@@ -139,7 +139,7 @@
   }
   .gitem .sub{font-size:0.72rem;font-weight:600;color:var(--muted);}
   .gitem:active{transform:scale(0.96);}
-  .gitem.sel{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 6px 16px rgba(47,107,255,0.35);}
+  .gitem.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
   .gitem.sel .sub{color:rgba(255,255,255,0.85);}
   .gitem.dim{opacity:0.3;pointer-events:none;}
   .gitem.more{color:var(--blue-l);border-style:dashed;font-size:1.6rem;letter-spacing:2px;}
@@ -157,9 +157,9 @@
   .icon-btn{background:transparent;border:none;color:var(--ink-soft);font-size:1.6rem;cursor:pointer;padding:6px;}
   .icon-btn:active{transform:scale(0.9);}
   .calc-btn{
-    flex:1;background:linear-gradient(120deg,#1e57cf 0%, var(--blue) 100%);
+    flex:1;background:var(--blue);
     color:#fff;border:none;font-size:1.1rem;font-weight:800;letter-spacing:0.06em;
-    padding:17px;border-radius:32px;cursor:pointer;box-shadow:0 8px 22px rgba(47,107,255,0.4);
+    padding:17px;border-radius:32px;cursor:pointer;
   }
   .calc-btn:disabled{background:var(--card);color:var(--muted);box-shadow:none;cursor:not-allowed;}
   .calc-btn:active:not(:disabled){transform:scale(0.99);}
@@ -450,17 +450,16 @@ function renderGrid(){
     const list = FX_MAIN.slice(); if(moreOpen) FX_MORE.forEach(c=>list.push(c));
     list.forEach(code=>{
       const el=document.createElement("div"); el.className="gitem"; el.textContent=code;
-      const picking = S.type==="FX" && S.base && !S.quote;   // choosing quote
       if(S.type==="FX" && (code===S.base||code===S.quote)) el.classList.add("sel");
-      // grey currencies that can't be the quote of the current base (or the base itself while picking)
-      if(S.type==="FX" && S.base){
-        if(code===S.base && picking) { el.classList.remove("sel"); el.classList.add("dim"); }
-        else if(code!==S.base && code!==S.quote && !rankOK(S.base, code)) el.classList.add("dim");
-      }
+      // dim currencies that can't be the quote of the current base (the base stays selectable so it can be un-picked)
+      if(S.type==="FX" && S.base && code!==S.base && code!==S.quote && !rankOK(S.base, code))
+        el.classList.add("dim");
       el.onclick=()=>pickFX(code); g.appendChild(el);
     });
-    if(!moreOpen){ const m=document.createElement("div"); m.className="gitem more"; m.textContent="•••";
-      m.onclick=()=>{moreOpen=true;renderGrid();}; g.appendChild(m); }
+    const toggle=document.createElement("div"); toggle.className="gitem more";
+    toggle.textContent = moreOpen ? "✕" : "•••";
+    toggle.onclick=()=>{ moreOpen=!moreOpen; renderGrid(); };
+    g.appendChild(toggle);
   } else if(S.tab==="CRYPTO"){
     CRYPTO.forEach(code=>{ const el=document.createElement("div");
       el.className="gitem"+(S.type==="CRYPTO"&&S.base===code?" sel":"");
@@ -472,14 +471,25 @@ function renderGrid(){
   }
 }
 function pickFX(code){
-  if(!S.base || isPairComplete()){ S.type="FX"; S.base=code; S.quote=null; stage="quote"; }
-  else if(code!==S.base && rankOK(S.base, code)){ S.quote=code; stage="base"; applyPipDefault(); }
-  else return;
+  const active = S.type==="FX";
+  if(!active || !S.base){                     // nothing picked yet -> set the first (base)
+    S.type="FX"; S.base=code; S.quote=null; stage="quote";
+  } else if(!S.quote){                         // first picked, choosing the second (quote)
+    if(code===S.base){ S.base=null; stage="base"; }               // click first again -> un-pick it
+    else if(rankOK(S.base, code)){ S.quote=code; stage="base"; applyPipDefault(); }
+    else return;                               // can't be the quote of this base (greyed)
+  } else {                                      // both picked
+    if(code===S.quote){ S.quote=null; stage="quote"; }             // click second -> un-pick, keep first
+    else if(code===S.base){ S.base=null; S.quote=null; stage="base"; } // click first -> clear both
+    else if(rankOK(S.base, code)){ S.quote=code; applyPipDefault(); } // click another -> change the second
+    else return;
+  }
   renderPair(); renderGrid(); save();
 }
 function pickSingle(code, type){
-  S.type=type; S.base=code; S.quote="USD"; stage="base"; applyPipDefault();
-  renderPair(); renderGrid(); save();
+  if(S.type===type && S.base===code){ S.base=null; S.quote=null; }  // click again -> un-pick
+  else { S.type=type; S.base=code; S.quote="USD"; applyPipDefault(); }
+  stage="base"; renderPair(); renderGrid(); save();
 }
 function resetPair(){ S.base=null; S.quote=null; stage="base"; renderPair(); renderGrid(); save(); }
 function setTab(t){
