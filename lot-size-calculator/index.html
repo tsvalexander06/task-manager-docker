@@ -665,18 +665,39 @@ function normalizeCal(arr){
     .filter(e=>e.title && !isNaN(e.date))
     .sort((a,b)=>a.date-b.date);
 }
+// The Forex Factory feed has no CORS headers, so a direct browser fetch is blocked.
+// Try public CORS proxies first, then a direct hit as a last resort.
+const CAL_SOURCES = [
+  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
+  u => "https://thingproxy.freeboard.io/fetch/" + u,
+  u => u
+];
+async function fetchJSON(url){
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 12000);
+  try{
+    const r = await fetch(url, {cache:"no-store", signal:ctl.signal});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return JSON.parse(await r.text());
+  } finally { clearTimeout(t); }
+}
 async function loadCalendar(){
   if(!calData){ try{ const c=JSON.parse(localStorage.getItem("ffCal")||"null");
     if(c&&c.data){ calData=c.data.map(o=>({...o,date:new Date(o.date)})); calTs=c.ts; calStatus="cached"; } }catch(e){} }
   if(!calData) calStatus="loading";
   renderCalendar();
-  try{
-    const r=await fetch(CAL_URL,{cache:"no-store"});
-    if(!r.ok) throw new Error(r.status);
-    const j=await r.json();
-    calData=normalizeCal(j); calStatus="ok"; calTs=Date.now();
-    try{ localStorage.setItem("ffCal", JSON.stringify({ts:calTs, data:calData.map(e=>({...e,date:e.date.toISOString()}))})); }catch(e){}
-  }catch(e){ if(!calData) calStatus="error"; }
+  let ok=false;
+  for(const make of CAL_SOURCES){
+    try{
+      const j = await fetchJSON(make(CAL_URL));
+      if(Array.isArray(j) && j.length){
+        calData=normalizeCal(j); calStatus="ok"; calTs=Date.now(); ok=true;
+        try{ localStorage.setItem("ffCal", JSON.stringify({ts:calTs, data:calData.map(e=>({...e,date:e.date.toISOString()}))})); }catch(e){}
+        break;
+      }
+    }catch(e){ /* try next source */ }
+  }
+  if(!ok && !calData) calStatus="error";
   renderCalendar();
 }
 function renderCurChips(){

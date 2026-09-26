@@ -1,5 +1,5 @@
 /* Position Sizer — offline service worker */
-const CACHE = "lot-calc-v7";
+const CACHE = "lot-calc-v8";
 const ASSETS = [
   "./",
   "./index.html",
