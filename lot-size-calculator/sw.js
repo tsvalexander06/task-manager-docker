@@ -1,5 +1,5 @@
 /* Position Sizer — offline service worker */
-const CACHE = "lot-calc-v8";
+const CACHE = "lot-calc-v9";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,9 +27,21 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  const url = new URL(req.url);
   // Never intercept cross-origin requests (e.g. the live FX-rates API) — let them
   // hit the network directly so rates stay fresh.
-  if (new URL(req.url).origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) return;
+  // The economic-calendar snapshot must stay fresh: network-first, cache as fallback.
+  if (url.pathname.endsWith("calendar.json")) {
+    e.respondWith(
+      fetch(req).then((resp) => {
+        const copy = resp.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        return resp;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
   e.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;

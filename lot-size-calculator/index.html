@@ -668,13 +668,14 @@ function normalizeCal(arr){
 // The Forex Factory feed has no CORS headers, so a direct browser fetch is blocked.
 // Try public CORS proxies first, then a direct hit as a last resort.
 const CAL_SOURCES = [
+  u => "./calendar.json?t=" + Date.now(),                            // same-origin snapshot built at deploy (fast, no CORS)
   u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
   u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
-  u => "https://thingproxy.freeboard.io/fetch/" + u,
   u => u
 ];
 async function fetchJSON(url){
-  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 12000);
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), 9000);
   try{
     const r = await fetch(url, {cache:"no-store", signal:ctl.signal});
     if(!r.ok) throw new Error("HTTP "+r.status);
