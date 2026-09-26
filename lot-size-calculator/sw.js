@@ -1,5 +1,5 @@
 /* Position Sizer — offline service worker */
-const CACHE = "lot-calc-v3";
+const CACHE = "lot-calc-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,6 +27,9 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // Never intercept cross-origin requests (e.g. the live FX-rates API) — let them
+  // hit the network directly so rates stay fresh.
+  if (new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
