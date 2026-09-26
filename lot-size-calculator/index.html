@@ -761,7 +761,13 @@ installBtn.onclick=async()=>{ if(!deferred)return; deferred.prompt(); await defe
 window.addEventListener("appinstalled",()=>installBtn.classList.add("hidden"));
 if(isIOS && !standalone) iosTip.classList.remove("hidden");
 
-if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{ try{ reg.update(); }catch(e){} }).catch(()=>{});
+    let reloaded=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(reloaded) return; reloaded=true; location.reload(); });
+  });
+}
 </script>
 </body>
 </html>
