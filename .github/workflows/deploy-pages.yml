@@ -9,6 +9,8 @@ on:
       - main
       - claude/lot-size-calculator-mobile-5fjeb5
   workflow_dispatch:
+  schedule:
+    - cron: "17 */2 * * *"   # refresh the economic-calendar snapshot every 2 hours
 
 permissions:
   contents: read
@@ -34,6 +36,13 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
+      - name: Snapshot economic calendar (server-side, avoids browser CORS)
+        run: |
+          curl -fsS --max-time 30 -A "Mozilla/5.0 (compatible; PagesBot)" \
+            "https://nfs.faireconomy.media/ff_calendar_thisweek.json" \
+            -o lot-size-calculator/calendar.json || echo "[]" > lot-size-calculator/calendar.json
+          echo "calendar.json: $(wc -c < lot-size-calculator/calendar.json) bytes"
 
       - name: Upload app as Pages artifact
         uses: actions/upload-pages-artifact@v3
