@@ -297,7 +297,7 @@
     <p class="disclaimer">
       Contract and pip values differ between brokers — confirm the per-pip value against your own platform
       before sizing live. Lots are rounded <b>down</b> to 0.01 so your risk is never exceeded. Non-USD-quoted
-      pairs use approximate default rates; tap a table row to make it the current stop loss.
+      pairs use live FX rates for the per-pip value (editable); tap a table row to make it the current stop loss.
       Education only, not financial advice.
     </p>
 
@@ -314,9 +314,11 @@ const COMMODITY = [
   {code:"BRENT",name:"Brent"},{code:"NGAS",name:"NatGas"},{code:"COPPER",name:"Copper"}
 ];
 
-// USD value of one pip per standard lot, keyed by the QUOTE currency (approx except USD).
-const QUOTE_PIPVAL = {USD:10, JPY:6.7, CAD:7.1, CHF:11.3, AUD:6.6, NZD:6.0, GBP:12.7, EUR:10.8,
-                      SGD:7.6, HKD:1.3, NOK:0.95, SEK:1.0, MXN:0.5, ZAR:0.55, TRY:0.3};
+// Offline fallback FX rates: units of each currency per 1 USD. Overridden by live rates
+// (open.er-api.com) at runtime. Per-pip value is then computed the MyFXBook way:
+//   pip value (USD) = (pip size × contract) / (units of quote currency per 1 USD)
+const FALLBACK_RATES = {USD:1, EUR:0.92, GBP:0.79, JPY:149.5, CAD:1.37, CHF:0.88, AUD:1.52,
+                        NZD:1.66, SGD:1.34, HKD:7.79, NOK:10.6, SEK:10.5, MXN:18.3, ZAR:18.2, TRY:34.0};
 
 const COMMODITY_SPEC = {
   XAU:{pip:0.1,  value:10, exact:true},
@@ -331,12 +333,13 @@ const COMMODITY_SPEC = {
 const DEFAULT = {
   balance:"10000", riskPct:"1", tab:"FX",
   base:"EUR", quote:"USD", type:"FX",
-  pipValue:"10", stopLoss:"20", step:1
+  pipValue:"10", stopLoss:"20", step:1, pipUserEdited:false
 };
 let S = Object.assign({}, DEFAULT);
 let stage = "base";      // FX two-step: "base" -> pick base, "quote" -> pick quote
 let moreOpen = false;
-let pipSize = 0.0001, exact = true;
+let pipSize = 0.0001, pipSrc = "exact";
+let RATES = null, ratesLive = false, RATES_TS = 0;
 
 /* ---------------- Helpers ---------------- */
 const $ = id => document.getElementById(id);
@@ -352,27 +355,69 @@ function pairText(base, quote){
   return (base||'<span class="ph">—</span>') + '<span class="sep">/</span>' + q;
 }
 
+/* ---------------- Live FX rates ---------------- */
+const RATES_URL = "https://open.er-api.com/v6/latest/USD";
+const RATES_MAXAGE = 6*60*60*1000;   // refresh if cached rates older than 6h
+function curRate(q){ return (RATES && RATES[q]) || FALLBACK_RATES[q]; }
+function loadCachedRates(){
+  try{
+    const d = JSON.parse(localStorage.getItem("fxRates")||"null");
+    if(d && d.rates && d.rates.USD){ RATES=d.rates; RATES_TS=d.ts||0; ratesLive=true; }
+  }catch(e){}
+}
+async function fetchRates(){
+  if(ratesLive && (Date.now()-RATES_TS) < RATES_MAXAGE) return;   // cache still fresh
+  try{
+    const r = await fetch(RATES_URL, {cache:"no-store"});
+    const j = await r.json();
+    if(j && j.rates && j.rates.USD){
+      RATES = Object.assign({}, FALLBACK_RATES, j.rates);
+      RATES_TS = Date.now(); ratesLive = true;
+      try{ localStorage.setItem("fxRates", JSON.stringify({rates:RATES, ts:RATES_TS})); }catch(e){}
+      if(!S.pipUserEdited){ applyPipDefault(); recalc(); }
+    }
+  }catch(e){ /* offline — keep cached / fallback values */ }
+}
+
 /* ---------------- Derive pip size / value ---------------- */
+const CONTRACT_FX = 100000;
+const round2 = x => Math.round(x*100)/100;
 function deriveInstrument(){
   if(S.type==="FX"){
     pipSize = (S.quote==="JPY") ? 0.01 : 0.0001;
-    exact = (S.quote==="USD");
-    return QUOTE_PIPVAL[S.quote] ?? 10;
+    if(S.quote==="USD"){ pipSrc="exact"; return round2(pipSize*CONTRACT_FX); }   // = 10.00
+    const rate = curRate(S.quote);
+    if(rate){ pipSrc = ratesLive ? "live" : "approx"; return round2((pipSize*CONTRACT_FX)/rate); }
+    pipSrc="approx"; return 10;
   }
-  if(S.type==="CRYPTO"){ pipSize=1; exact=false; return 1; }
+  if(S.type==="CRYPTO"){ pipSize=1; pipSrc="crypto"; return 1; }
   if(S.type==="COMMODITY"){
     const sp = COMMODITY_SPEC[S.base] || {pip:0.1,value:10,exact:false};
-    pipSize = sp.pip; exact = sp.exact; return sp.value;
+    pipSize = sp.pip; pipSrc = sp.exact ? "exact" : "approx"; return sp.value;
   }
-  pipSize=0.0001; exact=true; return 10;
+  pipSize=0.0001; pipSrc="exact"; return 10;
+}
+function setNote(kind){
+  const n = $("pipNote");
+  if(kind==="live"){
+    n.className="note exact";
+    n.textContent = "Live FX rate" + (RATES_TS?(" · updated "+new Date(RATES_TS).toLocaleDateString()):"") + " — editable.";
+  } else if(kind==="exact"){
+    n.className="note exact"; n.textContent="USD-quoted — this value is exact.";
+  } else if(kind==="crypto"){
+    n.className="note approx"; n.textContent="Per 1-unit contract — confirm the contract size on your platform.";
+  } else if(kind==="custom"){
+    n.className="note exact"; n.textContent="Custom value — you set this manually.";
+  } else {
+    n.className="note approx"; n.textContent="Approximate — live FX rate unavailable; confirm on your platform.";
+  }
 }
 function applyPipDefault(){
   const v = deriveInstrument();
   S.pipValue = String(v);
+  S.pipUserEdited = false;
   $("pipValue").value = v;
-  const note = $("pipNote");
-  if(exact){ note.className="note exact"; note.textContent="USD-quoted — this value is exact."; }
-  else { note.className="note approx"; note.textContent="Approximate default — confirm the per-pip value on your platform."; }
+  setNote(pipSrc);
 }
 
 /* ---------------- Render pair display ---------------- */
@@ -536,7 +581,8 @@ $("resetAll").addEventListener("click", ()=>{
   try{ localStorage.removeItem("lotCalc"); }catch(e){}
   location.reload();
 });
-["balance","riskPct","pipValue","stopLoss"].forEach(id=>$(id).addEventListener("input", ()=>{ recalc(); save(); }));
+["balance","riskPct","stopLoss"].forEach(id=>$(id).addEventListener("input", ()=>{ recalc(); save(); }));
+$("pipValue").addEventListener("input", ()=>{ S.pipUserEdited=true; setNote("custom"); recalc(); save(); });
 
 /* ---------------- Persistence ---------------- */
 function save(){
@@ -559,16 +605,18 @@ function restore(){
   document.querySelectorAll("#tabs .tab").forEach(b=>b.classList.toggle("active", b.dataset.tab===S.tab));
   moreOpen=false;
   stage = (S.type==="FX" && S.base && !S.quote) ? "quote" : "base";
-  // pip value: use stored if present else derive
-  applyPipDefault();
-  if(S.pipValue){ $("pipValue").value=S.pipValue; }
+  // pip value: keep a manual override, otherwise derive (live rate applied once it loads)
+  if(S.pipUserEdited && S.pipValue){ $("pipValue").value=S.pipValue; setNote("custom"); }
+  else { applyPipDefault(); }
 }
 
 /* ---------------- Init ---------------- */
+loadCachedRates();
 restore();
 renderPair();
 renderGrid();
 recalc();
+fetchRates();   // refresh live FX rates (updates pip value when it returns)
 
 /* ---------------- PWA install ---------------- */
 let deferred=null;
