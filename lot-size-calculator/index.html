@@ -210,6 +210,39 @@
   .ios-tip{color:var(--ink-soft);font-size:0.88rem;line-height:1.5;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-top:10px;}
   .ios-tip b{color:var(--ink);}
 
+  /* ---- Economic calendar ---- */
+  .cal-wrap{flex:1;display:flex;flex-direction:column;}
+  .cal-filters{padding:16px 16px 8px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line);}
+  .imp-chips{display:flex;gap:8px;margin-bottom:12px;}
+  .ichip{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);color:var(--ink);
+    padding:8px 13px;border-radius:11px;font-size:0.85rem;font-weight:700;cursor:pointer;transition:opacity .12s;}
+  .ichip .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
+  .ichip.high .dot{background:#e5484d;} .ichip.med .dot{background:#f2a742;} .ichip.low .dot{background:#e8c948;}
+  .ichip:not(.active){opacity:0.4;}
+  .cur-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .cur-chips::-webkit-scrollbar{display:none;}
+  .cchip{flex:0 0 auto;background:var(--card);border:1.5px solid var(--line);color:var(--ink-soft);
+    padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:700;cursor:pointer;}
+  .cchip.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .cal-status{padding:8px 20px;color:var(--muted);font-size:0.8rem;}
+  .cal-day{padding:11px 20px 7px;font-size:0.82rem;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;
+    color:var(--ink-soft);background:#0b1220;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .cal-day.today{color:var(--blue-l);}
+  .cal-row{display:grid;grid-template-columns:56px 38px 14px 1fr;gap:10px;align-items:start;
+    padding:13px 18px;border-bottom:1px solid #10192b;}
+  .cal-row .c-time{font-size:0.85rem;color:var(--ink-soft);font-variant-numeric:tabular-nums;font-weight:600;}
+  .cal-row .c-cur{font-size:0.85rem;font-weight:800;color:var(--ink);}
+  .idot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-top:3px;}
+  .idot.high{background:#e5484d;} .idot.med{background:#f2a742;} .idot.low{background:#e8c948;} .idot.hol{background:var(--muted);}
+  .c-title{font-size:0.95rem;color:var(--ink);line-height:1.32;}
+  .c-vals{margin-top:4px;font-size:0.78rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .c-vals b{color:var(--ink-soft);font-weight:700;margin-right:2px;}
+  .cal-empty{padding:50px 34px;text-align:center;color:var(--muted);line-height:1.6;}
+  .cal-empty .btn{margin-top:16px;background:var(--blue);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-weight:700;font-size:0.95rem;cursor:pointer;}
+  .cal-empty a{color:var(--blue-l);}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;margin:54px auto;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
   @media (max-width:360px){
     .big-in input{font-size:2.5rem;}
     .hd-center .pair{font-size:1.9rem;}
@@ -331,6 +364,37 @@
     </div>
   </section>
 
+  <!-- ============ SCREEN: NEWS / ECONOMIC CALENDAR ============ -->
+  <section id="screenNews" class="screen hidden">
+    <header class="hd">
+      <div class="menu-row">
+        <button class="menu-btn" id="backNews" title="Back">&larr;</button>
+        <div class="hd-center" style="margin-right:0;">
+          <div class="cap">Economic Calendar</div>
+          <div class="pair" style="font-size:1.5rem;">This Week</div>
+        </div>
+        <button class="menu-btn" id="refreshNews" title="Refresh">&#8635;</button>
+      </div>
+    </header>
+
+    <div class="cal-wrap">
+      <div class="cal-filters">
+        <div class="imp-chips" id="impChips">
+          <button class="ichip high active" data-imp="High"><span class="dot"></span>High</button>
+          <button class="ichip med active" data-imp="Medium"><span class="dot"></span>Medium</button>
+          <button class="ichip low active" data-imp="Low"><span class="dot"></span>Low</button>
+        </div>
+        <div class="cur-chips" id="curChips"></div>
+      </div>
+      <div class="cal-status" id="calStatus"></div>
+      <div id="calBody"></div>
+      <p class="disclaimer" style="padding:16px 20px 44px;">
+        Times shown in your local timezone. Live data via Forex Factory (faireconomy.media).
+        For reference only — not financial advice.
+      </p>
+    </div>
+  </section>
+
 </div>
 
 <script>
@@ -431,7 +495,7 @@ function applyPipDefault(){
 
 /* ================= Screen switching ================= */
 function show(id){
-  ["screenInputs","screenPair","screenResult"].forEach(s=>$(s).classList.toggle("hidden", s!==id));
+  ["screenInputs","screenPair","screenResult","screenNews"].forEach(s=>$(s).classList.toggle("hidden", s!==id));
   document.querySelectorAll(".fabs").forEach(f=>f.classList.toggle("hidden", id!=="screenInputs"));
   window.scrollTo(0,0);
 }
@@ -548,9 +612,9 @@ $("stopLoss").addEventListener("input", ()=>{ save(); });
 
 $("nextA").onclick = ()=>{ if(!isPairComplete()) applyPipDefault(); renderPair(); renderGrid(); show("screenPair"); };
 $("resetA").onclick = ()=>{ if(confirm("Reset all inputs?")){ try{localStorage.removeItem("lotCalc");}catch(e){} location.reload(); } };
-$("menuA").onclick = ()=>show("screenInputs");
+$("menuA").onclick = ()=>openNews();
 $("backB").onclick = ()=>show("screenInputs");
-$("menuB").onclick = ()=>show("screenInputs");
+$("menuB").onclick = ()=>openNews();
 $("resetB").onclick = resetPair;
 $("calcBtn").onclick = ()=>{ if(!isPairComplete()) return; render(); show("screenResult"); };
 $("closeC").onclick = ()=>show("screenPair");
@@ -579,6 +643,91 @@ renderGrid();
 render();
 show("screenInputs");
 fetchRates();
+
+/* ================= Economic calendar (Forex Factory feed) ================= */
+const CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+const CAL_CURS = ["All","USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","CNY"];
+let calData=null, calStatus="idle", calTs=0;
+let calImpacts=new Set(["High","Medium","Low"]), calCur="All", prevScreen="screenInputs";
+
+function openNews(){
+  prevScreen = ["screenInputs","screenPair","screenResult"].find(s=>!$(s).classList.contains("hidden")) || "screenInputs";
+  show("screenNews"); renderCurChips();
+  if(calData) renderCalendar(); else loadCalendar();
+}
+function mapImpact(s){ s=(s||"").toLowerCase();
+  if(s.indexOf("high")>=0) return "High"; if(s.indexOf("med")>=0) return "Medium";
+  if(s.indexOf("holiday")>=0) return "Holiday"; if(s.indexOf("low")>=0) return "Low"; return "Low"; }
+function normalizeCal(arr){
+  return arr.map(o=>({ title:o.title||o.event||"", cur:(o.country||o.currency||"").toUpperCase(),
+      date:new Date(o.date), impact:mapImpact(o.impact),
+      forecast:o.forecast||"", previous:o.previous||"", actual:o.actual||"" }))
+    .filter(e=>e.title && !isNaN(e.date))
+    .sort((a,b)=>a.date-b.date);
+}
+async function loadCalendar(){
+  if(!calData){ try{ const c=JSON.parse(localStorage.getItem("ffCal")||"null");
+    if(c&&c.data){ calData=c.data.map(o=>({...o,date:new Date(o.date)})); calTs=c.ts; calStatus="cached"; } }catch(e){} }
+  if(!calData) calStatus="loading";
+  renderCalendar();
+  try{
+    const r=await fetch(CAL_URL,{cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    const j=await r.json();
+    calData=normalizeCal(j); calStatus="ok"; calTs=Date.now();
+    try{ localStorage.setItem("ffCal", JSON.stringify({ts:calTs, data:calData.map(e=>({...e,date:e.date.toISOString()}))})); }catch(e){}
+  }catch(e){ if(!calData) calStatus="error"; }
+  renderCalendar();
+}
+function renderCurChips(){
+  const w=$("curChips"); w.innerHTML="";
+  CAL_CURS.forEach(c=>{ const b=document.createElement("button");
+    b.className="cchip"+(calCur===c?" active":""); b.textContent=c;
+    b.onclick=()=>{ calCur=c; renderCurChips(); renderCalendar(); }; w.appendChild(b); });
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderCalendar(){
+  const body=$("calBody"), st=$("calStatus");
+  if(calStatus==="loading" && !calData){ body.innerHTML='<div class="spinner"></div>'; st.textContent="Loading this week’s events…"; return; }
+  if(calStatus==="error" && !calData){
+    body.innerHTML='<div class="cal-empty">Couldn’t load the live calendar.<br>Check your connection, then retry.'
+      +'<br><button class="btn" id="calRetry">Retry</button>'
+      +'<br><br><a href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener">Open Forex Factory ↗</a></div>';
+    st.textContent=""; const rb=$("calRetry"); if(rb) rb.onclick=loadCalendar; return;
+  }
+  st.textContent = (calStatus==="cached"?"Offline — last saved. ":"")
+    + (calTs?("Updated "+new Date(calTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})):"");
+  const vis = e => (calCur==="All"||e.cur===calCur) && (e.impact==="Holiday"?calImpacts.has("Low"):calImpacts.has(e.impact));
+  const items=(calData||[]).filter(vis);
+  if(!items.length){ body.innerHTML='<div class="cal-empty">No events match your filters.</div>'; return; }
+  const todayKey=new Date().toDateString();
+  let html="", curDay="";
+  items.forEach(e=>{
+    const dk=e.date.toDateString();
+    if(dk!==curDay){ curDay=dk;
+      const lbl=e.date.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
+      html+='<div class="cal-day'+(dk===todayKey?' today':'')+'">'+lbl+(dk===todayKey?' · Today':'')+'</div>';
+    }
+    const time = e.impact==="Holiday" ? "All day" : e.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const impCls = e.impact==="High"?"high":e.impact==="Medium"?"med":e.impact==="Holiday"?"hol":"low";
+    const vals=[];
+    if(e.actual!=="")   vals.push('<b>A</b>'+escapeHtml(e.actual));
+    if(e.forecast!=="") vals.push('<b>F</b>'+escapeHtml(e.forecast));
+    if(e.previous!=="") vals.push('<b>P</b>'+escapeHtml(e.previous));
+    html+='<div class="cal-row"><div class="c-time">'+time+'</div>'
+      +'<div class="c-cur">'+escapeHtml(e.cur)+'</div>'
+      +'<div><span class="idot '+impCls+'"></span></div>'
+      +'<div class="c-title">'+escapeHtml(e.title)+(vals.length?'<div class="c-vals">'+vals.join(' &middot; ')+'</div>':'')+'</div></div>';
+  });
+  body.innerHTML=html;
+}
+document.querySelectorAll("#impChips .ichip").forEach(b=>b.onclick=()=>{
+  const imp=b.dataset.imp;
+  if(calImpacts.has(imp)) calImpacts.delete(imp); else calImpacts.add(imp);
+  b.classList.toggle("active", calImpacts.has(imp)); renderCalendar();
+});
+$("backNews").onclick=()=>show(prevScreen);
+$("refreshNews").onclick=loadCalendar;
 
 /* ================= PWA install ================= */
 let deferred=null;
