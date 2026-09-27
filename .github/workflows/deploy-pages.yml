@@ -10,7 +10,6 @@ on:
     branches:
       - main
       - claude/lot-size-calculator-mobile-5fjeb5
-      - claude/spending-tracker-app-xufsjq
   workflow_dispatch:
   schedule:
     - cron: "17 */2 * * *"   # refresh the economic-calendar snapshot every 2 hours
