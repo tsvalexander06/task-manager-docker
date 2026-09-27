@@ -37,12 +37,14 @@ jobs:
         with:
           enablement: true
 
-      - name: Snapshot economic calendar (next 2 weeks, server-side)
+      - name: Snapshot economic calendar (Forex Factory primary, server-side)
         run: |
           UA="Mozilla/5.0 (compatible; PagesBot)"
+          # Primary: Forex Factory this-week feed — matches forexfactory.com/calendar exactly.
+          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_thisweek.json" -o ff.json || echo "" > ff.json
+          # Fallback only: TradingView economic calendar (today..+14d), transformed to the same schema.
           FROM=$(date -u +%Y-%m-%dT00:00:00.000Z)
           TO=$(date -u -d "+14 days" +%Y-%m-%dT00:00:00.000Z)
-          # Primary: TradingView economic calendar — supports a date range, so this covers this week + next week.
           curl -fsS --max-time 40 -A "$UA" \
             -H "Origin: https://www.tradingview.com" -H "Referer: https://www.tradingview.com/" \
             "https://economic-calendar.tradingview.com/events?from=${FROM}&to=${TO}&countries=US,EU,GB,JP,AU,CA,CH,NZ,CN" \
@@ -56,12 +58,10 @@ jobs:
               previous:( if .previous==null then "" else (.previous|tostring) end ),
               actual:( if .actual==null then "" else (.actual|tostring) end )
             } | select(.title!="" and .date!="") ]' tv.json > tv_norm.json 2>/dev/null || echo "" > tv_norm.json
-          # Fallback: Forex Factory this-week feed
-          curl -fsS --max-time 30 -A "$UA" "https://nfs.faireconomy.media/ff_calendar_thisweek.json" -o ff.json || echo "" > ff.json
-          if jq -e 'type=="array" and length>0' tv_norm.json >/dev/null 2>&1; then
-            cp tv_norm.json lot-size-calculator/calendar.json; SRC="tradingview"
-          elif jq -e 'type=="array" and length>0' ff.json >/dev/null 2>&1; then
-            cp ff.json lot-size-calculator/calendar.json; SRC="forexfactory(this week only)"
+          if jq -e 'type=="array" and length>0' ff.json >/dev/null 2>&1; then
+            cp ff.json lot-size-calculator/calendar.json; SRC="forexfactory"
+          elif jq -e 'type=="array" and length>0' tv_norm.json >/dev/null 2>&1; then
+            cp tv_norm.json lot-size-calculator/calendar.json; SRC="tradingview(fallback)"
           else
             echo "[]" > lot-size-calculator/calendar.json; SRC="none"
           fi
