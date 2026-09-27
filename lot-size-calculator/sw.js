@@ -2,7 +2,7 @@
    Network-first for the app code (HTML / JS / calendar.json) so updates reach
    users immediately when online; cache-first only for static assets (icons,
    manifest). Cache is the offline fallback. */
-const CACHE = "lot-calc-v14";
+const CACHE = "lot-calc-v13";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,11 +32,6 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   // Let cross-origin requests (FX-rates API, calendar proxies) hit the network directly.
   if (url.origin !== self.location.origin) return;
-
-  // Sibling apps are deployed under this same origin (e.g. /spending-tracker/).
-  // This service worker's scope covers them, but they are separate apps that
-  // manage their own cache + service worker, so never intercept their requests.
-  if (url.pathname.includes("/spending-tracker/")) return;
 
   const isDoc  = req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
   const isCode = url.pathname.endsWith(".js") || url.pathname.endsWith("calendar.json") || url.pathname.endsWith(".webmanifest");

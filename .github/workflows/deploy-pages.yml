@@ -1,9 +1,7 @@
-name: Deploy apps to Pages
+name: Deploy Lot Size Calculator to Pages
 
-# Publishes both mini-apps to GitHub Pages, installable on mobile:
-#   - lot-size-calculator/ stays at the site root   -> https://<owner>.github.io/<repo>/
-#   - spending-tracker/     is served in a subfolder -> https://<owner>.github.io/<repo>/spending-tracker/
-# Keeping lot-size at the root preserves any existing home-screen link.
+# Publishes the lot-size-calculator/ folder as the site root, so the app is
+# served at https://<owner>.github.io/<repo>/ and installable on mobile.
 
 on:
   push:
@@ -69,21 +67,10 @@ jobs:
           fi
           echo "source=$SRC | events: $(jq 'length' lot-size-calculator/calendar.json 2>/dev/null || echo '?') | bytes: $(wc -c < lot-size-calculator/calendar.json)"
 
-      - name: Assemble site (lot-size at root, spending-tracker in a subfolder)
-        run: |
-          rm -rf _site
-          mkdir -p _site
-          # lot-size-calculator becomes the site root (keeps its existing URL + calendar.json snapshot)
-          cp -r lot-size-calculator/. _site/
-          # spending-tracker served under /spending-tracker/
-          cp -r spending-tracker _site/spending-tracker
-          echo "Root:"; ls -la _site
-          echo "Spending tracker:"; ls -la _site/spending-tracker
-
-      - name: Upload apps as Pages artifact
+      - name: Upload app as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./_site
+          path: ./lot-size-calculator
 
       - name: Deploy to GitHub Pages
         id: deployment
