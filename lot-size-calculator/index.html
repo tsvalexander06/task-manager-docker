@@ -226,12 +226,16 @@
     padding:7px 14px;border-radius:20px;font-size:0.85rem;font-weight:700;cursor:pointer;}
   .cchip.active{background:var(--blue);border-color:var(--blue);color:var(--on-accent);}
   .cal-status{padding:8px 20px;color:var(--muted);font-size:0.8rem;}
-  .show-past{width:100%;background:#171b26;border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-    color:var(--blue-l);font-size:0.9rem;font-weight:700;padding:14px;cursor:pointer;text-align:center;}
-  .show-past:active{background:#0e1626;}
-  .cal-day{padding:11px 20px 7px;font-size:0.82rem;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;
-    color:var(--ink-soft);background:#171b26;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
-  .cal-day.today{color:var(--green);}
+  .day-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .day-arrow{flex:0 0 46px;height:46px;border-radius:14px;background:var(--card);border:1.5px solid var(--line);
+    color:var(--ink);font-size:1.7rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px;}
+  .day-arrow:active:not(:disabled){transform:scale(0.94);}
+  .day-arrow:disabled{opacity:0.3;cursor:default;}
+  .day-label{flex:1;min-width:0;background:transparent;border:none;color:var(--ink);text-align:center;cursor:pointer;padding:2px 4px;font-family:inherit;}
+  .day-label .d1{display:block;font-size:1.1rem;font-weight:800;}
+  .day-label .d2{display:block;font-size:0.78rem;color:var(--muted);margin-top:1px;}
+  .day-label.is-today .d2{color:var(--green);font-weight:700;}
+  .cal-empty .btn.alt{background:#fff;color:#131722;}
   .cal-row{display:grid;grid-template-columns:56px 38px 14px 1fr;gap:10px;align-items:start;
     padding:13px 18px;border-bottom:1px solid #10192b;}
   .cal-row .c-time{font-size:0.85rem;color:var(--ink-soft);font-variant-numeric:tabular-nums;font-weight:600;}
@@ -374,8 +378,8 @@
       <div class="menu-row">
         <button class="menu-btn" id="backNews" title="Back">&larr;</button>
         <div class="hd-center" style="margin-right:0;">
-          <div class="cap">Economic Calendar</div>
-          <div class="pair" style="font-size:1.5rem;">This Week</div>
+          <div class="cap">Forex news</div>
+          <div class="pair" style="font-size:1.5rem;">Calendar</div>
         </div>
         <button class="menu-btn" id="refreshNews" title="Refresh">&#8635;</button>
       </div>
@@ -383,6 +387,11 @@
 
     <div class="cal-wrap">
       <div class="cal-filters">
+        <div class="day-nav">
+          <button class="day-arrow" id="dayPrev" title="Previous day" aria-label="Previous day">&#8249;</button>
+          <button class="day-label" id="dayLabel" title="Back to today"></button>
+          <button class="day-arrow" id="dayNext" title="Next day" aria-label="Next day">&#8250;</button>
+        </div>
         <div class="imp-chips" id="impChips">
           <button class="ichip high active" data-imp="High"><span class="dot"></span>High</button>
           <button class="ichip med active" data-imp="Medium"><span class="dot"></span>Medium</button>
@@ -652,10 +661,38 @@ fetchRates();
 const CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const CAL_CURS = ["All","USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","CNY"];
 let calData=null, calStatus="idle", calTs=0;
-let calImpacts=new Set(["High","Medium","Low"]), calCur="All", prevScreen="screenInputs", showPast=false;
+let calImpacts=new Set(["High","Medium","Low"]), calCur="All", prevScreen="screenInputs";
+let calDay=null;   // the single day being viewed (local midnight); null = today
+
+const dayStart = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
+const addDays  = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return dayStart(x); };
+const sameDay  = (a,b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+function calBounds(){   // first / last day that has any event in the data (before filters)
+  if(!calData || !calData.length) return null;
+  let min=calData[0].date, max=calData[0].date;
+  calData.forEach(e=>{ if(e.date<min) min=e.date; if(e.date>max) max=e.date; });
+  return {min:dayStart(min), max:dayStart(max)};
+}
+function clampDay(d){ const b=calBounds(); if(!b) return d; return d<b.min ? b.min : d>b.max ? b.max : d; }
+function relLabel(d){
+  const diff=Math.round((d - dayStart(new Date()))/86400000);
+  if(diff===0) return "Today"; if(diff===1) return "Tomorrow"; if(diff===-1) return "Yesterday";
+  return diff>0 ? "In "+diff+" days" : Math.abs(diff)+" days ago";
+}
+function updateDayNav(){
+  calDay = clampDay(calDay || dayStart(new Date()));
+  const b=calBounds(), isToday=sameDay(calDay, new Date());
+  $("dayLabel").innerHTML = '<span class="d1">'+escapeHtml(calDay.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'}))+'</span>'
+    + '<span class="d2">'+relLabel(calDay)+(isToday?'':' · tap for today')+'</span>';
+  $("dayLabel").classList.toggle("is-today", isToday);
+  $("dayPrev").disabled = !b || calDay <= b.min;
+  $("dayNext").disabled = !b || calDay >= b.max;
+}
+function gotoDay(d){ calDay=d; renderCalendar(); window.scrollTo(0,0); }
 
 function openNews(){
   prevScreen = ["screenInputs","screenPair","screenResult"].find(s=>!$(s).classList.contains("hidden")) || "screenInputs";
+  calDay = null;   // always open on today — past days only via the back arrow
   show("screenNews"); renderCurChips();
   if(calData) renderCalendar(); else loadCalendar();
 }
@@ -714,6 +751,7 @@ function renderCurChips(){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderCalendar(){
   const body=$("calBody"), st=$("calStatus");
+  updateDayNav();
   if(calStatus==="loading" && !calData){ body.innerHTML='<div class="spinner"></div>'; st.textContent="Loading this week’s events…"; return; }
   if(calStatus==="error" && !calData){
     body.innerHTML='<div class="cal-empty">Couldn’t load the live calendar.<br>Check your connection, then retry.'
@@ -724,52 +762,39 @@ function renderCalendar(){
   st.textContent = (calStatus==="cached"?"Offline — last saved. ":"")
     + (calTs?("Updated "+new Date(calTs).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})):"");
   const vis = e => (calCur==="All"||e.cur===calCur) && (e.impact==="Holiday"?calImpacts.has("Low"):calImpacts.has(e.impact));
-  const items=(calData||[]).filter(vis);
-  const startToday=new Date(); startToday.setHours(0,0,0,0);
-  const past=items.filter(e=>e.date < startToday);
-  const upcoming=items.filter(e=>e.date >= startToday);
-  const todayKey=new Date().toDateString();
+  const dayItems=(calData||[]).filter(e=>vis(e) && sameDay(e.date, calDay));
 
-  function rowsHtml(list){
-    let html="", curDay="";
-    list.forEach(e=>{
-      const dk=e.date.toDateString();
-      if(dk!==curDay){ curDay=dk;
-        const lbl=e.date.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
-        html+='<div class="cal-day'+(dk===todayKey?' today':'')+'">'+lbl+(dk===todayKey?' · Today':'')+'</div>';
-      }
-      const time = e.impact==="Holiday" ? "All day" : e.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-      const impCls = e.impact==="High"?"high":e.impact==="Medium"?"med":e.impact==="Holiday"?"hol":"low";
-      const vals=[];
-      if(e.actual!=="")   vals.push('<b>A</b>'+escapeHtml(e.actual));
-      if(e.forecast!=="") vals.push('<b>F</b>'+escapeHtml(e.forecast));
-      if(e.previous!=="") vals.push('<b>P</b>'+escapeHtml(e.previous));
-      html+='<div class="cal-row"><div class="c-time">'+time+'</div>'
-        +'<div class="c-cur">'+escapeHtml(e.cur)+'</div>'
-        +'<div><span class="idot '+impCls+'"></span></div>'
-        +'<div class="c-title">'+escapeHtml(e.title)+(vals.length?'<div class="c-vals">'+vals.join(' &middot; ')+'</div>':'')+'</div></div>';
-    });
-    return html;
+  if(!dayItems.length){
+    // Nothing on this day (weekend, or filtered out) — offer a jump to the next day that has events.
+    const next=(calData||[]).find(e=>vis(e) && dayStart(e.date) > calDay);
+    body.innerHTML='<div class="cal-empty">No events on this day'+(calCur!=="All"||calImpacts.size<3?' for your filters':'')+'.'
+      +(next?'<br><button class="btn alt" id="calJump">Go to '+escapeHtml(dayStart(next.date).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'}))+' &rarr;</button>':'')
+      +'</div>';
+    const jb=$("calJump"); if(jb) jb.onclick=()=>gotoDay(dayStart(next.date));
+    return;
   }
 
-  let html="";
-  if(past.length){
-    html += '<button class="show-past" id="showPastBtn">'
-      + (showPast ? '▴ Hide earlier events'
-                  : '▾ Show ' + past.length + ' earlier event' + (past.length>1?'s':'') + ' this week')
-      + '</button>';
-    if(showPast) html += rowsHtml(past);
-  }
-  html += upcoming.length ? rowsHtml(upcoming)
-                          : '<div class="cal-empty">No upcoming events match your filters.</div>';
-  body.innerHTML=html;
-  const spb=$("showPastBtn"); if(spb) spb.onclick=()=>{ showPast=!showPast; renderCalendar(); };
+  body.innerHTML = dayItems.map(e=>{
+    const time = e.impact==="Holiday" ? "All day" : e.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const impCls = e.impact==="High"?"high":e.impact==="Medium"?"med":e.impact==="Holiday"?"hol":"low";
+    const vals=[];
+    if(e.actual!=="")   vals.push('<b>A</b>'+escapeHtml(e.actual));
+    if(e.forecast!=="") vals.push('<b>F</b>'+escapeHtml(e.forecast));
+    if(e.previous!=="") vals.push('<b>P</b>'+escapeHtml(e.previous));
+    return '<div class="cal-row"><div class="c-time">'+time+'</div>'
+      +'<div class="c-cur">'+escapeHtml(e.cur)+'</div>'
+      +'<div><span class="idot '+impCls+'"></span></div>'
+      +'<div class="c-title">'+escapeHtml(e.title)+(vals.length?'<div class="c-vals">'+vals.join(' &middot; ')+'</div>':'')+'</div></div>';
+  }).join("");
 }
 document.querySelectorAll("#impChips .ichip").forEach(b=>b.onclick=()=>{
   const imp=b.dataset.imp;
   if(calImpacts.has(imp)) calImpacts.delete(imp); else calImpacts.add(imp);
   b.classList.toggle("active", calImpacts.has(imp)); renderCalendar();
 });
+$("dayPrev").onclick=()=>gotoDay(addDays(calDay,-1));
+$("dayNext").onclick=()=>gotoDay(addDays(calDay,1));
+$("dayLabel").onclick=()=>gotoDay(dayStart(new Date()));
 $("backNews").onclick=()=>show(prevScreen);
 $("refreshNews").onclick=loadCalendar;
 
