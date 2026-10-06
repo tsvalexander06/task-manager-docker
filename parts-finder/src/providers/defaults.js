@@ -38,11 +38,15 @@ module.exports = [
     id: "repa_lf",
     name: "REPA (LF)",
     enabled: true,
-    // GUESS: you supplied a product page, not a search page. Confirm the quick-search URL.
-    searchTemplate: "https://b2bnet.lfspareparts724.com/en/search?q={q}",
+    // LF has no URL-addressable search (quick-search jumps straight to a product
+    // via a per-item token), so it uses FORM mode: type into the search box and
+    // submit. Leave searchTemplate empty to trigger that.
+    searchTemplate: "",
+    siteUrl: "https://b2bnet.lfspareparts724.com/en",
+    searchInputSelector: "input[type='search']", // ⚠ GUESS — confirm the search box selector
     priceSelector: ".product-data-panel li strong",
     linkSelector: "",
-    notes: "⚠ Search URL is a GUESS — open a quick-search on b2bnet.lfspareparts724.com and paste the real results URL (replace the term with {q}). Trade login required."
+    notes: "⚠ Form-mode search (no linkable URL). Confirm the search-box CSS selector in Settings. Trade login required."
   },
   {
     id: "professional_spares",
@@ -52,7 +56,7 @@ module.exports = [
     searchTemplate: "https://www.professionalspares.com/en/search?controller=search&s={q}",
     priceSelector: ".product__col .prices__wrapper",
     linkSelector: "",
-    notes: "⚠ Search URL is a GUESS (PrestaShop pattern) — run a search on professionalspares.com and paste the real results URL. Note the domain is .com, not .co.uk."
+    notes: "Search URL confirmed. Search lands on a results list — set a result-link selector if you want auto-fetch to open the product and read its price. Domain is .com, not .co.uk."
   },
   {
     id: "partstown",

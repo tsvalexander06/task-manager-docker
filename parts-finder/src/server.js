@@ -24,7 +24,10 @@ function searchLinks(providers, q) {
     .map((p) => ({
       providerId: p.id,
       name: p.name,
-      url: buildSearchUrl(p, q),
+      // URL-mode: direct results link. Form-mode (no template): open the site
+      // so the user can type the query into its search box.
+      url: buildSearchUrl(p, q) || p.siteUrl || null,
+      formMode: !buildSearchUrl(p, q) && Boolean(p.siteUrl),
       hasAuth: fetcher.hasAuth(p.id)
     }));
 }
@@ -45,7 +48,7 @@ app.put("/api/providers/:id", (req, res) => {
   const db = store.load();
   const p = db.providers.find((x) => x.id === req.params.id);
   if (!p) return res.status(404).json({ error: "provider not found" });
-  const allowed = ["name", "enabled", "searchTemplate", "priceSelector", "linkSelector", "notes"];
+  const allowed = ["name", "enabled", "searchTemplate", "siteUrl", "searchInputSelector", "priceSelector", "linkSelector", "notes"];
   for (const k of allowed) {
     if (k in req.body) p[k] = req.body[k];
   }

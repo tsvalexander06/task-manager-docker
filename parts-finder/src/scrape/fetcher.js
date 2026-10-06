@@ -53,7 +53,8 @@ async function loginInteractive(provider) {
   const page = await context.newPage();
 
   // Land them on the site's home/search so they can sign in.
-  const landing = buildSearchUrl(provider, "") || provider.searchTemplate || "about:blank";
+  const landing =
+    provider.siteUrl || buildSearchUrl(provider, "") || provider.searchTemplate || "about:blank";
   try {
     await page.goto(landing.replace("{q}", ""), { waitUntil: "domcontentloaded", timeout: 60000 });
   } catch (_) {
@@ -74,13 +75,18 @@ async function loginInteractive(provider) {
 }
 
 // Headless fetch of the first result's price + link for a query.
+// Two search modes:
+//   URL mode  — searchTemplate has {q}; navigate straight to the results URL.
+//   FORM mode — no template, but siteUrl + searchInputSelector are set; load
+//               the site, type the query into the search box, submit.
 async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
   const url = buildSearchUrl(provider, q);
-  if (!url) {
+  const formMode = !url && provider.siteUrl && provider.searchInputSelector;
+  if (!url && !formMode) {
     return { providerId: provider.id, ok: false, reason: "no-search-template", url: null };
   }
   if (!provider.priceSelector && !provider.linkSelector) {
-    return { providerId: provider.id, ok: false, reason: "no-selectors", url };
+    return { providerId: provider.id, ok: false, reason: "no-selectors", url: url || provider.siteUrl };
   }
 
   const { chromium } = loadPlaywright();
@@ -92,7 +98,17 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
   try {
     const context = await browser.newContext(contextOpts);
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+
+    if (formMode) {
+      await page.goto(provider.siteUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      await page.fill(provider.searchInputSelector, String(q));
+      await Promise.all([
+        page.waitForLoadState("domcontentloaded", { timeout: timeoutMs }).catch(() => {}),
+        page.press(provider.searchInputSelector, "Enter")
+      ]);
+    } else {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    }
 
     let link = null;
 
@@ -104,7 +120,7 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
       const el = await page.$(provider.linkSelector);
       if (el) {
         link = await el.getAttribute("href");
-        if (link && link.startsWith("/")) link = new URL(url).origin + link;
+        if (link && link.startsWith("/")) link = new URL(page.url()).origin + link;
         if (link) {
           await page.goto(link, { waitUntil: "domcontentloaded", timeout: timeoutMs });
         }
@@ -123,13 +139,13 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
       providerId: provider.id,
       ok: Boolean(price),
       reason: price ? null : link ? "found-page-but-no-price" : "no-match",
-      url,
+      url: url || page.url(),
       price,
       link,
       checkedAt: new Date().toISOString()
     };
   } catch (err) {
-    return { providerId: provider.id, ok: false, reason: `error: ${err.message}`, url };
+    return { providerId: provider.id, ok: false, reason: `error: ${err.message}`, url: url || provider.siteUrl || null };
   } finally {
     await browser.close().catch(() => {});
   }

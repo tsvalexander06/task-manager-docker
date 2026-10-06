@@ -52,7 +52,7 @@ function renderSearchLinks(links) {
     <div class="card">
       <span class="name">${esc(l.name)}</span>
       ${l.url
-        ? `<a class="open" href="${esc(l.url)}" target="_blank" rel="noopener"><button class="small">Open search ↗</button></a>`
+        ? `<a class="open" href="${esc(l.url)}" target="_blank" rel="noopener"><button class="small">${l.formMode ? "Open site (type code) ↗" : "Open search ↗"}</button></a>`
         : `<span class="muted">No search URL set (Settings)</span>`}
       <span class="badge ${l.hasAuth ? "" : "off"}">${l.hasAuth ? "session saved" : "not logged in"}</span>
     </div>`).join("");
@@ -211,8 +211,13 @@ async function loadProviders() {
           <input type="checkbox" data-field="enabled" ${p.enabled ? "checked" : ""} style="width:auto"/> enabled
         </label>
       </div>
-      <label>Search URL template (use {q} for the search term)</label>
+      <label>Search URL template (use {q} for the search term). Leave blank for form-mode sites.</label>
       <input data-field="searchTemplate" value="${esc(p.searchTemplate || "")}" />
+      <label>Site URL &amp; search-box selector (form-mode: used when there is no search URL)</label>
+      <div class="row">
+        <input data-field="siteUrl" value="${esc(p.siteUrl || "")}" placeholder="https://site/en" />
+        <input data-field="searchInputSelector" value="${esc(p.searchInputSelector || "")}" placeholder="search box CSS, e.g. input[type=search]" />
+      </div>
       <label>Price selector (optional, for auto-fetch)</label>
       <input data-field="priceSelector" value="${esc(p.priceSelector || "")}" placeholder="CSS selector, e.g. .product-price" />
       <label>Result link selector (optional, for auto-fetch)</label>
