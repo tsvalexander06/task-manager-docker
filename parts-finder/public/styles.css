@@ -46,6 +46,42 @@ main { max-width: 900px; margin: 0 auto; padding: 16px; }
 .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
 code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; }
 
+/* browser-style search hero */
+.hero { max-width: 640px; margin: 24px auto 8px; text-align: center; }
+.hero-sub { color: var(--muted); font-size: 15px; margin: 0 0 16px; }
+.searchbar {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 6px 6px 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+}
+.searchbar:focus-within { border-color: var(--accent); box-shadow: 0 2px 16px rgba(79,140,255,0.25); }
+.search-ico { font-size: 18px; opacity: .7; }
+.searchbar input {
+  flex: 1; border: none; background: transparent; font-size: 17px; padding: 10px 6px;
+}
+.searchbar input:focus { outline: none; }
+.searchbar button { border-radius: 999px; padding: 10px 22px; font-size: 15px; }
+.hero-actions { margin: 12px 0 22px; }
+.tiles-label { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.tiles {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.tile {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px 8px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel); cursor: pointer; text-decoration: none; color: var(--text);
+  transition: transform .08s, border-color .12s;
+}
+.tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+.tile .ic {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 16px; letter-spacing: .5px;
+}
+.tile .tn { font-size: 12px; line-height: 1.25; text-align: center; }
+.tile .st { font-size: 10px; color: var(--muted); }
+.tile .st.on { color: var(--ok); }
+
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }

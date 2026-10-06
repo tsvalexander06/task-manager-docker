@@ -23,6 +23,21 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": 
 let PROVIDERS = [];
 let MACHINES = [];
 
+// Build a supplier's search URL in the browser (no server round-trip).
+function clientSearchUrl(p, q) {
+  const term = encodeURIComponent(String(q || "").trim());
+  if (p.searchTemplate && p.searchTemplate.includes("{q}")) return p.searchTemplate.replace("{q}", term);
+  return p.siteUrl || null; // form-mode / no template: open the site
+}
+// Stable colour per supplier for the tile icon.
+function tileColor(id) {
+  let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return `hsl(${h} 58% 45%)`;
+}
+function initials(name) {
+  return name.replace(/[()]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+}
+
 // ---- tabs ----
 document.querySelectorAll("#tabs button").forEach((b) => {
   b.addEventListener("click", () => {
@@ -36,46 +51,59 @@ document.querySelectorAll("#tabs button").forEach((b) => {
   });
 });
 
-// ---- search ----
-document.getElementById("searchForm").addEventListener("submit", async (e) => {
+// ---- search hero: tiles ----
+function renderTiles() {
+  const el = document.getElementById("tiles");
+  const enabled = PROVIDERS.filter((p) => p.enabled);
+  if (!enabled.length) { el.innerHTML = '<p class="muted">Няма активни доставчици. Активирайте ги в Настройки.</p>'; return; }
+  el.innerHTML = enabled.map((p) => `
+    <a class="tile" data-id="${p.id}" href="#" title="${esc(p.name)}">
+      <span class="ic" style="background:${tileColor(p.id)}">${esc(initials(p.name))}</span>
+      <span class="tn">${esc(p.name)}</span>
+      <span class="st ${p.hasAuth ? "on" : ""}">${p.hasAuth ? "влезли сте" : ""}</span>
+    </a>`).join("");
+}
+
+document.getElementById("tiles").addEventListener("click", (e) => {
+  const tile = e.target.closest(".tile");
+  if (!tile) return;
   e.preventDefault();
+  const p = PROVIDERS.find((x) => x.id === tile.dataset.id);
   const q = document.getElementById("searchQ").value.trim();
-  if (!q) return;
-  const { links } = await api.get("/api/search-links?q=" + encodeURIComponent(q));
-  renderSearchLinks(links);
+  const url = clientSearchUrl(p, q);
+  if (!url) return toast("Няма зададен адрес за този доставчик (Настройки)");
+  window.open(url, "_blank", "noopener");
 });
 
-function renderSearchLinks(links) {
-  const el = document.getElementById("searchLinks");
-  if (!links.length) { el.innerHTML = '<p class="muted">No enabled suppliers. Enable some in Settings.</p>'; return; }
-  el.innerHTML = links.map((l) => `
-    <div class="card">
-      <span class="name">${esc(l.name)}</span>
-      ${l.url
-        ? `<a class="open" href="${esc(l.url)}" target="_blank" rel="noopener"><button class="small">${l.formMode ? "Open site (type code) ↗" : "Open search ↗"}</button></a>`
-        : `<span class="muted">No search URL set (Settings)</span>`}
-      <span class="badge ${l.hasAuth ? "" : "off"}">${l.hasAuth ? "session saved" : "not logged in"}</span>
-    </div>`).join("");
-}
+// Enter / "Търси" = open every supplier's search (one tab each).
+document.getElementById("searchForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = document.getElementById("searchQ").value.trim();
+  if (!q) return toast("Първо въведете дума за търсене");
+  const enabled = PROVIDERS.filter((p) => p.enabled);
+  let opened = 0;
+  enabled.forEach((p) => { const u = clientSearchUrl(p, q); if (u) { window.open(u, "_blank", "noopener"); opened++; } });
+  if (opened > 1) toast("Ако браузърът блокира отварянето на няколко раздела, ползвайте плочките долу");
+});
 
 document.getElementById("autoFetchBtn").addEventListener("click", async () => {
   const q = document.getElementById("searchQ").value.trim();
-  if (!q) return toast("Enter a search term first");
+  if (!q) return toast("Първо въведете дума за търсене");
   const box = document.getElementById("fetchResults");
-  box.innerHTML = '<p class="muted">Fetching… (this opens headless browsers; may take a moment)</p>';
+  box.innerHTML = '<p class="muted">Зареждане… (отварят се браузъри във фонов режим; може да отнеме малко)</p>';
   try {
     const { results } = await api.post("/api/fetch", { q });
-    box.innerHTML = `<div class="block"><h2>Auto-fetch results</h2><table>
-      <tr><th>Supplier</th><th>Price</th><th>Link</th><th>Status</th></tr>
+    box.innerHTML = `<div class="block"><h2>Автоматично намерени цени</h2><table>
+      <tr><th>Доставчик</th><th>Цена</th><th>Връзка</th><th>Статус</th></tr>
       ${results.map((r) => `<tr>
         <td>${esc(r.name)}</td>
         <td class="price">${esc(r.price || "—")}</td>
-        <td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">open ↗</a>` : "—"}</td>
-        <td class="muted">${esc(r.ok ? "ok" : r.reason || "")}</td>
+        <td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">отвори ↗</a>` : "—"}</td>
+        <td class="muted">${esc(r.ok ? "ок" : r.reason || "")}</td>
       </tr>`).join("")}
-    </table><p class="hint">Blank results usually mean the search URL or price selector isn't set yet (Settings), or you need to log in (Settings → Log in).</p></div>`;
+    </table><p class="hint">Празен резултат обикновено означава, че адресът за търсене или селекторът за цена още не е зададен (Настройки), или трябва да влезете (Настройки → Вход).</p></div>`;
   } catch (err) {
-    box.innerHTML = `<p class="muted">Auto-fetch unavailable: ${esc(err.message)}</p>`;
+    box.innerHTML = `<p class="muted">Автоматичните цени не са налични: ${esc(err.message)}</p>`;
   }
 });
 
@@ -88,10 +116,10 @@ document.getElementById("savePartForm").addEventListener("submit", async (e) => 
     oemNumber: f.oemNumber.value.trim() || document.getElementById("searchQ").value.trim(),
     machineIds: f.machineId.value ? [f.machineId.value] : []
   };
-  if (!body.name && !body.oemNumber) return toast("Enter a part name or number");
+  if (!body.name && !body.oemNumber) return toast("Въведете име или номер на частта");
   await api.post("/api/parts", body);
   f.reset();
-  toast("Part saved");
+  toast("Частта е записана");
 });
 
 // ---- catalog ----
@@ -101,7 +129,7 @@ async function loadParts(filter) {
   const url = "/api/parts" + (filter ? "?q=" + encodeURIComponent(filter) : "");
   const parts = await api.get(url);
   const el = document.getElementById("partsList");
-  if (!parts.length) { el.innerHTML = '<p class="muted">No parts yet. Save one from the Search tab.</p>'; return; }
+  if (!parts.length) { el.innerHTML = '<p class="muted">Все още няма части. Запишете от раздел „Търсене“.</p>'; return; }
   el.innerHTML = parts.map(renderPart).join("");
 }
 
@@ -115,11 +143,11 @@ function renderPart(p) {
     const ref = (p.siteRefs || {})[pr.id] || {};
     return `<tr>
       <td>${esc(pr.name)}</td>
-      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="price" value="${esc(ref.price || "")}" placeholder="price" style="width:90px"/></td>
-      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="currency" value="${esc(ref.currency || "")}" placeholder="£/€" style="width:60px"/></td>
-      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="url" value="${esc(ref.url || "")}" placeholder="link you found" /></td>
+      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="price" value="${esc(ref.price || "")}" placeholder="цена" style="width:90px"/></td>
+      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="currency" value="${esc(ref.currency || "")}" placeholder="лв/€/£" style="width:64px"/></td>
+      <td><input data-part="${p.id}" data-prov="${pr.id}" data-field="url" value="${esc(ref.url || "")}" placeholder="намерена връзка" /></td>
       <td>
-        <button class="small save-ref" data-part="${p.id}" data-prov="${pr.id}">Save</button>
+        <button class="small save-ref" data-part="${p.id}" data-prov="${pr.id}">Запис</button>
         ${ref.url ? `<a href="${esc(ref.url)}" target="_blank" rel="noopener">↗</a>` : ""}
       </td>
     </tr>`;
@@ -128,16 +156,16 @@ function renderPart(p) {
   return `<div class="item">
     <div class="row between">
       <div>
-        <h3>${esc(p.name || "(unnamed)")} ${p.oemNumber ? `<span class="muted">· ${esc(p.oemNumber)}</span>` : ""}</h3>
-        <div class="meta">${machineNames ? "For: " + machineNames : "Not linked to a machine"}</div>
+        <h3>${esc(p.name || "(без име)")} ${p.oemNumber ? `<span class="muted">· ${esc(p.oemNumber)}</span>` : ""}</h3>
+        <div class="meta">${machineNames ? "За: " + machineNames : "Не е свързана с машина"}</div>
       </div>
       <div class="row">
-        <button class="small open-part" data-id="${p.id}">Open all searches</button>
-        <button class="danger del-part" data-id="${p.id}">Delete</button>
+        <button class="small open-part" data-id="${p.id}">Отвори всички търсения</button>
+        <button class="danger del-part" data-id="${p.id}">Изтрий</button>
       </div>
     </div>
     <table>
-      <tr><th>Supplier</th><th>Price</th><th>Cur.</th><th>Link</th><th></th></tr>
+      <tr><th>Доставчик</th><th>Цена</th><th>Вал.</th><th>Връзка</th><th></th></tr>
       ${rows}
     </table>
   </div>`;
@@ -146,8 +174,8 @@ function renderPart(p) {
 document.getElementById("partsList").addEventListener("click", async (e) => {
   const t = e.target;
   if (t.classList.contains("del-part")) {
-    if (!confirm("Delete this part?")) return;
-    await api.del("/api/parts/" + t.dataset.id); loadParts(); toast("Deleted");
+    if (!confirm("Да изтрия ли тази част?")) return;
+    await api.del("/api/parts/" + t.dataset.id); loadParts(); toast("Изтрито");
   } else if (t.classList.contains("open-part")) {
     const { links } = await api.get("/api/parts/" + t.dataset.id + "/links");
     links.forEach((l) => l.url && window.open(l.url, "_blank", "noopener"));
@@ -157,7 +185,7 @@ document.getElementById("partsList").addEventListener("click", async (e) => {
     const body = {};
     fields.forEach((f) => { body[f.dataset.field] = f.value; });
     await api.put(`/api/parts/${partId}/site/${prov}`, body);
-    toast("Saved");
+    toast("Записано");
   }
 });
 
@@ -166,9 +194,9 @@ document.getElementById("machineForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target;
   const body = ["brand", "model", "serial", "type", "manualUrl", "notes"].reduce((o, k) => (o[k] = f[k].value.trim(), o), {});
-  if (!body.brand && !body.model) return toast("Enter a brand or model");
+  if (!body.brand && !body.model) return toast("Въведете марка или модел");
   await api.post("/api/machines", body);
-  f.reset(); loadMachines(); toast("Machine added");
+  f.reset(); loadMachines(); toast("Машината е добавена");
 });
 
 async function loadMachines() {
@@ -178,24 +206,27 @@ async function loadMachines() {
     ? MACHINES.map((m) => `<div class="item">
         <div class="row between">
           <div>
-            <h3>${esc(`${m.brand} ${m.model}`.trim()) || "(unnamed)"}</h3>
-            <div class="meta">${[m.type, m.serial && "S/N " + m.serial, m.notes].filter(Boolean).map(esc).join(" · ")}
-            ${m.manualUrl ? ` · <a href="${esc(m.manualUrl)}" target="_blank" rel="noopener">manual ↗</a>` : ""}</div>
+            <h3>${esc(`${m.brand} ${m.model}`.trim()) || "(без име)"}</h3>
+            <div class="meta">${[m.type, m.serial && "Сер. № " + m.serial, m.notes].filter(Boolean).map(esc).join(" · ")}
+            ${m.manualUrl ? ` · <a href="${esc(m.manualUrl)}" target="_blank" rel="noopener">ръководство ↗</a>` : ""}</div>
           </div>
-          <button class="danger del-machine" data-id="${m.id}">Delete</button>
+          <button class="danger del-machine" data-id="${m.id}">Изтрий</button>
         </div>
       </div>`).join("")
-    : '<p class="muted">No machines yet.</p>';
-  // refresh the part-save machine dropdown
+    : '<p class="muted">Все още няма машини.</p>';
+  fillMachineSelect();
+}
+
+function fillMachineSelect() {
   const sel = document.querySelector('#savePartForm select[name="machineId"]');
-  sel.innerHTML = '<option value="">— link to machine (optional) —</option>' +
+  sel.innerHTML = '<option value="">— свържи с машина (по избор) —</option>' +
     MACHINES.map((m) => `<option value="${m.id}">${esc(`${m.brand} ${m.model}`.trim())}</option>`).join("");
 }
 
 document.getElementById("machinesList").addEventListener("click", async (e) => {
   if (e.target.classList.contains("del-machine")) {
-    if (!confirm("Delete this machine?")) return;
-    await api.del("/api/machines/" + e.target.dataset.id); loadMachines(); toast("Deleted");
+    if (!confirm("Да изтрия ли тази машина?")) return;
+    await api.del("/api/machines/" + e.target.dataset.id); loadMachines(); toast("Изтрито");
   }
 });
 
@@ -208,24 +239,24 @@ async function loadProviders() {
       <div class="row between">
         <strong>${esc(p.name)}</strong>
         <label class="row" style="font-size:13px;color:var(--text)">
-          <input type="checkbox" data-field="enabled" ${p.enabled ? "checked" : ""} style="width:auto"/> enabled
+          <input type="checkbox" data-field="enabled" ${p.enabled ? "checked" : ""} style="width:auto"/> активен
         </label>
       </div>
-      <label>Search URL template (use {q} for the search term). Leave blank for form-mode sites.</label>
+      <label>Шаблон за адрес на търсене (ползвайте {q} за търсената дума). Оставете празно за сайтове с режим форма.</label>
       <input data-field="searchTemplate" value="${esc(p.searchTemplate || "")}" />
-      <label>Site URL &amp; search-box selector (form-mode: used when there is no search URL)</label>
+      <label>Адрес на сайта и селектор на търсачката (режим форма: при липса на адрес за търсене)</label>
       <div class="row">
-        <input data-field="siteUrl" value="${esc(p.siteUrl || "")}" placeholder="https://site/en" />
-        <input data-field="searchInputSelector" value="${esc(p.searchInputSelector || "")}" placeholder="search box CSS, e.g. input[type=search]" />
+        <input data-field="siteUrl" value="${esc(p.siteUrl || "")}" placeholder="https://сайт/en" />
+        <input data-field="searchInputSelector" value="${esc(p.searchInputSelector || "")}" placeholder="CSS на търсачката, напр. input[type=search]" />
       </div>
-      <label>Price selector (optional, for auto-fetch)</label>
-      <input data-field="priceSelector" value="${esc(p.priceSelector || "")}" placeholder="CSS selector, e.g. .product-price" />
-      <label>Result link selector (optional, for auto-fetch)</label>
-      <input data-field="linkSelector" value="${esc(p.linkSelector || "")}" placeholder="CSS selector, e.g. a.product-item-link" />
+      <label>Селектор за цена (по избор, за автоматични цени)</label>
+      <input data-field="priceSelector" value="${esc(p.priceSelector || "")}" placeholder="CSS селектор, напр. .product-price" />
+      <label>Селектор за връзка към резултат (по избор)</label>
+      <input data-field="linkSelector" value="${esc(p.linkSelector || "")}" placeholder="CSS селектор, напр. a.product-item-link" />
       <div class="row" style="margin-top:10px">
-        <button class="small save-provider" data-id="${p.id}">Save</button>
-        <button class="small ghost login-provider" data-id="${p.id}">Log in (save session)</button>
-        <span class="badge ${p.hasAuth ? "" : "off"}">${p.hasAuth ? "session saved" : "no session"}</span>
+        <button class="small save-provider" data-id="${p.id}">Запис</button>
+        <button class="small ghost login-provider" data-id="${p.id}">Вход (запази сесия)</button>
+        <span class="badge ${p.hasAuth ? "" : "off"}">${p.hasAuth ? "сесията е запазена" : "няма сесия"}</span>
       </div>
       ${p.notes ? `<p class="hint" style="margin-top:8px">${esc(p.notes)}</p>` : ""}
     </div>`).join("");
@@ -240,12 +271,12 @@ document.getElementById("providersList").addEventListener("click", async (e) => 
       body[f.dataset.field] = f.type === "checkbox" ? f.checked : f.value;
     });
     await api.put("/api/providers/" + id, body);
-    toast("Saved"); loadProviders();
+    toast("Записано"); loadProviders();
   } else if (e.target.classList.contains("login-provider")) {
-    toast("Opening browser — log in, then close the window");
+    toast("Отваря се браузър — влезте и затворете прозореца");
     try {
       await api.post("/api/providers/" + id + "/login");
-      toast("Session saved"); loadProviders();
+      toast("Сесията е запазена"); loadProviders();
     } catch (err) { toast(err.message); }
   }
 });
@@ -255,9 +286,7 @@ document.getElementById("providersList").addEventListener("click", async (e) => 
   try {
     PROVIDERS = await api.get("/api/providers");
     MACHINES = await api.get("/api/machines");
-    const sel = document.querySelector('#savePartForm select[name="machineId"]');
-    sel.innerHTML = '<option value="">— link to machine (optional) —</option>' +
-      MACHINES.map((m) => `<option value="${m.id}">${esc(`${m.brand} ${m.model}`.trim())}</option>`).join("");
-    renderSearchLinks(PROVIDERS.filter((p) => p.enabled).map((p) => ({ providerId: p.id, name: p.name, url: null, hasAuth: p.hasAuth })));
-  } catch (err) { toast("Could not reach server: " + err.message); }
+    fillMachineSelect();
+    renderTiles();
+  } catch (err) { toast("Няма връзка със сървъра: " + err.message); }
 })();

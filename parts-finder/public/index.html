@@ -1,82 +1,83 @@
 <!doctype html>
-<html lang="en">
+<html lang="bg">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Parts Finder</title>
+    <title>Намиране на части</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header>
-      <h1>Parts Finder</h1>
+      <h1>Намиране на части</h1>
       <nav id="tabs">
-        <button data-tab="search" class="active">Search</button>
-        <button data-tab="catalog">Catalog</button>
-        <button data-tab="machines">Machines</button>
-        <button data-tab="settings">Settings</button>
+        <button data-tab="search" class="active">Търсене</button>
+        <button data-tab="catalog">Каталог</button>
+        <button data-tab="machines">Машини</button>
+        <button data-tab="settings">Настройки</button>
       </nav>
     </header>
 
     <main>
-      <!-- SEARCH -->
+      <!-- ТЪРСЕНЕ -->
       <section id="tab-search" class="tab active">
-        <p class="hint">
-          Enter an OEM/part number, model or keyword. One click opens the matching
-          search on every enabled supplier &mdash; then record the price and link you find.
-        </p>
-        <form id="searchForm" class="row">
-          <input id="searchQ" type="text" placeholder="e.g. 60135 or Rational SCC model" autocomplete="off" />
-          <button type="submit">Open searches</button>
-          <button type="button" id="autoFetchBtn" class="ghost" title="Optional: auto-read prices (needs setup)">Auto-fetch</button>
-        </form>
+        <div class="hero">
+          <p class="hero-sub">Въведете OEM/партиден номер, модел или ключова дума</p>
+          <form id="searchForm" class="searchbar">
+            <span class="search-ico" aria-hidden="true">🔍</span>
+            <input id="searchQ" type="text" placeholder="напр. 553.008.00 или модел Rational SCC" autocomplete="off" />
+            <button type="submit">Търси</button>
+          </form>
+          <div class="hero-actions">
+            <button type="button" id="autoFetchBtn" class="ghost small" title="По желание: автоматично чете цените (нужна е настройка)">Автоматични цени</button>
+          </div>
+          <p class="tiles-label">Доставчици — натиснете плочка, за да отворите търсенето там</p>
+          <div id="tiles" class="tiles"></div>
+        </div>
 
-        <div id="searchLinks" class="cards"></div>
         <div id="fetchResults"></div>
 
         <div class="block">
-          <div class="row between">
-            <h2>Save this as a part</h2>
-          </div>
+          <h2>Запиши като част</h2>
           <form id="savePartForm" class="grid">
-            <input name="name" placeholder="Part name (e.g. Door gasket)" />
-            <input name="oemNumber" placeholder="OEM / part number" />
-            <select name="machineId"><option value="">— link to machine (optional) —</option></select>
-            <button type="submit">Save part</button>
+            <input name="name" placeholder="Име на частта (напр. уплътнение за врата)" />
+            <input name="oemNumber" placeholder="OEM / партиден номер" />
+            <select name="machineId"><option value="">— свържи с машина (по избор) —</option></select>
+            <button type="submit">Запиши частта</button>
           </form>
         </div>
       </section>
 
-      <!-- CATALOG -->
+      <!-- КАТАЛОГ -->
       <section id="tab-catalog" class="tab">
         <div class="row between">
-          <h2>Saved parts</h2>
-          <input id="catalogFilter" placeholder="Filter by name / number…" />
+          <h2>Запазени части</h2>
+          <input id="catalogFilter" placeholder="Филтър по име / номер…" />
         </div>
         <div id="partsList"></div>
       </section>
 
-      <!-- MACHINES -->
+      <!-- МАШИНИ -->
       <section id="tab-machines" class="tab">
-        <h2>Machines</h2>
+        <h2>Машини</h2>
         <form id="machineForm" class="grid">
-          <input name="brand" placeholder="Brand (e.g. Rational)" />
-          <input name="model" placeholder="Model (e.g. SCC 101)" />
-          <input name="serial" placeholder="Serial no. (optional)" />
-          <input name="type" placeholder="Type (e.g. combi oven)" />
-          <input name="manualUrl" placeholder="Manual / parts-diagram URL (optional)" />
-          <input name="notes" placeholder="Notes (optional)" />
-          <button type="submit">Add machine</button>
+          <input name="brand" placeholder="Марка (напр. Rational)" />
+          <input name="model" placeholder="Модел (напр. SCC 101)" />
+          <input name="serial" placeholder="Сериен № (по избор)" />
+          <input name="type" placeholder="Тип (напр. конвектомат)" />
+          <input name="manualUrl" placeholder="Връзка към ръководство / схема (по избор)" />
+          <input name="notes" placeholder="Бележки (по избор)" />
+          <button type="submit">Добави машина</button>
         </form>
         <div id="machinesList"></div>
       </section>
 
-      <!-- SETTINGS -->
+      <!-- НАСТРОЙКИ -->
       <section id="tab-settings" class="tab">
-        <h2>Suppliers</h2>
+        <h2>Доставчици</h2>
         <p class="hint">
-          Set each site's search URL by opening a real search there, copying the
-          address, and replacing the search term with <code>{q}</code>. Price selectors
-          are only needed for optional auto-fetch.
+          Задайте адреса за търсене на всеки сайт: отворете истинско търсене там,
+          копирайте адреса и заменете търсената дума с <code>{q}</code>. Селекторите
+          за цена са нужни само за автоматичните цени.
         </p>
         <div id="providersList"></div>
       </section>
