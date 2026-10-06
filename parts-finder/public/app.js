@@ -121,6 +121,56 @@ document.getElementById("autoFetchBtn").addEventListener("click", async () => {
   }
 });
 
+// ---- diagnostics ----
+document.getElementById("debugBtn").addEventListener("click", async () => {
+  const q = document.getElementById("searchQ").value.trim();
+  if (!q) return toast("Първо въведете дума за търсене");
+  const box = document.getElementById("fetchResults");
+  box.innerHTML = '<p class="muted">Диагностика… отварят се сайтовете и се търсят цени (може да отнеме малко)</p>';
+  try {
+    const { results } = await api.post("/api/debug", { q });
+    box.innerHTML = `<div class="block"><h2>Диагностика</h2>
+      <p class="hint">За всеки сайт: ако цената не е намерена, натиснете верния ред „цена“ отдолу — селекторът се запазва автоматично и после пробвайте „Автоматични цени“ пак.</p>
+      ${results.map(renderDebug).join("")}</div>`;
+  } catch (err) {
+    box.innerHTML = `<p class="muted">Диагностиката не е налична: ${esc(err.message)}</p>`;
+  }
+});
+
+function renderDebug(r) {
+  if (r.error) return `<div class="item"><h3>${esc(r.name)}</h3><div class="meta">грешка: ${esc(r.error)}</div></div>`;
+  const login = r.loggedIn ? "влезли сте" : "НЕ сте влезли";
+  const warn = r.looksLoggedOut ? ' · <span style="color:var(--warn)">изглежда нужен е вход</span>' : "";
+  const foundLine = r.priceSelectorFound
+    ? `<div class="meta" style="color:var(--ok)">текущият селектор намери: ${esc(r.priceSelectorText || "")}</div>`
+    : `<div class="meta" style="color:var(--warn)">текущият селектор НЕ намери цена</div>`;
+  const cands = (r.candidates || []).length
+    ? `<table><tr><th>Възможна цена</th><th>Селектор</th><th></th></tr>
+       ${r.candidates.map((c) => `<tr>
+         <td class="price">${esc(c.text)}</td>
+         <td class="muted" style="font-size:12px">${esc(c.selector)}</td>
+         <td><button class="small set-price" data-prov="${esc(r.providerId)}" data-sel="${esc(c.selector)}">Задай като цена</button></td>
+       </tr>`).join("")}</table>`
+    : '<div class="meta">няма открити елементи, приличащи на цена (вероятно трябва вход)</div>';
+  return `<div class="item">
+    <h3>${esc(r.name)} <span class="muted" style="font-size:12px">· ${esc(login)}${warn}</span></h3>
+    ${r.url ? `<div class="meta">страница: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url.slice(0, 70))}↗</a></div>` : ""}
+    ${foundLine}
+    ${cands}
+  </div>`;
+}
+
+document.getElementById("fetchResults").addEventListener("click", async (e) => {
+  if (!e.target.classList.contains("set-price")) return;
+  const prov = e.target.dataset.prov, sel = e.target.dataset.sel;
+  try {
+    await api.put("/api/providers/" + prov, { priceSelector: sel });
+    // keep local copy in sync so tiles/fetch use it immediately
+    const p = PROVIDERS.find((x) => x.id === prov); if (p) p.priceSelector = sel;
+    toast("Селекторът за цена е запазен за " + prov);
+  } catch (err) { toast(err.message); }
+});
+
 // ---- save part (from search tab) ----
 document.getElementById("savePartForm").addEventListener("submit", async (e) => {
   e.preventDefault();

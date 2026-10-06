@@ -224,6 +224,25 @@ app.post("/api/fetch", async (req, res) => {
   }
 });
 
+// Diagnostics: what does each site actually show for this query?
+app.post("/api/debug", async (req, res) => {
+  const db = store.load();
+  const { q, providerIds } = req.body || {};
+  if (!q) return res.status(400).json({ error: "q required" });
+  let providers = db.providers.filter((p) => p.enabled);
+  if (Array.isArray(providerIds) && providerIds.length) providers = providers.filter((p) => providerIds.includes(p.id));
+  try {
+    const results = [];
+    for (const p of providers) {
+      // eslint-disable-next-line no-await-in-loop
+      results.push({ name: p.name, ...(await fetcher.debugProbe(p, q)) });
+    }
+    res.json({ q, results });
+  } catch (err) {
+    res.status(err.code === "NO_PLAYWRIGHT" ? 501 : 500).json({ error: err.message, code: err.code });
+  }
+});
+
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 8080;

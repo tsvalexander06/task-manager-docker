@@ -166,6 +166,8 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
     }
 
     const readPrice = async () => {
+      // Prices often render via JS after load — wait briefly for the selector.
+      await page.waitForSelector(provider.priceSelector, { timeout: 6000 }).catch(() => {});
       const el = await page.$(provider.priceSelector);
       if (el) {
         const t = (await el.innerText().catch(() => null)) || (await el.textContent().catch(() => null));
@@ -218,4 +220,95 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
   }
 }
 
-module.exports = { loginInteractive, fetchOne, hasAuth, buildSearchUrl, authPath };
+// Diagnostic probe: runs the same navigation as fetchOne, then reports what it
+// sees — the final page, whether the price selector matched, whether it looks
+// logged out, and a list of price-looking elements with a suggested selector
+// for each — plus saves a screenshot + HTML to data/debug/. This lets a user
+// pick the correct price selector by clicking, instead of guessing.
+async function debugProbe(provider, q, { timeoutMs = 30000 } = {}) {
+  const url = buildSearchUrl(provider, q);
+  const formMode = !url && provider.siteUrl && provider.searchInputSelector;
+  if (!url && !formMode) return { providerId: provider.id, error: "no-search-template" };
+
+  const { chromium } = loadPlaywright();
+  const loggedIn = hasAuth(provider.id);
+  const contextOpts = {};
+  if (loggedIn) contextOpts.storageState = authPath(provider.id);
+
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext(contextOpts);
+    const page = await context.newPage();
+
+    let searchBoxFound = true;
+    if (formMode) {
+      await page.goto(provider.siteUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      const sel = await firstExisting(page, provider.searchInputSelector, timeoutMs);
+      if (!sel) {
+        searchBoxFound = false;
+      } else {
+        await page.fill(sel, String(q));
+        await Promise.all([
+          page.waitForLoadState("domcontentloaded", { timeout: timeoutMs }).catch(() => {}),
+          page.press(sel, "Enter")
+        ]);
+      }
+    } else {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    }
+
+    // If the price selector isn't already present, try opening the first result.
+    if (searchBoxFound) {
+      const hasPrice = provider.priceSelector ? await page.$(provider.priceSelector) : null;
+      if (!hasPrice) {
+        const target = provider.linkSelector
+          ? await (async () => { const el = await page.$(provider.linkSelector); if (!el) return null; let h = await el.getAttribute("href"); if (h && h.startsWith("/")) h = new URL(page.url()).origin + h; return h; })()
+          : await firstResultLink(page);
+        if (target && target !== page.url()) {
+          await page.goto(target, { waitUntil: "domcontentloaded", timeout: timeoutMs }).catch(() => {});
+        }
+      }
+      await page.waitForTimeout(1500); // let JS-rendered prices settle
+    }
+
+    const info = searchBoxFound
+      ? await page.evaluate((priceSel) => {
+          const out = { url: location.href, title: document.title, priceSelectorFound: false, priceSelectorText: null, looksLoggedOut: false, candidates: [] };
+          if (priceSel) {
+            try { const el = document.querySelector(priceSel); if (el) { out.priceSelectorFound = true; out.priceSelectorText = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 60); } } catch (e) {}
+          }
+          const body = document.body ? document.body.innerText : "";
+          out.looksLoggedOut = /(log\s?in|sign in|влез|вход|accedi|anmelden)/i.test(body) && !/(log\s?out|изход|sign out|abmelden|esci)/i.test(body);
+          const rx = /(€|£|\$|лв|EUR|GBP|BGN|USD)\s?\d|\d+[.,]\d{2}\s?(€|£|\$|лв|EUR|GBP|BGN)/i;
+          const seen = new Set();
+          for (const el of document.querySelectorAll("span,div,strong,b,p,td,ins")) {
+            const txt = (el.textContent || "").trim().replace(/\s+/g, " ");
+            if (!txt || txt.length > 40 || el.children.length > 2) continue;
+            if (!rx.test(txt)) continue;
+            let sel = el.tagName.toLowerCase();
+            if (el.id) sel += "#" + el.id;
+            else if (typeof el.className === "string" && el.className.trim()) sel += "." + el.className.trim().split(/\s+/).slice(0, 2).join(".");
+            const key = sel + "|" + txt;
+            if (seen.has(key)) continue; seen.add(key);
+            out.candidates.push({ text: txt, selector: sel });
+            if (out.candidates.length >= 15) break;
+          }
+          return out;
+        }, provider.priceSelector || null)
+      : { url: provider.siteUrl, title: "", priceSelectorFound: false, looksLoggedOut: true, candidates: [] };
+
+    const dir = path.join(DATA_DIR, "debug");
+    fs.mkdirSync(dir, { recursive: true });
+    const shot = path.join(dir, `${provider.id}.png`);
+    await page.screenshot({ path: shot }).catch(() => {});
+    try { fs.writeFileSync(path.join(dir, `${provider.id}.html`), await page.content()); } catch (e) {}
+
+    return { providerId: provider.id, loggedIn, searchBoxFound, screenshot: shot, ...info };
+  } catch (err) {
+    return { providerId: provider.id, error: err.message };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+module.exports = { loginInteractive, fetchOne, debugProbe, hasAuth, buildSearchUrl, authPath };

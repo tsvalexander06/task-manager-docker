@@ -4,3 +4,4 @@ node_modules/
 # Never commit these — auth/ holds authenticated browser sessions.
 data/store.json
 data/auth/
+data/debug/
