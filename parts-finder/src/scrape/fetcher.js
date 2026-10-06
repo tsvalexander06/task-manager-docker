@@ -79,67 +79,134 @@ async function loginInteractive(provider) {
 //   URL mode  — searchTemplate has {q}; navigate straight to the results URL.
 //   FORM mode — no template, but siteUrl + searchInputSelector are set; load
 //               the site, type the query into the search box, submit.
+// Wait up to ~10s for any of the comma-separated candidate selectors to appear;
+// return the first that exists. Lets one config cover several site layouts.
+async function firstExisting(page, selectorList, timeoutMs) {
+  const cands = String(selectorList || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!cands.length) return null;
+  const deadline = Date.now() + Math.min(timeoutMs, 10000);
+  do {
+    for (const c of cands) {
+      const el = await page.$(c).catch(() => null);
+      if (el) return c;
+    }
+    await page.waitForTimeout(300);
+  } while (Date.now() < deadline);
+  return null;
+}
+
+// Heuristically find the first real product link on a search-results page, so a
+// product-page price selector works without a hand-set link selector.
+async function firstResultLink(page) {
+  return page.evaluate(() => {
+    const origin = location.origin;
+    const bad = /(login|sign[-_]?in|account|logout|register|cart|basket|wishlist|checkout|contact|privacy|terms|cookie|compare|newsletter)/i;
+    let best = null, bestScore = 4; // require a decent match
+    for (const a of Array.from(document.querySelectorAll("a[href]"))) {
+      const raw = a.getAttribute("href") || "";
+      if (!raw || /^(#|javascript:|mailto:|tel:)/i.test(raw)) continue;
+      let abs; try { abs = new URL(raw, location.href); } catch { continue; }
+      if (abs.origin !== origin) continue;
+      if (bad.test(abs.href)) continue;
+      const path = abs.pathname;
+      let score = 0;
+      if (/\/(product|products|item|items|prod|artikel|articolo|p)\//i.test(path)) score += 5;
+      if (/\.html?($|\?)/i.test(path)) score += 2;
+      if (/\d{3,}/.test(path)) score += 2;
+      let el = a, depth = 0;
+      while (el && depth < 4) {
+        const cls = typeof el.className === "string" ? el.className : (el.className && el.className.baseVal) || "";
+        if (/product|item|result|card|catalog|listing/i.test(cls)) { score += 3; break; }
+        el = el.parentElement; depth++;
+      }
+      if (a.querySelector("img")) score += 1;
+      if ((a.textContent || "").trim().length > 8) score += 1;
+      if (score > bestScore) { bestScore = score; best = abs.href; }
+    }
+    return best;
+  }).catch(() => null);
+}
+
+// Two search modes:
+//   URL mode  — searchTemplate has {q}; navigate straight to the results URL.
+//   FORM mode — no template, but siteUrl + searchInputSelector are set; load
+//               the site, type the query into the search box, submit.
 async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
   const url = buildSearchUrl(provider, q);
   const formMode = !url && provider.siteUrl && provider.searchInputSelector;
   if (!url && !formMode) {
     return { providerId: provider.id, ok: false, reason: "no-search-template", url: null };
   }
-  if (!provider.priceSelector && !provider.linkSelector) {
-    return { providerId: provider.id, ok: false, reason: "no-selectors", url: url || provider.siteUrl };
+  if (!provider.priceSelector) {
+    return { providerId: provider.id, ok: false, reason: "no-price-selector", url: url || provider.siteUrl };
   }
 
   const { chromium } = loadPlaywright();
-  const launchOpts = { headless: true };
   const contextOpts = {};
   if (hasAuth(provider.id)) contextOpts.storageState = authPath(provider.id);
 
-  const browser = await chromium.launch(launchOpts);
+  const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext(contextOpts);
     const page = await context.newPage();
 
     if (formMode) {
       await page.goto(provider.siteUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-      await page.fill(provider.searchInputSelector, String(q));
+      const sel = await firstExisting(page, provider.searchInputSelector, timeoutMs);
+      if (!sel) {
+        return { providerId: provider.id, ok: false, reason: "search-box-not-found", url: provider.siteUrl };
+      }
+      await page.fill(sel, String(q));
       await Promise.all([
         page.waitForLoadState("domcontentloaded", { timeout: timeoutMs }).catch(() => {}),
-        page.press(provider.searchInputSelector, "Enter")
+        page.press(sel, "Enter")
       ]);
     } else {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     }
 
-    let link = null;
-
-    // If a result-link selector is set, the search landed on a results list:
-    // grab the first result's URL and open it so a product-page price selector
-    // matches. Without it, we read the price on whatever the search URL shows
-    // (works when an exact part number redirects straight to the product page).
-    if (provider.linkSelector) {
-      const el = await page.$(provider.linkSelector);
-      if (el) {
-        link = await el.getAttribute("href");
-        if (link && link.startsWith("/")) link = new URL(page.url()).origin + link;
-        if (link) {
-          await page.goto(link, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-        }
-      }
-    } else {
-      link = page.url(); // may have redirected to a product page
-    }
-
-    let price = null;
-    if (provider.priceSelector) {
+    const readPrice = async () => {
       const el = await page.$(provider.priceSelector);
-      if (el) price = (await el.innerText()).trim().replace(/\s+/g, " ");
+      if (el) {
+        const t = (await el.innerText().catch(() => null)) || (await el.textContent().catch(() => null));
+        if (t && t.trim()) return t.trim().replace(/\s+/g, " ");
+      }
+      const fb = await page.$("[itemprop='price'], meta[itemprop='price']");
+      if (fb) {
+        const t = (await fb.getAttribute("content")) || (await fb.innerText().catch(() => null));
+        if (t && t.trim()) return t.trim().replace(/\s+/g, " ");
+      }
+      return null;
+    };
+
+    let link = page.url();
+    let price = await readPrice(); // works if search redirected straight to the product
+
+    if (!price) {
+      // Results list: open the first product, then read its price.
+      let target = null;
+      if (provider.linkSelector) {
+        const el = await page.$(provider.linkSelector);
+        if (el) {
+          let href = await el.getAttribute("href");
+          if (href && href.startsWith("/")) href = new URL(page.url()).origin + href;
+          target = href;
+        }
+      } else {
+        target = await firstResultLink(page);
+      }
+      if (target && target !== page.url()) {
+        await page.goto(target, { waitUntil: "domcontentloaded", timeout: timeoutMs }).catch(() => {});
+        link = page.url();
+        price = await readPrice();
+      }
     }
 
     return {
       providerId: provider.id,
       ok: Boolean(price),
-      reason: price ? null : link ? "found-page-but-no-price" : "no-match",
-      url: url || page.url(),
+      reason: price ? null : "no-price-found",
+      url: url || provider.siteUrl,
       price,
       link,
       checkedAt: new Date().toISOString()

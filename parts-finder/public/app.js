@@ -20,6 +20,20 @@ function toast(msg) {
 }
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Translate a fetch result's status into Bulgarian guidance.
+function reasonBg(r) {
+  if (r.ok) return "ок";
+  const raw = r.reason || "";
+  if (raw.startsWith("error")) return "грешка: " + raw.slice(7);
+  const map = {
+    "no-price-found": "не е намерена цена (нужен е вход или друг селектор)",
+    "no-price-selector": "няма зададен селектор за цена (Настройки)",
+    "no-search-template": "няма зададен адрес за търсене (Настройки)",
+    "search-box-not-found": "търсачката не е намерена (първо влезте / задайте селектор)"
+  };
+  return map[raw] || raw;
+}
+
 let PROVIDERS = [];
 let MACHINES = [];
 
@@ -99,7 +113,7 @@ document.getElementById("autoFetchBtn").addEventListener("click", async () => {
         <td>${esc(r.name)}</td>
         <td class="price">${esc(r.price || "—")}</td>
         <td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">отвори ↗</a>` : "—"}</td>
-        <td class="muted">${esc(r.ok ? "ок" : r.reason || "")}</td>
+        <td class="muted">${esc(reasonBg(r))}</td>
       </tr>`).join("")}
     </table><p class="hint">Празен резултат обикновено означава, че адресът за търсене или селекторът за цена още не е зададен (Настройки), или трябва да влезете (Настройки → Вход).</p></div>`;
   } catch (err) {

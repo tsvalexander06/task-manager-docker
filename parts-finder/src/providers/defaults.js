@@ -32,7 +32,7 @@ module.exports = [
     searchTemplate: "https://www.gev-online.com/en/webshop/search/extra?q={q}",
     priceSelector: ".product-item.detail-info span.p-value span",
     linkSelector: "",
-    notes: "Search URL confirmed. Trade login required for prices — log in once via Settings."
+    notes: "⚠ Трябва ВХОД (Настройки → Вход) — цените се виждат само след вход в търговския акаунт."
   },
   {
     id: "repa_lf",
@@ -43,10 +43,11 @@ module.exports = [
     // submit. Leave searchTemplate empty to trigger that.
     searchTemplate: "",
     siteUrl: "https://b2bnet.lfspareparts724.com/en",
-    searchInputSelector: "input[type='search']", // ⚠ GUESS — confirm the search box selector
+    // Several candidates tried in order (the search box only appears after login).
+    searchInputSelector: "input[type='search'], input[name='q'], input[name='search'], input[name='ricerca'], input[placeholder*='erc'], input[placeholder*='earch'], #search, .search-input input, input.search",
     priceSelector: ".product-data-panel li strong",
     linkSelector: "",
-    notes: "⚠ Form-mode search (no linkable URL). Confirm the search-box CSS selector in Settings. Trade login required."
+    notes: "⚠ Трябва ВХОД (Настройки → Вход) — търсачката се показва само след вход. Ако пак не намира търсачката, задайте точния ѝ CSS селектор."
   },
   {
     id: "professional_spares",
