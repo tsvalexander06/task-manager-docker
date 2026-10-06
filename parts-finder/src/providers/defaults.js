@@ -1,57 +1,67 @@
 // Default supplier definitions.
 //
-// These are STARTING POINTS. The search URL for each site is a guess and you
-// should correct it once in the app's Settings tab: open a real search on the
-// site, copy the address-bar URL, and replace the search term with {q}.
+// searchTemplate: the site's search URL with the search term replaced by {q}.
+// priceSelector : CSS selector for the price (used by optional auto-fetch).
+// linkSelector  : CSS selector for the FIRST result's link on a search-results
+//                 page. If set, auto-fetch clicks through to that product page
+//                 before reading priceSelector — so a product-page price
+//                 selector still works even when search lands on a list.
 //
-// Example: if searching "60135" on a site gives
-//   https://example.com/catalogsearch/result/?q=60135
-// then the template is
-//   https://example.com/catalogsearch/result/?q={q}
+// These are seeded from real URLs/selectors supplied by the team. Where a value
+// is a guess it is marked in `notes`; correct it once in the app's Settings tab.
 //
-// priceSelector / linkSelector are CSS selectors used only by the optional
-// auto-fetch (Playwright) feature to read the first result's price and link.
-// Leave them blank until you've inspected the site; deep-link search works
-// without them.
+// NOTE: if you already ran the app once, data/store.json holds your own copy of
+// these and won't pick up changes here automatically — delete data/store.json
+// to reseed, or just edit the values in the Settings tab.
 
 module.exports = [
   {
-    id: "partstown",
-    name: "Parts Town",
+    id: "gastroparts",
+    name: "Gastroparts",
     enabled: true,
-    // Parts Town is the most openly-priced of the four.
-    searchTemplate: "https://www.partstown.co.uk/search?q={q}",
-    priceSelector: "",
+    searchTemplate: "https://gastroparts.com/en/items?query={q}",
+    // Product-page price. Set linkSelector if search lands on a results list.
+    priceSelector: ".price-amount.price-yours .price-exc-tax span",
     linkSelector: "",
-    notes: "Supports search by OEM part number, model and serial-number lookup."
+    notes: "Search URL confirmed. Price selector is the product-page price (ex-tax)."
   },
   {
     id: "repa_gev",
     name: "REPA (GEV)",
     enabled: true,
-    // GEV is part of REPA Group. Prices require a trade login.
-    searchTemplate: "https://www.gev-online.com/en/search?q={q}",
-    priceSelector: "",
+    searchTemplate: "https://www.gev-online.com/en/webshop/search/extra?q={q}",
+    priceSelector: ".product-item.detail-info span.p-value span",
     linkSelector: "",
-    notes: "Trade login required for prices. Log in once via Settings, then auto-fetch can reuse the session."
+    notes: "Search URL confirmed. Trade login required for prices — log in once via Settings."
   },
   {
     id: "repa_lf",
     name: "REPA (LF)",
     enabled: true,
-    // LF is part of REPA Group. Correct this template from your own bookmarked search.
-    searchTemplate: "https://www.repagroup.com/search?q={q}",
-    priceSelector: "",
+    // GUESS: you supplied a product page, not a search page. Confirm the quick-search URL.
+    searchTemplate: "https://b2bnet.lfspareparts724.com/en/search?q={q}",
+    priceSelector: ".product-data-panel li strong",
     linkSelector: "",
-    notes: "Trade login required for prices. Correct the search URL from a real search on your account."
+    notes: "⚠ Search URL is a GUESS — open a quick-search on b2bnet.lfspareparts724.com and paste the real results URL (replace the term with {q}). Trade login required."
   },
   {
     id: "professional_spares",
     name: "Professional Spares",
     enabled: true,
-    searchTemplate: "https://www.professionalspares.co.uk/search?q={q}",
-    priceSelector: "",
+    // GUESS: you supplied a product page, not a search page. Confirm the search URL.
+    searchTemplate: "https://www.professionalspares.com/en/search?controller=search&s={q}",
+    priceSelector: ".product__col .prices__wrapper",
     linkSelector: "",
-    notes: "UK trade spares. Correct the search URL and selectors from a real search."
+    notes: "⚠ Search URL is a GUESS (PrestaShop pattern) — run a search on professionalspares.com and paste the real results URL. Note the domain is .com, not .co.uk."
+  },
+  {
+    id: "partstown",
+    name: "Parts Town (UK)",
+    enabled: true,
+    searchTemplate: "https://www.partstown.co.uk/catalogsearch/result/?q={q}",
+    // Generalised from an id that was product-specific (…-183774) to any product.
+    priceSelector: "[id^='price-excluding-tax-product-price'] > span",
+    linkSelector: "",
+    notes: "Search URL confirmed. Price selector generalised to match any product on the results page."
   }
 ];

@@ -94,27 +94,35 @@ async function fetchOne(provider, q, { timeoutMs = 30000 } = {}) {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
 
-    let price = null;
     let link = null;
-    if (provider.priceSelector) {
-      const el = await page.$(provider.priceSelector);
-      if (el) price = (await el.innerText()).trim();
-    }
+
+    // If a result-link selector is set, the search landed on a results list:
+    // grab the first result's URL and open it so a product-page price selector
+    // matches. Without it, we read the price on whatever the search URL shows
+    // (works when an exact part number redirects straight to the product page).
     if (provider.linkSelector) {
       const el = await page.$(provider.linkSelector);
       if (el) {
         link = await el.getAttribute("href");
-        if (link && link.startsWith("/")) {
-          const u = new URL(url);
-          link = u.origin + link;
+        if (link && link.startsWith("/")) link = new URL(url).origin + link;
+        if (link) {
+          await page.goto(link, { waitUntil: "domcontentloaded", timeout: timeoutMs });
         }
       }
+    } else {
+      link = page.url(); // may have redirected to a product page
+    }
+
+    let price = null;
+    if (provider.priceSelector) {
+      const el = await page.$(provider.priceSelector);
+      if (el) price = (await el.innerText()).trim().replace(/\s+/g, " ");
     }
 
     return {
       providerId: provider.id,
-      ok: Boolean(price || link),
-      reason: price || link ? null : "no-match",
+      ok: Boolean(price),
+      reason: price ? null : link ? "found-page-but-no-price" : "no-match",
       url,
       price,
       link,
