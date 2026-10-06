@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parts Finder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Parts Finder</h1>
+      <nav id="tabs">
+        <button data-tab="search" class="active">Search</button>
+        <button data-tab="catalog">Catalog</button>
+        <button data-tab="machines">Machines</button>
+        <button data-tab="settings">Settings</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- SEARCH -->
+      <section id="tab-search" class="tab active">
+        <p class="hint">
+          Enter an OEM/part number, model or keyword. One click opens the matching
+          search on every enabled supplier &mdash; then record the price and link you find.
+        </p>
+        <form id="searchForm" class="row">
+          <input id="searchQ" type="text" placeholder="e.g. 60135 or Rational SCC model" autocomplete="off" />
+          <button type="submit">Open searches</button>
+          <button type="button" id="autoFetchBtn" class="ghost" title="Optional: auto-read prices (needs setup)">Auto-fetch</button>
+        </form>
+
+        <div id="searchLinks" class="cards"></div>
+        <div id="fetchResults"></div>
+
+        <div class="block">
+          <div class="row between">
+            <h2>Save this as a part</h2>
+          </div>
+          <form id="savePartForm" class="grid">
+            <input name="name" placeholder="Part name (e.g. Door gasket)" />
+            <input name="oemNumber" placeholder="OEM / part number" />
+            <select name="machineId"><option value="">— link to machine (optional) —</option></select>
+            <button type="submit">Save part</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- CATALOG -->
+      <section id="tab-catalog" class="tab">
+        <div class="row between">
+          <h2>Saved parts</h2>
+          <input id="catalogFilter" placeholder="Filter by name / number…" />
+        </div>
+        <div id="partsList"></div>
+      </section>
+
+      <!-- MACHINES -->
+      <section id="tab-machines" class="tab">
+        <h2>Machines</h2>
+        <form id="machineForm" class="grid">
+          <input name="brand" placeholder="Brand (e.g. Rational)" />
+          <input name="model" placeholder="Model (e.g. SCC 101)" />
+          <input name="serial" placeholder="Serial no. (optional)" />
+          <input name="type" placeholder="Type (e.g. combi oven)" />
+          <input name="manualUrl" placeholder="Manual / parts-diagram URL (optional)" />
+          <input name="notes" placeholder="Notes (optional)" />
+          <button type="submit">Add machine</button>
+        </form>
+        <div id="machinesList"></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="tab-settings" class="tab">
+        <h2>Suppliers</h2>
+        <p class="hint">
+          Set each site's search URL by opening a real search there, copying the
+          address, and replacing the search term with <code>{q}</code>. Price selectors
+          are only needed for optional auto-fetch.
+        </p>
+        <div id="providersList"></div>
+      </section>
+    </main>
+
+    <div id="toast"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

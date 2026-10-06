@@ -1,0 +1,6 @@
+node_modules/
+.env
+# Local data: your machines, parts, and especially saved login sessions.
+# Never commit these — auth/ holds authenticated browser sessions.
+data/store.json
+data/auth/

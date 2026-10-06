@@ -1,0 +1,16 @@
+# Run the core app locally with Docker:
+#   docker compose up --build
+# Then open http://localhost:8080
+#
+# Your data (machines, parts, saved sessions) is kept in ./data on your machine
+# via the bind mount below, so it survives container restarts and is never
+# committed to git.
+services:
+  parts-finder:
+    build: .
+    container_name: parts-finder
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
